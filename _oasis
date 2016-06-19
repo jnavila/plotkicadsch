@@ -1,0 +1,47 @@
+OASISFormat: 0.4
+Name:        DrawSch
+Version:     0.1
+Synopsis:    Draw Kicad Sch files
+Authors:     Jean-Noël Avila
+License:     GPL-2
+Plugins:     META (0.4), DevFiles (0.4)
+
+SourceRepository toto
+  Type:     git
+  Location: http://toto.com
+
+Library drawsch
+  Path:       src
+  BuildTools: ocamlbuild
+  Modules:     Kicadsch
+  FindlibName: kicadsch
+  CompiledObject: byte
+  BuildDepends:
+    pcre,
+    tyxml
+
+  
+Executable drawsch
+  Path:       src
+  BuildTools: ocamlbuild
+  MainIs:     testoasis.ml
+  CompiledObject: byte
+  BuildDepends:
+    kicadsch,
+    tyxml
+
+Executable test
+  Path: test
+  Build$: flag(tests)
+  BuildTools: ocamlbuild
+  MainIs: test.ml
+  Compiledobject: best
+  Install: false
+  Builddepends:
+    kicadsch,	
+    oUnit
+
+Test main
+  Command: $test
+  WorkingDirectory: test
+  Run$: flag(tests)

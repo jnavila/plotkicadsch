@@ -1,0 +1,6 @@
+S src
+S test
+B _build/src
+B _build/test
+
+PKG pcre tyxml oUnit
