@@ -29,19 +29,14 @@ let orientation_of_string s =
   | 'H' -> Orient_H
   | 'V' -> Orient_V    
   | c -> failwith (Printf.sprintf "no match for orientation! (%c)" c)
-
-
-  
-type fileContext =
-    WireContext
-  | HeaderContext
       
 type schContext =
-    FileContext of fileContext
+    BodyContext
+  | WireContext
   | ComponentContext
   | TextContext
 
-let initial_context  = FileContext HeaderContext
+let initial_context  = BodyContext
 
 (* SVG stuff *)
   
@@ -117,30 +112,24 @@ let parse_wire_line line =
     in
     Some (svg_line c1 c2)
   with | Not_found -> (print_endline (Printf.sprintf "could not match (%s)" line); None) 
-             
-let parse_file_line fc line =
-  match fc with
-    HeaderContext ->
-      if (String.compare (String.sub line 0 4) "Wire" == 0) then
-        FileContext WireContext, None
-      else
-        FileContext HeaderContext, None
-  | WireContext ->
-     FileContext HeaderContext, (parse_wire_line line)
-      
+
+let parse_body_line c line =
+  if (String.compare line "$Comp" == 0) then
+    (ComponentContext, None)
+  else if (String.compare (String.sub line 0 4) "Wire" == 0) then
+    WireContext, None
+  else
+    BodyContext, None
+
 let parse_line c line =
   match c with
   | ComponentContext ->
      if (String.compare line "$EndComp" == 0) then
-       (FileContext HeaderContext, None)
+       (BodyContext, None)
      else
-       begin
-         print_endline ("in component context:" ^ line);
          (ComponentContext, parse_component_line line)
-       end
-  | FileContext fc ->
-     if (String.compare line "$Comp" == 0) then
-       (ComponentContext, None)
-     else
-       parse_file_line fc line
-  | TextContext -> (FileContext HeaderContext, None)
+  | BodyContext ->
+     parse_body_line c line
+  | WireContext ->
+     BodyContext, (parse_wire_line line)
+  | TextContext -> (BodyContext, None)
