@@ -1,7 +1,7 @@
 OASISFormat: 0.4
-Name:        DrawSch
+Name:        PlotKicadSch
 Version:     0.1
-Synopsis:    Draw Kicad Sch files
+Synopsis:    Plot Kicad Sch files
 Authors:     Jean-Noël Avila
 License:     GPL-2
 Plugins:     META (0.4), DevFiles (0.4)
@@ -21,10 +21,10 @@ Library drawsch
     tyxml
 
   
-Executable drawsch
+Executable plotkicadsch
   Path:       src
   BuildTools: ocamlbuild
-  MainIs:     testoasis.ml
+  MainIs:     plotkicadsch.ml
   CompiledObject: byte
   BuildDepends:
     kicadsch,
