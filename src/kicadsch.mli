@@ -7,7 +7,7 @@ val initial_context : schContext
    
 **)  
 val parse_line :
-  schContext -> String.t -> schContext * [> `Polyline | `Text ] Svg.M.elt option
+  schContext -> String.t -> schContext * [> `Polyline | `Text | `Svg ] Svg.M.elt option
 
 (* For test only *)
 val parse_F : String.t -> [> Svg_types.text ] Svg.M.elt option

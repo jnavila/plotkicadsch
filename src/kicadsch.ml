@@ -113,11 +113,24 @@ let parse_wire_line line =
     Some (svg_line c1 c2)
   with | Not_found -> (print_endline (Printf.sprintf "could not match (%s)" line); None) 
 
+let regex_noconn = Pcre.regexp "NoConn ~ ([\\d-]+) +([\\d-]+)"
+
+let parse_noconn_line line =
+  try
+    let sp = Pcre.extract ~rex:regex_noconn line in
+    let x = int_of_string sp.(1) and y=int_of_string sp.(2) in
+    let delta = 20 in
+    Some ( svg [ svg_line (Coord (x - delta, y - delta)) (Coord (x + delta, y + delta)) ; svg_line (Coord (x - delta, y + delta)) (Coord (x + delta, y - delta)) ])
+  with
+    Not_found -> (print_endline (Printf.sprintf "could not match noconn (%s)" line); None)
+
 let parse_body_line c line =
   if (String.compare line "$Comp" == 0) then
     (ComponentContext, None)
   else if (String.compare (String.sub line 0 4) "Wire" == 0) then
     WireContext, None
+  else if (String.compare (String.sub line 0 6) "NoConn" == 0) then
+    BodyContext, parse_noconn_line line
   else
     BodyContext, None
 
