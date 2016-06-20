@@ -58,8 +58,6 @@ let anchor_attr_of_justify justif =
       | J_bottom -> `End
       | J_top -> `Start)
 
-let svg_norm x = (((float_of_int x) /. 1000.), Some `In)
-        
 let svg_text t o (Coord (x,y)) size justif styl =
   let size_in = Printf.sprintf "%f"  (float_of_int size) and
       j = anchor_attr_of_justify justif and
@@ -76,7 +74,7 @@ let svg_line (Coord (x1, y1)) (Coord (x2, y2)) =
     
 (* Parsing a sch file *)
 
-let regex_F = Pcre.regexp "F [\\d-]+ \"([^\"]*)\" (H|V) ([\\d-]+) ([\\d-]+) ([\\d-]+)?  (0|1)(0|1)(0|1)(0|1) (L|R|C|B|T) (L|R|C|B|T)(I|N)(B|N)"(*"" *)
+let regex_F = Pcre.regexp "F [\\d-]+ \"([^\"]*)\" (H|V) ([\\d-]+) ([\\d-]+) ([\\d-]+)? +(0|1)(0|1)(0|1)(0|1) (L|R|C|B|T) (L|R|C|B|T)(I|N)(B|N)"(*"" *)
     
 let parse_F line =
   try
@@ -111,7 +109,7 @@ let parse_wire_line line =
         c2 = Coord (int_of_string sp.(3), int_of_string sp.(4)) 
     in
     Some (svg_line c1 c2)
-  with | Not_found -> (print_endline (Printf.sprintf "could not match (%s)" line); None) 
+  with | Not_found -> (print_endline (Printf.sprintf "could not match wire (%s)" line); None) 
 
 let regex_noconn = Pcre.regexp "NoConn ~ ([\\d-]+) +([\\d-]+)"
 
