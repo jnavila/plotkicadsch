@@ -84,81 +84,117 @@ let svg_line (Coord (x1, y1)) (Coord (x2, y2)) =
 
 let svg_rect ?(fill=NoColor) (Coord(x, y)) (Coord (dim_x, dim_y)) =
   rect ~a:[ a_x (coord_of_int x); a_y (coord_of_int y); a_width (coord_of_int dim_x); a_height (coord_of_int dim_y);a_fill (color_of_kolor fill); a_strokewidth (1., Some `Px); a_stroke (color_of_kolor Black)] []
-    
+
+let svg_circle ?(fill=NoColor) (Coord(x, y)) radius =
+  circle ~a:[a_r (coord_of_int radius); a_cx (coord_of_int x); a_cy (coord_of_int y); a_fill (color_of_kolor fill); a_strokewidth (1., Some `Px); a_stroke (color_of_kolor Black) ] []
+
 (* Parsing a sch file *)
 
-let regex_F = Pcre.regexp "F [\\d-]+ \"([^\"]*)\" (H|V) ([\\d-]+) ([\\d-]+) ([\\d-]+)? +(0|1)(0|1)(0|1)(0|1) (L|R|C|B|T) (L|R|C|B|T)(I|N)(B|N)"(*"" *)
-    
-let parse_F line =
-  try
-    let sp = Pcre.extract ~rex:regex_F line in
+let create_sch_parse_fun ~name ~regexp_str ~processing =
+  let regexp = Pcre.regexp regexp_str in
+  let parser ?context line =
+    try
+      let sp = Pcre.extract ~rex:regexp line in
+      processing context sp
+    with Not_found ->
+      (print_endline (Printf.sprintf "could not match %S (%s)" name line); None)
+  in parser
+
+let parse_F = create_sch_parse_fun
+  ~name:"Component F"
+  ~regexp_str:"F [\\d-]+ \"([^\"]*)\" (H|V) ([\\d-]+) ([\\d-]+) ([\\d-]+)? +(0|1)(0|1)(0|1)(0|1) (L|R|C|B|T) (L|R|C|B|T)(I|N)(B|N)"
+  ~processing:
+  (fun context sp ->
     if (String.get sp.(9) 0 == '0') then
       let c = Coord (int_of_string sp.(3), int_of_string sp.(4)) and
           o = orientation_of_string sp.(2) in
       Some (svg_text sp.(1) o c (int_of_string sp.(5)) (justify_of_string sp.(10)) (style_of_string (sp.(12), sp.(13))))
     else
       None
-    with | Not_found -> (print_endline (Printf.sprintf "could not match %s" line); None) 
+  )
 
 let parse_component_line line =
   let first = String.get line 0 in
   match first with
            (* | 'L' ->
               let sp = parse "L (\\w+) (\\w+)" in
-              -> None 
+              -> None
               | 'U' ->
               let sp = parse "U ([\\d-]+) ([\\d-]+) (\\w+)" in
               parse_fields ic {comp with a= int_of_string sp.(0)} *)
   | 'F' -> parse_F line
-  | _ -> None 
+  | _ -> None
 
-let regex_wire = Pcre.regexp "\\t([\\d-]+) +([\\d-]+) +([\\d-]+) +([\\d-]+)"
-let parse_wire_line line =
-  try
-    let sp = Pcre.extract ~rex:regex_wire line in
+let parse_wire_line = create_sch_parse_fun
+  ~name:"Wire"
+  ~regexp_str:"\\t([\\d-]+) +([\\d-]+) +([\\d-]+) +([\\d-]+)"
+  ~processing:
+  (fun context sp ->
     let c1 = Coord (int_of_string sp.(1), int_of_string sp.(2)) and
-        c2 = Coord (int_of_string sp.(3), int_of_string sp.(4)) 
+        c2 = Coord (int_of_string sp.(3), int_of_string sp.(4))
     in
     Some (svg_line c1 c2)
-  with | Not_found -> (print_endline (Printf.sprintf "could not match wire (%s)" line); None) 
+  )
 
-let regex_noconn = Pcre.regexp "NoConn ~ ([\\d-]+) +([\\d-]+)"
-let parse_noconn_line line =
-  try
-    let sp = Pcre.extract ~rex:regex_noconn line in
+let parse_noconn_line = create_sch_parse_fun
+  ~name:"NoConn"
+  ~regexp_str:"NoConn ~ ([\\d-]+) +([\\d-]+)"
+  ~processing:
+  (fun context sp ->
     let x = int_of_string sp.(1) and y=int_of_string sp.(2) in
     let delta = 20 in
     Some ( svg [ svg_line (Coord (x - delta, y - delta)) (Coord (x + delta, y + delta)) ; svg_line (Coord (x - delta, y + delta)) (Coord (x + delta, y - delta)) ])
-  with
-    Not_found -> (print_endline (Printf.sprintf "could not match noconn (%s)" line); None)
+  )
 
-let regex_sheet_field = Pcre.regexp "F(0|1) +\"([^\"]*)\" +([\\d-]+)"
-let regex_sheet_rect = Pcre.regexp "S +([\\d-]+) +([\\d-]+) +([\\d-]+) +([\\d-]+)"
-let parse_sheet_line line c =
-  match (String.get line 0) with
-  | 'F' -> 
-     let sp = Pcre.extract ~rex:regex_sheet_field line in
-     let number= int_of_string sp.(1) and
-         name = sp.(2) and
-         size = int_of_string sp.(3) in
-     (match c with
-     | Some {c=Coord (x, y); dim=Coord (dim_x, dim_y)} ->
-        let y = if (number == 0) then y else y + dim_y + size in
-        c, Some (svg_text name Orient_H (Coord (x, y))  size J_left NoStyle)
-     | None -> None, None)
-  | 'S' ->
-     (try
-       let sp = Pcre.extract ~rex:regex_sheet_rect line in
+let parse_conn_line = create_sch_parse_fun
+  ~name:"Connection"
+  ~regexp_str:"Connection ~ ([\\d-]+) +([\\d-]+)"
+  ~processing:(fun context sp  ->
+    let x = int_of_string sp.(1) and y=int_of_string sp.(2) in
+    let delta = 10 in
+    Some (svg_circle ~fill:Black (Coord (x,y)) delta)
+  )
+
+let parse_sheet_field = create_sch_parse_fun
+  ~name:"Sheet Field"
+  ~regexp_str:"F(0|1) +\"([^\"]*)\" +([\\d-]+)"
+  ~processing:(fun context sp ->
+    let number= int_of_string sp.(1) and
+        name = sp.(2) and
+        size = int_of_string sp.(3) in
+    (match context with
+    | Some(Some {c=Coord (x, y); dim=Coord (dim_x, dim_y)}) ->
+       let y = if (number == 0) then y else y + dim_y + size in
+       Some (svg_text name Orient_H (Coord (x, y))  size J_left NoStyle)
+    | None | Some(None)-> None)
+  )
+
+let parse_sheet_rect = create_sch_parse_fun
+  ~name:"Sheet Rect"
+  ~regexp_str:"S +([\\d-]+) +([\\d-]+) +([\\d-]+) +([\\d-]+)"
+  ~processing:(fun context sp ->
        let c = Coord (int_of_string sp.(1), int_of_string sp.(2)) and
-        dim = Coord (int_of_string sp.(3), int_of_string sp.(4)) 
+        dim = Coord (int_of_string sp.(3), int_of_string sp.(4))
        in
-       Some {c;dim}, Some (svg_rect c dim)
-     with
-       Not_found -> (print_endline (Printf.sprintf "could not match sheet rect (%s)" line); None, None))
+       Some {c;dim}
+  )
+
+let parse_sheet_line line context =
+  match (String.get line 0) with
+  | 'F' -> (
+    match parse_sheet_field ~context line with
+     | None -> None, None
+     | Some _ as l -> context, l
+  )
+  | 'S' -> (
+    match parse_sheet_rect ~context line with
+    | None -> None, None
+    |Some{c;dim} -> Some {c;dim}, Some (svg_rect c dim)
+  )
   | 'U' ->
-     c, None
-  | _ -> (print_endline (Printf.sprintf "unknown sheet line (%s)" line); c, None)
-            
+     context, None
+  | _ -> (print_endline (Printf.sprintf "unknown sheet line (%s)" line); context, None)
+
 let parse_body_line c line =
   if (String.compare line "$Comp" == 0) then
     ComponentContext, None
@@ -166,6 +202,8 @@ let parse_body_line c line =
     WireContext, None
   else if (String.compare (String.sub line 0 6) "NoConn" == 0) then
     BodyContext, parse_noconn_line line
+  else if (String.length line > 10) && (String.compare (String.sub line 0 10) "Connection" == 0) then
+    BodyContext, parse_conn_line line
   else if (String.compare line "$Sheet" == 0) then
     SheetContext None, None
   else
@@ -188,5 +226,4 @@ let parse_line c line =
      else
        let nsc, o = parse_sheet_line line sc in
        SheetContext nsc, o
-     
   | TextContext -> (BodyContext, None)
