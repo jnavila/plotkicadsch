@@ -25,7 +25,7 @@ Executable plotkicadsch
   Path:       src
   BuildTools: ocamlbuild
   MainIs:     plotkicadsch.ml
-  CompiledObject: byte
+  CompiledObject: best
   BuildDepends:
     kicadsch,
     tyxml

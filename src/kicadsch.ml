@@ -3,7 +3,7 @@ type coord = Coord of (int*int)
 type size = Size of int
 type justify = J_left | J_right | J_center | J_bottom | J_top
 type style = Bold | Italic | BoldItalic | NoStyle
-
+type kolor = NoColor | Black
     
 let justify_of_string s =
   match String.get s 0 with
@@ -29,17 +29,20 @@ let orientation_of_string s =
   | 'H' -> Orient_H
   | 'V' -> Orient_V    
   | c -> failwith (Printf.sprintf "no match for orientation! (%c)" c)
-      
+
+type rect = { c:coord ; dim:coord }
+
 type schContext =
     BodyContext
   | WireContext
   | ComponentContext
+  | SheetContext of rect option
   | TextContext
 
 let initial_context  = BodyContext
 
 (* SVG stuff *)
-  
+
 open Svg
 open Svg.M
 open Svg_types.Unit
@@ -58,19 +61,29 @@ let anchor_attr_of_justify justif =
       | J_bottom -> `End
       | J_top -> `Start)
 
+let color_of_kolor = function
+  | NoColor -> `Color ("none",None)
+  | Black -> `Color ("#000000",None)
+
+(** SVG coord type conversion from int **)
+let coord_of_int x = float_of_int x, None
+
 let svg_text t o (Coord (x,y)) size justif styl =
   let size_in = Printf.sprintf "%f"  (float_of_int size) and
       j = anchor_attr_of_justify justif and
       s = style_attr_of_style styl
   in
-  text ~a:([a_x_list [float_of_int x,None] ; a_y_list [float_of_int y,None] ; a_fontsize size_in; j]@s) [pcdata t]
+  text ~a:([a_x_list [coord_of_int x] ; a_y_list [coord_of_int y] ; a_fontsize size_in; j]@s) [pcdata t]
 
 let svg_line (Coord (x1, y1)) (Coord (x2, y2)) =
   let x1_in = float_of_int x1 and
       y1_in = float_of_int y1 and
       x2_in = float_of_int x2 and
       y2_in = float_of_int y2 in 
-  polyline ~a:([a_points [(x1_in, y1_in); (x2_in, y2_in) ]; a_strokewidth (1., Some `Px); a_stroke (`Color ("#000000",None)) ]) []
+  polyline ~a:([a_points [(x1_in, y1_in); (x2_in, y2_in) ]; a_strokewidth (1., Some `Px); a_stroke ( color_of_kolor Black) ]) []
+
+let svg_rect ?(fill=NoColor) (Coord(x, y)) (Coord (dim_x, dim_y)) =
+  rect ~a:[ a_x (coord_of_int x); a_y (coord_of_int y); a_width (coord_of_int dim_x); a_height (coord_of_int dim_y);a_fill (color_of_kolor fill); a_strokewidth (1., Some `Px); a_stroke (color_of_kolor Black)] []
     
 (* Parsing a sch file *)
 
@@ -99,9 +112,7 @@ let parse_component_line line =
   | 'F' -> parse_F line
   | _ -> None 
 
-
 let regex_wire = Pcre.regexp "\\t([\\d-]+) +([\\d-]+) +([\\d-]+) +([\\d-]+)"
-
 let parse_wire_line line =
   try
     let sp = Pcre.extract ~rex:regex_wire line in
@@ -112,7 +123,6 @@ let parse_wire_line line =
   with | Not_found -> (print_endline (Printf.sprintf "could not match wire (%s)" line); None) 
 
 let regex_noconn = Pcre.regexp "NoConn ~ ([\\d-]+) +([\\d-]+)"
-
 let parse_noconn_line line =
   try
     let sp = Pcre.extract ~rex:regex_noconn line in
@@ -122,13 +132,42 @@ let parse_noconn_line line =
   with
     Not_found -> (print_endline (Printf.sprintf "could not match noconn (%s)" line); None)
 
+let regex_sheet_field = Pcre.regexp "F(0|1) +\"([^\"]*)\" +([\\d-]+)"
+let regex_sheet_rect = Pcre.regexp "S +([\\d-]+) +([\\d-]+) +([\\d-]+) +([\\d-]+)"
+let parse_sheet_line line c =
+  match (String.get line 0) with
+  | 'F' -> 
+     let sp = Pcre.extract ~rex:regex_sheet_field line in
+     let number= int_of_string sp.(1) and
+         name = sp.(2) and
+         size = int_of_string sp.(3) in
+     (match c with
+     | Some {c=Coord (x, y); dim=Coord (dim_x, dim_y)} ->
+        let y = if (number == 0) then y else y + dim_y + size in
+        c, Some (svg_text name Orient_H (Coord (x, y))  size J_left NoStyle)
+     | None -> None, None)
+  | 'S' ->
+     (try
+       let sp = Pcre.extract ~rex:regex_sheet_rect line in
+       let c = Coord (int_of_string sp.(1), int_of_string sp.(2)) and
+        dim = Coord (int_of_string sp.(3), int_of_string sp.(4)) 
+       in
+       Some {c;dim}, Some (svg_rect c dim)
+     with
+       Not_found -> (print_endline (Printf.sprintf "could not match sheet rect (%s)" line); None, None))
+  | 'U' ->
+     c, None
+  | _ -> (print_endline (Printf.sprintf "unknown sheet line (%s)" line); c, None)
+            
 let parse_body_line c line =
   if (String.compare line "$Comp" == 0) then
-    (ComponentContext, None)
+    ComponentContext, None
   else if (String.compare (String.sub line 0 4) "Wire" == 0) then
     WireContext, None
   else if (String.compare (String.sub line 0 6) "NoConn" == 0) then
     BodyContext, parse_noconn_line line
+  else if (String.compare line "$Sheet" == 0) then
+    SheetContext None, None
   else
     BodyContext, None
 
@@ -143,4 +182,11 @@ let parse_line c line =
      parse_body_line c line
   | WireContext ->
      BodyContext, (parse_wire_line line)
+  | SheetContext sc ->
+     if (String.compare line "$EndSheet" == 0) then
+       (BodyContext, None)
+     else
+       let nsc, o = parse_sheet_line line sc in
+       SheetContext nsc, o
+     
   | TextContext -> (BodyContext, None)

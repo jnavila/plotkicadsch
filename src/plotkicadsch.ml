@@ -36,8 +36,8 @@ open Svg.M
 open Svg_types.Unit
     
 let _ =
-  let ic = open_in "../electric/electric.sch" in
-  let oc = open_out "../electric/electric.svg" in
+  let ic = open_in "/home/jnavila/Developpement/kicad/kicad-library-utils/sch/complex_hierarchy/complex_hierarchy.sch" in
+  let oc = open_out "../electric/complex.svg" in
   let ss () = Stream.from (fun _ -> try Some (input_line ic) with _ -> None) in
   let option_stream () = stream_context_map parse_line initial_context (ss ()) in
   let os () = stream_deoptionalize (option_stream ()) in
