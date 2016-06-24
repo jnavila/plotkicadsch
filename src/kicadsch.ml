@@ -30,6 +30,11 @@ let orientation_of_string s =
   | 'V' -> Orient_V    
   | c -> failwith (Printf.sprintf "no match for orientation! (%c)" c)
 
+let orientation_of_int = function
+  | 0 -> Orient_H
+  | 1 -> Orient_V
+  | _ as d -> failwith (Printf.sprintf "no int value for orientation! (%d)" d)
+
 type rect = { c:coord ; dim:coord }
 
 type schContext =
@@ -70,12 +75,18 @@ let color_of_kolor = function
 (** SVG coord type conversion from int **)
 let coord_of_int x = float_of_int x, None
 
-let svg_text t o (Coord (x,y)) size justif styl =
+let svg_text t (o:orientation) (Coord (x,y)) size justif styl =
   let size_in = Printf.sprintf "%f"  (float_of_int size) and
       j = anchor_attr_of_justify justif and
-      s = style_attr_of_style styl
+      s = style_attr_of_style styl and
+      x_c = float_of_int x and
+      y_c = float_of_int y and
+      angle = match o with
+      | Orient_H -> 0.
+      | Orient_V -> (-90.) in
+  let orient = (angle,None), Some(x_c,y_c) 
   in
-  text ~a:([a_x_list [coord_of_int x] ; a_y_list [coord_of_int y] ; a_fontsize size_in; j]@s) [pcdata t]
+  text ~a:([a_x_list [coord_of_int x] ; a_y_list [coord_of_int y] ; a_fontsize size_in; j; a_transform (Rotate orient)]@s) [pcdata t]
 
 let svg_line (Coord (x1, y1)) (Coord (x2, y2)) =
   let x1_in = float_of_int x1 and
