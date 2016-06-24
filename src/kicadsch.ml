@@ -37,7 +37,7 @@ type schContext =
   | WireContext
   | ComponentContext
   | SheetContext of rect option
-  | TextContext
+  | TextContext of (coord*int*orientation) option
 
 let initial_context  = BodyContext
 
@@ -46,6 +46,8 @@ let initial_context  = BodyContext
 open Svg
 open Svg.M
 open Svg_types.Unit
+open Svg_types
+
 
 let style_attr_of_style = function
   | Italic -> [a_fontstyle "italic"]
@@ -179,6 +181,19 @@ let parse_sheet_rect = create_sch_parse_fun
        Some {c;dim}
   )
 
+let parse_text_line = create_sch_parse_fun
+  ~name:"Text header"
+  ~regexp_str: "Text (H|G)?Label ([\\d-]+) ([\\d-]+) ([\\d-]+)    ([\\d-]+)   ~"
+  ~processing: (fun context sp ->
+    let c = Coord (int_of_string sp.(2), int_of_string sp.(3)) and
+        orient = orientation_of_int(int_of_string sp.(4)) and
+        dim = int_of_string sp.(5) in
+    Some (c, dim, orient)
+  )
+
+let print_text_line line (c,dim,orient) =
+  Some(svg_text line orient c dim J_left NoStyle)
+
 let parse_sheet_line line context =
   match (String.get line 0) with
   | 'F' -> (
@@ -206,6 +221,8 @@ let parse_body_line c line =
     BodyContext, parse_conn_line line
   else if (String.compare line "$Sheet" == 0) then
     SheetContext None, None
+  else if (String.length line > 5) && (String.compare (String.sub line 0 4) "Text" == 0) then
+    TextContext (parse_text_line line), None
   else
     BodyContext, None
 
@@ -226,4 +243,7 @@ let parse_line c line =
      else
        let nsc, o = parse_sheet_line line sc in
        SheetContext nsc, o
-  | TextContext -> (BodyContext, None)
+  | TextContext sc ->
+     match sc with
+     |None -> failwith "TextContext without definition!"
+     |Some v -> (BodyContext, print_text_line line v)
