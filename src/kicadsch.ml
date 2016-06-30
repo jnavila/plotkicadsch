@@ -3,8 +3,8 @@ type coord = Coord of (int*int)
 type size = Size of int
 type justify = J_left | J_right | J_center | J_bottom | J_top
 type style = Bold | Italic | BoldItalic | NoStyle
-type kolor = NoColor | Black
-    
+type kolor = NoColor | Black | Green | Red
+
 let justify_of_string s =
   match String.get s 0 with
   | 'L' -> J_left
@@ -13,7 +13,7 @@ let justify_of_string s =
   | 'B' -> J_bottom
   | 'T' -> J_top
   | c -> failwith (Printf.sprintf "no match for justify! (%c)" c)
-     
+
 let style_of_string s =
   let i = String.get (fst s) 0 and
       b = String.get (snd s) 0 in
@@ -27,7 +27,7 @@ let style_of_string s =
 let orientation_of_string s =
   match String.get s 0 with
   | 'H' -> Orient_H
-  | 'V' -> Orient_V    
+  | 'V' -> Orient_V
   | c -> failwith (Printf.sprintf "no match for orientation! (%c)" c)
 
 let orientation_of_int = function
@@ -37,12 +37,30 @@ let orientation_of_int = function
 
 type rect = { c:coord ; dim:coord }
 
+type portrange = Glabel | Hlabel
+type labeluse = WireLabel | TextNote
+type porttype = UnSpcPort | ThreeStatePort | OutputPort | InputPort | NoPort
+
+let porttype_of_string = function
+  | "UnSpc" -> UnSpcPort
+  | "3State" -> ThreeStatePort
+  | "Output" -> OutputPort
+  | "Input" -> InputPort
+  | "~" -> NoPort
+  |   _ as s -> Printf.printf "unknown port type %s\n" s; NoPort
+
+type labeltype =
+  | PortLabel of portrange * porttype
+  | TextLabel of labeluse
+
+type label = { c: coord; size: int; orient: orientation; labeltype: labeltype }
+
 type schContext =
     BodyContext
   | WireContext
   | ComponentContext
   | SheetContext of rect option
-  | TextContext of (coord*int*orientation) option
+  | TextContext of label option
 
 let initial_context  = BodyContext
 
@@ -50,9 +68,8 @@ let initial_context  = BodyContext
 
 open Svg
 open Svg.M
-open Svg_types.Unit
+(*open Svg_types.Unit *)
 open Svg_types
-
 
 let style_attr_of_style = function
   | Italic -> [a_fontstyle "italic"]
@@ -60,7 +77,7 @@ let style_attr_of_style = function
   | BoldItalic -> [a_fontstyle "italic"; a_fontweight "bold"]
   | NoStyle -> []
 
-let anchor_attr_of_justify justif = 
+let anchor_attr_of_justify justif =
       a_text_anchor (match justif with
       | J_left -> `Start
       | J_center -> `Middle
@@ -68,14 +85,18 @@ let anchor_attr_of_justify justif =
       | J_bottom -> `End
       | J_top -> `Start)
 
-let color_of_kolor = function
-  | NoColor -> `Color ("none",None)
-  | Black -> `Color ("#000000",None)
+let color_of_kolor k =
+  let cstring = match k with
+  | NoColor -> "none"
+  | Black -> "#000000"
+  | Red -> "#FF0000"
+  | Green -> "#00FF00"
+  in `Color (cstring, None)
 
 (** SVG coord type conversion from int **)
 let coord_of_int x = float_of_int x, None
 
-let svg_text t (o:orientation) (Coord (x,y)) size justif styl =
+let svg_text ?(kolor=Black) t (o:orientation) (Coord (x,y)) size justif styl =
   let size_in = Printf.sprintf "%f"  (float_of_int size) and
       j = anchor_attr_of_justify justif and
       s = style_attr_of_style styl and
@@ -84,15 +105,16 @@ let svg_text t (o:orientation) (Coord (x,y)) size justif styl =
       angle = match o with
       | Orient_H -> 0.
       | Orient_V -> (-90.) in
-  let orient = (angle,None), Some(x_c,y_c) 
+  let orient = (angle,None), Some(x_c,y_c)
   in
-  text ~a:([a_x_list [coord_of_int x] ; a_y_list [coord_of_int y] ; a_fontsize size_in; j; a_transform (Rotate orient)]@s) [pcdata t]
+  let color = color_of_kolor kolor in
+  text ~a:([a_x_list [coord_of_int x] ; a_y_list [coord_of_int y] ; a_fontsize size_in; j; a_transform (Rotate orient); a_fill color]@s) [pcdata t]
 
 let svg_line (Coord (x1, y1)) (Coord (x2, y2)) =
-  let x1_in = float_of_int x1 and
-      y1_in = float_of_int y1 and
-      x2_in = float_of_int x2 and
-      y2_in = float_of_int y2 in 
+  let x1_in = float_of_int x1 in
+  let y1_in = float_of_int y1 in
+  let x2_in = float_of_int x2 in
+  let y2_in = float_of_int y2 in
   polyline ~a:([a_points [(x1_in, y1_in); (x2_in, y2_in) ]; a_strokewidth (1., Some `Px); a_stroke ( color_of_kolor Black) ]) []
 
 let svg_rect ?(fill=NoColor) (Coord(x, y)) (Coord (dim_x, dim_y)) =
@@ -103,6 +125,8 @@ let svg_circle ?(fill=NoColor) (Coord(x, y)) radius =
 
 (* Parsing a sch file *)
 
+(** This function generates a parsing function which outputs an 'a option
+    Note that some lines may not yield any correct output, so the output is an option. **)
 let create_sch_parse_fun ~name ~regexp_str ~processing =
   let regexp = Pcre.regexp regexp_str in
   let parser ?context line =
@@ -110,7 +134,7 @@ let create_sch_parse_fun ~name ~regexp_str ~processing =
       let sp = Pcre.extract ~rex:regexp line in
       processing context sp
     with Not_found ->
-      (print_endline (Printf.sprintf "could not match %S (%s)" name line); None)
+      (Printf.printf "could not match %s (%s)\n" name line; None)
   in parser
 
 let parse_F = create_sch_parse_fun
@@ -194,16 +218,37 @@ let parse_sheet_rect = create_sch_parse_fun
 
 let parse_text_line = create_sch_parse_fun
   ~name:"Text header"
-  ~regexp_str: "Text (H|G)?Label ([\\d-]+) ([\\d-]+) ([\\d-]+)    ([\\d-]+)   ~"
+  ~regexp_str: "Text (GLabel|HLabel|Label|Notes) ([\\d-]+) ([\\d-]+) ([\\d-]+)    ([\\d-]+)   (~|UnSpc|3State|Output|Input)"
   ~processing: (fun context sp ->
     let c = Coord (int_of_string sp.(2), int_of_string sp.(3)) and
         orient = orientation_of_int(int_of_string sp.(4)) and
-        dim = int_of_string sp.(5) in
-    Some (c, dim, orient)
+        size = int_of_string sp.(5) in
+    let labeltype =
+      match sp.(1) with (* TODO: draw the connectors *)
+    | "GLabel" -> PortLabel (Glabel, porttype_of_string sp.(6))
+    | "HLabel" -> PortLabel (Hlabel, porttype_of_string sp.(6))
+    | "Label" -> TextLabel WireLabel
+    | "Notes" -> TextLabel TextNote
+    | _ -> TextLabel TextNote in
+    Some {c; size; orient; labeltype}
   )
 
-let print_text_line line (c,dim,orient) =
-  Some(svg_text line orient c dim J_left NoStyle)
+(* Printing things *)
+
+let print_text_line line l =
+  match l.labeltype with
+  | TextLabel t -> begin
+    let pcolor = match t with
+      | TextNote ->  Green
+      | WireLabel -> Red in
+    Some(svg_text ~kolor:pcolor line l.orient l.c l.size J_left NoStyle)
+  end
+  | PortLabel (prange, ptype) ->
+     let pcolor = match prange with
+       | Glabel -> Green
+       | Hlabel -> Red in
+     Some(svg_text ~kolor:pcolor line l.orient l.c l.size J_left NoStyle)
+
 
 let parse_sheet_line line context =
   match (String.get line 0) with
@@ -219,7 +264,7 @@ let parse_sheet_line line context =
   )
   | 'U' ->
      context, None
-  | _ -> (print_endline (Printf.sprintf "unknown sheet line (%s)" line); context, None)
+  | _ -> (Printf.printf "unknown sheet line (%s)" line; context, None)
 
 let parse_body_line c line =
   if (String.compare line "$Comp" == 0) then
