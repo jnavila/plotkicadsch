@@ -25,24 +25,25 @@ let stream_deoptionalize stream =
       | None -> next i
     with Stream.Failure -> None in
   Stream.from next
-    
+
+let stream_fold f stream init =
+  let result = ref init in
+  Stream.iter
+    (fun x -> result := f x !result)
+    stream;
+  !result
+
 let list_of_stream stream =
   let result = ref [] in
   Stream.iter (fun value -> result := value :: !result) stream;
   List.rev !result
 
-open Svg
-open Svg.M
-open Svg_types.Unit
-    
+
 let _ =
   let ic = open_in "/home/jnavila/Developpement/kicad/kicad-library-utils/sch/complex_hierarchy/complex_hierarchy.sch" in
   let oc = open_out "../electric/complex.svg" in
   let ss () = Stream.from (fun _ -> try Some (input_line ic) with _ -> None) in
-  let option_stream () = stream_context_map parse_line initial_context (ss ()) in
-  let os () = stream_deoptionalize (option_stream ()) in
-  let svg_doc = svg  ~a:[a_width (29.7, Some `Cm); a_height (21., Some `Cm); a_viewbox (0.,0., 11693., 8268.)] (list_of_stream (os ())) in
-  Svg.P.print (fun s -> output_string oc s) svg_doc;
+  let endcontext = stream_fold parse_line  (ss ()) initial_context in
+  output_context endcontext oc;
   close_out oc;
   close_in ic
-  
