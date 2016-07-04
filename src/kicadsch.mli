@@ -1,18 +1,11 @@
 
-type schContext
+module MakeSchPainter(P: KicadSch_sigs.Painter): KicadSch_sigs.SchPainter
 
-val initial_context : schContext
+(* module SvgSchPainter = MakeSchPainter(SvgPainter)
+*)
 
-(**
+(* For test only
+val parse_F : ?context:int -> String.t ->  KicadSch ->  KicadSch_sigs.Painter.t
 
-**)
-val parse_line :
-  String.t -> schContext -> schContext
-
-
-val output_context: schContext -> out_channel -> unit
-
-(* For test only *)
-val parse_F : ?context:int -> String.t -> SvgPainter.t -> SvgPainter.t
-
-val parse_wire_line : ?context:int -> String.t -> SvgPainter.t -> SvgPainter.t
+val parse_wire_line : ?context:int -> String.t ->  KicadSch_sigs.Painter.t ->  KicadSch_sigs.Painter.t
+*)

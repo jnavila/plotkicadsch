@@ -1,14 +1,7 @@
 
 open Tyxml_svg
 open Svg_types
-
-
-type orientation = Orient_H | Orient_V
-type coord = Coord of (int*int)
-type size = Size of int
-type justify = J_left | J_right | J_center | J_bottom | J_top
-type style = Bold | Italic | BoldItalic | NoStyle
-type kolor = NoColor | Black | Green | Red
+open KicadSch_sigs
 
 type content = [ `Polyline | `Text | `Svg | `Rect | `Circle ]
 type t =  content elt list
@@ -38,7 +31,7 @@ let color_of_kolor k =
 (** SVG coord type conversion from int **)
 let coord_of_int x = float_of_int x, None
 
-let svg_text ?(kolor=Black) t (o:orientation) (Coord (x,y)) (Size size) justif styl c =
+let paint_text ?(kolor=Black) t (o:orientation) (Coord (x,y)) (Size size) justif styl c =
   let size_in = Printf.sprintf "%f"  (float_of_int size) and
       j = anchor_attr_of_justify justif and
       s = style_attr_of_style styl and
@@ -52,22 +45,22 @@ let svg_text ?(kolor=Black) t (o:orientation) (Coord (x,y)) (Size size) justif s
   let color = color_of_kolor kolor in
   (text ~a:([a_x_list [coord_of_int x] ; a_y_list [coord_of_int y] ; a_font_size size_in; j; a_transform[`Rotate orient]; a_fill color]@s) [pcdata t]) :: c
 
-let svg_line (Coord (x1, y1)) (Coord (x2, y2)) c =
+let paint_line (Coord (x1, y1)) (Coord (x2, y2)) c =
   let x1_in = float_of_int x1 in
   let y1_in = float_of_int y1 in
   let x2_in = float_of_int x2 in
   let y2_in = float_of_int y2 in
   (polyline ~a:([a_points [(x1_in, y1_in); (x2_in, y2_in) ]; a_stroke_width (1., Some `Px); a_stroke ( color_of_kolor Black) ]) []) :: c
 
-let svg_rect ?(fill=NoColor) (Coord(x, y)) (Coord (dim_x, dim_y)) c =
+let paint_rect ?(fill=NoColor) (Coord(x, y)) (Coord (dim_x, dim_y)) c =
   (rect ~a:[ a_x (coord_of_int x); a_y (coord_of_int y); a_width (coord_of_int dim_x); a_height (coord_of_int dim_y);a_fill (color_of_kolor fill); a_stroke_width (1., Some `Px); a_stroke (color_of_kolor Black)] []) :: c
 
-let svg_circle ?(fill=NoColor) (Coord(x, y)) radius c =
+let paint_circle ?(fill=NoColor) (Coord(x, y)) radius c =
   (circle ~a:[a_r (coord_of_int radius); a_cx (coord_of_int x); a_cy (coord_of_int y); a_fill (color_of_kolor fill); a_stroke_width (1., Some `Px); a_stroke (color_of_kolor Black) ] []) :: c
 
-let svg_get_context () = []
+let get_context () = []
 
-let svg_write oc c =
+let write oc c =
   let svg_doc = svg  ~a:[a_width (29.7, Some `Cm); a_height (21., Some `Cm); a_viewBox (0.,0., 11693., 8268.)] c in
   let fmt = Format.formatter_of_out_channel oc in
   Tyxml.Svg.pp () fmt svg_doc

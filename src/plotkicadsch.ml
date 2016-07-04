@@ -1,5 +1,3 @@
-open Kicadsch
-
 let stream_map f stream =
   let next i =
     try Some (f (Stream.next stream))
@@ -38,6 +36,8 @@ let list_of_stream stream =
   Stream.iter (fun value -> result := value :: !result) stream;
   List.rev !result
 
+module SvgSchPainter = Kicadsch.MakeSchPainter(SvgPainter)
+open SvgSchPainter
 
 let _ =
   let ic = open_in "/home/jnavila/Developpement/kicad/kicad-library-utils/sch/complex_hierarchy/complex_hierarchy.sch" in
