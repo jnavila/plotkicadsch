@@ -18,9 +18,10 @@ Library drawsch
   CompiledObject: byte
   BuildDepends:
     pcre,
-    tyxml
+    tyxml,
+    str
 
-  
+
 Executable plotkicadsch
   Path:       src
   BuildTools: ocamlbuild
@@ -38,7 +39,7 @@ Executable test
   Compiledobject: best
   Install: false
   Builddepends:
-    kicadsch,	
+    kicadsch,
     oUnit
 
 Test main

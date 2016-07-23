@@ -4,7 +4,7 @@ type size = Size of int
 type justify = J_left | J_right | J_center | J_bottom | J_top
 type style = Bold | Italic | BoldItalic | NoStyle
 type kolor = NoColor | Black | Green | Red
-
+type transfo = ((int * int) * (int * int))
 
 module type Painter = sig
 
@@ -26,20 +26,24 @@ end
 module type SchPainter = sig
   type schContext
 
-  val initial_context : Kicadlib.t -> schContext
+  val initial_context : unit -> schContext
 
-(**
+  val add_lib: string -> schContext -> schContext
 
-**)
   val parse_line :
     String.t -> schContext -> schContext
-
 
   val output_context: schContext -> out_channel -> unit
 
 end
-(* For test only
-val parse_F : ?context:int -> String.t -> SvgPainter.t -> SvgPainter.t
 
-val parse_wire_line : ?context:int -> String.t -> SvgPainter.t -> SvgPainter.t
-*)
+
+module type CompPainter =
+sig
+  type t
+  type drawContext
+  val lib: unit -> t
+  val append_lib: in_channel -> t -> t
+  val plot_comp: t -> string -> coord -> transfo -> drawContext -> drawContext
+
+end

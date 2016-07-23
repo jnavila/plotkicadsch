@@ -1,5 +1,7 @@
 module MakeSchPainter (P: KicadSch_sigs.Painter): KicadSch_sigs.SchPainter =
 struct
+  module CompPainter = Kicadlib.MakePainter(P)
+
   open KicadSch_sigs
 
   type rect = { c:coord ; dim:coord }
@@ -24,13 +26,13 @@ struct
   type schParseContext =
       BodyContext
     | WireContext
-    | ComponentContext
+    | ComponentContext of (string option) * (int option) * (coord option) (* component, unit, coord *)
     | SheetContext of rect option
     | TextContext of label option
 
-  type schContext = schParseContext * P.t
+  type schContext = CompPainter.t * schParseContext * P.t
 
-  let initial_context  = BodyContext, P.get_context ()
+  let initial_context () = CompPainter.lib () , BodyContext, P.get_context ()
 
   let justify_of_string s =
     match String.get s 0 with
@@ -66,7 +68,7 @@ struct
 
   (** This function generates a parsing function which outputs an 'a
       option Note that some lines may not yield any correct output, so
-      the output is an option. **)
+      the output is an option.
   let create_sch_parse_fun ~name ~regexp_str ~processing =
     let regexp = Pcre.regexp regexp_str in
     let parser ?context line c =
@@ -76,91 +78,149 @@ struct
       with Not_found ->
         (Printf.printf "could not match %s (%s)\n" name line; c)
     in parser
-
-  let parse_F = create_sch_parse_fun
+  **)
+  let parse_F =
+    Schparse.create_parse_fun
     ~name:"Component F"
     ~regexp_str:"F [\\d-]+ \"([^\"]*)\" (H|V) ([\\d-]+) ([\\d-]+) ([\\d-]+)? +(0|1)(0|1)(0|1)(0|1) (L|R|C|B|T) (L|R|C|B|T)(I|N)(B|N)"
-    ~processing:
-    (fun context sp c ->
-      if (String.get sp.(9) 0 == '0') then
-        let co = Coord (int_of_string sp.(3), int_of_string sp.(4)) and
-            o = orientation_of_string sp.(2) in
-        P.paint_text sp.(1) o co (Size (int_of_string sp.(5))) (justify_of_string sp.(10)) (style_of_string (sp.(12), sp.(13))) c
-      else
-        c
+    ~extract_fun:
+    (fun sp ->
+      let co = Coord (int_of_string sp.(3), int_of_string sp.(4)) and
+          o = orientation_of_string sp.(2) and
+          s = Size (int_of_string sp.(5))and
+          j = justify_of_string sp.(10) and
+          stl = style_of_string (sp.(12), sp.(13)) and
+          visible = if (String.get sp.(9) 0 = '0') then true else false in
+      Some (visible, sp.(1), o, co, s, j, stl)
     )
 
-  let parse_component_line line c =
+  let parse_L =
+    Schparse.create_parse_fun
+      ~name: "Component L"
+      ~regexp_str: "L ([-\\+\\w]+) ([-\\+\\w#\\d]+)"
+      ~extract_fun:
+      (fun sp ->
+        Some (sp.(1), sp.(2))
+      )
+
+  let parse_P =
+    Schparse.create_parse_fun
+      ~name: "Component P"
+      ~regexp_str: "P ([\\d-]+) ([\\d-]+)"
+      ~extract_fun:
+      (fun sp ->
+        let x = int_of_string sp.(1) and
+            y = int_of_string sp.(2) in
+        Some (Coord (x, y)))
+
+  let parse_U =
+    Schparse.create_parse_fun
+      ~name: "Component U"
+      ~regexp_str: "U ([\\d-]+) (\\w+) (\\w+)"
+      ~extract_fun:
+      (fun sp ->
+        let u = int_of_string sp.(1) in
+        Some (u, sp.(2), sp.(3)))
+
+  let parse_transfo =
+    Schparse.create_parse_fun
+      ~name: "Component transformation"
+      ~regexp_str: "	(0|1|-1) +(0|1|-1) +(0|1|-1) +(0|1|-1) +"
+      ~extract_fun:
+      (fun sp ->
+        let a= int_of_string sp.(1) and
+            b= int_of_string sp.(2) and
+            c= int_of_string sp.(3) and
+            d= int_of_string sp.(4) in
+        Some (a, b, c, d)
+      )
+
+  let parse_component_line lib (line: string) (comp_opt: string option) (unit_opt: int option) (coord_opt: coord option) canevas =
     let first = String.get line 0 in
     match first with
-    (* | 'L' ->
-       let sp = parse "L (\\w+) (\\w+)" in
-       -> None
-       | 'U' ->
-       let sp = parse "U ([\\d-]+) ([\\d-]+) (\\w+)" in
-       parse_fields ic {comp with a= int_of_string sp.(0)} *)
-    | 'F' -> parse_F line c
-    | _ -> c
+    | 'F' ->
+       let canevas' =
+         parse_F line
+                 ~onerror: (fun () -> canevas)
+                 ~process: (fun (visible, text, o, co, s, j, stl) -> if visible then
+                   P.paint_text text o co s j stl canevas else canevas) in
+       comp_opt, unit_opt, coord_opt, canevas'
+    | 'U' ->
+       let unit_opt' =
+         parse_U line ~onerror: (fun () ->  unit_opt) ~process: (fun (u, _, _) -> Some u ) in
+       comp_opt, unit_opt', coord_opt, canevas
+    | 'P' ->
+       let coord_opt' =
+         parse_P line ~onerror: (fun () -> coord_opt ) ~process: (fun c -> Some c)
+       in comp_opt, unit_opt, coord_opt', canevas
+    | 'L' ->
+       let comp_opt' =
+         parse_L line ~onerror: (fun () ->  comp_opt) ~process: ( fun (s, _) -> Some s) in
+       comp_opt', unit_opt, coord_opt, canevas
+    | '	' -> let () = Printf.printf "found printing line\n" in
+       parse_transfo line
+                     ~onerror: ( fun () -> comp_opt, unit_opt, coord_opt, canevas)
+                     ~process: (fun (a, b, c, d) ->
+                       match comp_opt, unit_opt, coord_opt with
+                       | Some sym, Some unit, Some origin ->
+                          let canevas' = CompPainter.plot_comp lib sym origin ((a, b), (c, d)) canevas
+                          in None, None, None, canevas'
+                       | _ -> (Printf.printf "cannot plot component with missing definitions !"; comp_opt, unit_opt, coord_opt, canevas))
 
-  let parse_wire_line = create_sch_parse_fun
+    | _ -> comp_opt, unit_opt, coord_opt, canevas
+
+  let parse_wire_line = Schparse.create_parse_fun
     ~name:"Wire"
     ~regexp_str:"\\t([\\d-]+) +([\\d-]+) +([\\d-]+) +([\\d-]+)"
-    ~processing:
-    (fun context sp c ->
+    ~extract_fun:
+    (fun sp ->
       let c1 = Coord (int_of_string sp.(1), int_of_string sp.(2)) and
           c2 = Coord (int_of_string sp.(3), int_of_string sp.(4))
       in
-      P.paint_line c1 c2 c
+      Some (c1, c2)
     )
 
-  let parse_noconn_line = create_sch_parse_fun
+  let parse_noconn_line = Schparse.create_parse_fun
     ~name:"NoConn"
     ~regexp_str:"NoConn ~ ([\\d-]+) +([\\d-]+)"
-    ~processing:
-    (fun context sp c ->
+    ~extract_fun:
+    (fun sp ->
       let x = int_of_string sp.(1) and y=int_of_string sp.(2) in
-      let delta = 20 in
-      c |> P.paint_line (Coord (x - delta, y - delta)) (Coord (x + delta, y + delta))
-        |> P.paint_line (Coord (x - delta, y + delta)) (Coord (x + delta, y - delta))
+      Some (Coord (x,y))
     )
 
-  let parse_conn_line = create_sch_parse_fun
+  let parse_conn_line = Schparse.create_parse_fun
     ~name:"Connection"
     ~regexp_str:"Connection ~ ([\\d-]+) +([\\d-]+)"
-    ~processing:(fun context sp c ->
+    ~extract_fun:
+    (fun sp ->
       let x = int_of_string sp.(1) and y=int_of_string sp.(2) in
-      let delta = 10 in
-      P.paint_circle ~fill:Black (Coord (x,y)) delta c
+      Some (Coord (x,y))
     )
 
-  let parse_sheet_field = create_sch_parse_fun
+  let parse_sheet_field = Schparse.create_parse_fun
     ~name:"Sheet Field"
     ~regexp_str:"F(0|1) +\"([^\"]*)\" +([\\d-]+)"
-    ~processing:(fun context sp c ->
+    ~extract_fun:(fun sp ->
       let number= int_of_string sp.(1) and
           name = sp.(2) and
           size = int_of_string sp.(3) in
-      (match context with
-      | Some(Some {c=Coord (x, y); dim=Coord (dim_x, dim_y)}) ->
-         let y = if (number == 0) then y else y + dim_y + size in
-         P.paint_text name Orient_H (Coord (x, y))  (Size size) J_left NoStyle c
-      | None | Some(None)-> c)
-    )
+      Some (number, name, Size size))
 
-  let parse_sheet_rect = create_sch_parse_fun
+  let parse_sheet_rect = Schparse.create_parse_fun
     ~name:"Sheet Rect"
     ~regexp_str:"S +([\\d-]+) +([\\d-]+) +([\\d-]+) +([\\d-]+)"
-    ~processing:(fun context sp (prev,canevas) ->
+    ~extract_fun:(fun sp ->
       let c = Coord (int_of_string sp.(1), int_of_string sp.(2)) and
           dim = Coord (int_of_string sp.(3), int_of_string sp.(4))
       in
-      Some {c;dim}, (P.paint_rect c dim canevas)
+      Some {c;dim}
     )
 
-  let parse_text_line = create_sch_parse_fun
+  let parse_text_line = Schparse.create_parse_fun
     ~name:"Text header"
     ~regexp_str: "Text (GLabel|HLabel|Label|Notes) ([\\d-]+) ([\\d-]+) ([\\d-]+)    ([\\d-]+)   (~|UnSpc|3State|Output|Input)"
-    ~processing: (fun context sp (dummy, canevas) ->
+    ~extract_fun: (fun sp ->
       let c = Coord (int_of_string sp.(2), int_of_string sp.(3)) and
           orient = orientation_of_int(int_of_string sp.(4)) and
           size = Size (int_of_string sp.(5)) in
@@ -171,8 +231,7 @@ struct
         | "Label" -> TextLabel WireLabel
         | "Notes" -> TextLabel TextNote
         | _ -> TextLabel TextNote in
-      TextContext (Some {c; size; orient; labeltype}), canevas
-    )
+      Some {c; size; orient; labeltype})
 
   (* Printing things *)
 
@@ -192,50 +251,74 @@ struct
 
   let parse_sheet_line line context canevas =
     match (String.get line 0) with
-    | 'F' -> (context, parse_sheet_field ~context line canevas)
-    | 'S' -> parse_sheet_rect ~context line (context,canevas)
+    | 'F' ->
+       context, (parse_sheet_field line
+                                   ~onerror:(fun () -> canevas) ~process:(fun (number, name, (Size size as s)) ->
+                                     match context with
+                                     | Some {c=Coord (x, y); dim=Coord (dim_x, dim_y)} ->
+                                        let y = if (number = 0) then y else y + dim_y + size in
+                                        P.paint_text name Orient_H (Coord (x, y))  s J_left NoStyle canevas
+                                     | None -> canevas))
+    | 'S' -> parse_sheet_rect line ~onerror:(fun () -> context,canevas) ~process:(fun ({c;dim} as range) -> (Some range), (P.paint_rect c dim canevas))
     | 'U' -> context, canevas
     | _ -> (Printf.printf "unknown sheet line (%s)" line; context,canevas)
 
-  let parse_body_line (c,canevas) line =
-    if (String.compare line "$Comp" == 0) then
-      ComponentContext, canevas
-    else if (String.compare (String.sub line 0 4) "Wire" == 0) then
+  let parse_body_line (lib, c,canevas) line =
+    if (String.compare line "$Comp" = 0) then
+      (ComponentContext (None, None, None)), canevas
+    else if (String.compare (String.sub line 0 4) "Wire" = 0) then
       WireContext, canevas
-    else if (String.compare (String.sub line 0 6) "NoConn" == 0) then
-      BodyContext, parse_noconn_line line canevas
-    else if (String.length line > 10) && (String.compare (String.sub line 0 10) "Connection" == 0) then
-      BodyContext, parse_conn_line line canevas
-    else if (String.compare line "$Sheet" == 0) then
+    else if (String.compare (String.sub line 0 6) "NoConn" = 0) then
+      BodyContext, parse_noconn_line line ~onerror:(fun () -> canevas) ~process:(fun (Coord (x,y)) ->
+                                       let delta = 20 in
+                                       canevas |>
+                                         P.paint_line (Coord (x - delta, y - delta)) (Coord (x + delta, y + delta)) |>
+                                         P.paint_line (Coord (x - delta, y + delta)) (Coord (x + delta, y - delta)))
+
+    else if (String.length line > 10) && (String.compare (String.sub line 0 10) "Connection" = 0) then
+      BodyContext, parse_conn_line line ~onerror:(fun () -> canevas) ~process:(fun (Coord (x,y)) ->
+                                     let delta = 10 in
+                                     P.paint_circle ~fill:Black (Coord (x,y)) delta canevas)
+    else if (String.compare line "$Sheet" = 0) then
       SheetContext None, canevas
-    else if (String.length line > 5) && (String.compare (String.sub line 0 4) "Text" == 0) then
-      parse_text_line line (c,canevas)
+    else if (String.length line > 5) && (String.compare (String.sub line 0 4) "Text" = 0) then
+      TextContext (parse_text_line line ~onerror:(fun () -> None) ~process:(fun c -> Some c)), canevas
     else
       BodyContext, canevas
 
-  let parse_line line (c,canevas) =
+  let parse_line line (lib, c,canevas) =
     match c with
-    | ComponentContext ->
-       if (String.compare line "$EndComp" == 0) then
-         (BodyContext, canevas)
+    | ComponentContext (comp_opt, unit_opt, coord_opt) ->
+       if (String.compare line "$EndComp" = 0) then
+         (lib, BodyContext, canevas)
        else
-         (ComponentContext, parse_component_line line canevas)
+         let comp_opt, unit_opt, coord_opt, canevas = parse_component_line lib line comp_opt unit_opt coord_opt canevas in
+         (lib, (ComponentContext (comp_opt, unit_opt, coord_opt)), canevas)
     | BodyContext ->
-       parse_body_line (c,canevas) line
+       let c, canevas = parse_body_line (lib, c,canevas) line
+       in lib, c, canevas
     | WireContext ->
-       BodyContext, (parse_wire_line line canevas)
+       lib, BodyContext, (parse_wire_line
+                            line
+                            ~onerror: (fun () -> canevas)
+                            ~process: (fun (c1, c2) -> P.paint_line c1 c2 canevas))
     | SheetContext sc ->
-       if (String.compare line "$EndSheet" == 0) then
-         (BodyContext, canevas)
+       if (String.compare line "$EndSheet" = 0) then
+         (lib, BodyContext, canevas)
        else
          let nsc, o = parse_sheet_line line sc canevas in
-         SheetContext nsc, o
+         lib, SheetContext nsc, o
     | TextContext sc ->
        match sc with
        |None -> failwith "TextContext without definition!"
-       |Some v -> (BodyContext, print_text_line line v canevas)
+       |Some v -> (lib, BodyContext, print_text_line line v canevas)
 
-  let output_context (ctxt, canevas) oc =
+  let output_context (lib, ctxt, canevas) oc =
     P.write oc canevas
+
+  let add_lib filename (lib, ctxt, canevas) =
+    Printf.printf "parsing lib %s\n" filename;
+    let ic = open_in filename in
+    (CompPainter.append_lib ic lib), ctxt, canevas
 
 end

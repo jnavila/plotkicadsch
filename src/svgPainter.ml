@@ -50,7 +50,7 @@ let paint_line (Coord (x1, y1)) (Coord (x2, y2)) c =
   let y1_in = float_of_int y1 in
   let x2_in = float_of_int x2 in
   let y2_in = float_of_int y2 in
-  (polyline ~a:([a_points [(x1_in, y1_in); (x2_in, y2_in) ]; a_stroke_width (1., Some `Px); a_stroke ( color_of_kolor Black) ]) []) :: c
+  (polyline ~a:([a_points [(x1_in, y1_in); (x2_in, y2_in) ]; a_stroke_width (2., Some `Px); a_stroke ( color_of_kolor Black) ]) []) :: c
 
 let paint_rect ?(fill=NoColor) (Coord(x, y)) (Coord (dim_x, dim_y)) c =
   (rect ~a:[ a_x (coord_of_int x); a_y (coord_of_int y); a_width (coord_of_int dim_x); a_height (coord_of_int dim_y);a_fill (color_of_kolor fill); a_stroke_width (1., Some `Px); a_stroke (color_of_kolor Black)] []) :: c
