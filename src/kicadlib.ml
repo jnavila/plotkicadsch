@@ -2,16 +2,32 @@ open KicadSch_sigs
 module MakePainter (P: Painter): (CompPainter with type drawContext=P.t) =
 struct
   type circle = {center: coord; radius: int}
+  type pin_orientation = P_L | P_R | P_U | P_D
+  type pin_tag = (string * size)
+  type pin = {
+      name: pin_tag;
+      number: pin_tag;
+      length: size;
+      contact: coord;
+      orient: pin_orientation}
 
   type primitive =
     | Field
     | Polygon of int * (coord list)
     | Circle of int * circle
+    | Pin of pin
 
   type component = {
       name: string;
       graph : primitive list
     }
+
+  let pin_orientation_of_string = function
+    | "L" -> P_L
+    | "R" -> P_R
+    | "U" -> P_U
+    | "D" -> P_D
+    | s -> failwith ("pin orientation mismatch "  ^ s)
 
   let create_lib_parse_fun = Schparse.create_lib_parse_fun
 
@@ -64,7 +80,6 @@ struct
       ~regexp_str:"P ([\\d]+) ([\\d]+) (0|1|2) ([\\d]+) (([\\d-]+ [\\d-]+ )+)N?F?"
     ~processing:
     (fun sp ->
-      let () =Printf.printf "coords %s\n" sp.(5) in
       let thickness = int_of_string sp.(3) in
       let coords_str = Str.split (Str.regexp " +") sp.(5) in
       let coords = List.map int_of_string coords_str in
@@ -107,6 +122,24 @@ struct
         with _ -> None
       )
 
+  let parse_pin =
+          create_lib_parse_fun
+      ~name: "pin"
+      ~regexp_str: "X ([^ ]+) ([^ ]+) ([\\d-]+) ([\\d-]+) ([\\d-]+) (R|L|U|D) ([\\d]+) ([\\d]+) ([\\d]+) (0|1|2)"
+      ~processing:
+      ( fun sp ->
+        try
+          let x = int_of_string sp.(3) in
+          let y = int_of_string sp.(4) in
+          let contact = Coord (x, y) in
+          let length = Size (int_of_string sp.(5)) in
+          let orient = pin_orientation_of_string sp.(6) in
+          let name = sp.(1), Size ((int_of_string sp.(7))) in
+          let number = sp.(2), (Size (int_of_string sp.(8))) in
+          Some (Pin {name;number;length;contact;orient})
+        with _ -> None
+      )
+
   let parse_line (line: string) =
     match (String.get line 0) with
     |'P' ->
@@ -129,6 +162,12 @@ struct
         | None -> failwith ("Error parsing circle " ^ line)
       end
     |'F' -> Field
+    |'X' ->
+      begin
+        match parse_pin line with
+        |Some p -> p
+        |None -> failwith ("Error parsing pin :" ^ line)
+      end
     | _ -> Printf.printf "throwing away line '%s'\n" line; Field
 
   let rec append_line ic lib comp_option acc =
@@ -171,11 +210,22 @@ struct
        let c2' = rotfun c2 in
        plot_poly rotfun thickness (c2::tl) (P.paint_line c1' c2' ctx)
 
+  let plot_pin rotfun {name;number;length;contact;orient} ctx =
+    let Coord (x,y) = contact in
+    let Size delta = length in
+    let sc = match orient with
+      | P_R -> Coord((x+delta),y)
+      | P_L -> Coord((x-delta),y)
+      | P_U -> Coord(x,(y+delta))
+      | P_D -> Coord(x,(y-delta)) in
+    (P.paint_line (rotfun sc) (rotfun contact) ctx)
+
   let plot_elt elt rotfun ctx =
     match elt with
     | Polygon (t, pts) -> plot_poly rotfun t pts ctx
-    | Circle (w,{center;radius}) -> P.paint_circle center radius ctx
+    | Circle (w,{center;radius}) -> P.paint_circle (rotfun center) radius ctx
     | Field -> ctx
+    | Pin p -> plot_pin rotfun p ctx
 
   let rec plot_elts rotfun compelts ctx =
     match compelts with
