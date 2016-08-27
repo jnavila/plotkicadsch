@@ -1,6 +1,6 @@
 module MakeSchPainter (P: KicadSch_sigs.Painter): KicadSch_sigs.SchPainter =
 struct
-  module CompPainter = Kicadlib.MakePainter(P)
+  module CPainter = Kicadlib.MakePainter(P)
 
   open KicadSch_sigs
 
@@ -23,16 +23,29 @@ struct
 
   type label = { c: coord; size: size; orient: orientation; labeltype: labeltype }
 
+  type field = { text: string;
+                 o: orientation;
+                 co: coord;
+                 s: size;
+                 j: justify;
+                 stl: style}
+
+  type componentContext = {
+      component: string option;
+      unit: int option;
+      origin: coord option;
+      fields: field list }
+
   type schParseContext =
       BodyContext
     | WireContext
-    | ComponentContext of (string option) * (int option) * (coord option) (* component, unit, coord *)
+    | ComponentContext of componentContext
     | SheetContext of rect option
     | TextContext of label option
 
-  type schContext = CompPainter.t * schParseContext * P.t
+  type schContext = CPainter.t * schParseContext * P.t
 
-  let initial_context () = CompPainter.lib () , BodyContext, P.get_context ()
+  let initial_context () = CPainter.lib () , BodyContext, P.get_context ()
 
   let justify_of_string s =
     match String.get s 0 with
@@ -135,39 +148,70 @@ struct
         Some (a, b, c, d)
       )
 
-  let parse_component_line lib (line: string) (comp_opt: string option) (unit_opt: int option) (coord_opt: coord option) canevas =
+  let draw_field (Coord (x0, y0)) ((a,b),(c,d)) context {text; o; co; s; j; stl} =
+    let Coord (x, y) = co in
+    let xrel = x - x0 and yrel = y - y0 in
+    let x' = (a * xrel + b * yrel) + x0 in
+    let y' = (c * xrel + d * yrel) + y0 in
+    let o' =
+      if a = 0 then
+        match o with
+        | Orient_H -> Orient_V
+        | Orient_V -> Orient_H
+      else
+        o in
+    P.paint_text text o' (Coord (x', y')) s j stl context
+
+  let parse_component_line lib (line: string) (comp: componentContext) canevas =
     let first = String.get line 0 in
     match first with
     | 'F' ->
-       let canevas' =
-         parse_F line
-                 ~onerror: (fun () -> canevas)
-                 ~process: (fun (visible, text, o, co, s, j, stl) -> if visible then
-                   P.paint_text text o co s j stl canevas else canevas) in
-       comp_opt, unit_opt, coord_opt, canevas'
+       let fields =
+         parse_F
+           line
+           ~onerror: (fun () -> comp.fields)
+           ~process: (fun (visible, text, o, co, s, j, stl) ->
+             if visible then
+               {text; o; co; s; j; stl}::comp.fields else comp.fields) in
+       {comp with fields}, canevas
     | 'U' ->
-       let unit_opt' =
-         parse_U line ~onerror: (fun () ->  unit_opt) ~process: (fun (u, _, _) -> Some u ) in
-       comp_opt, unit_opt', coord_opt, canevas
+       let unit =
+         parse_U
+           line
+           ~onerror: (fun () ->  comp.unit)
+           ~process: (fun (u, _, _) -> Some u ) in
+       {comp with unit}, canevas
     | 'P' ->
-       let coord_opt' =
-         parse_P line ~onerror: (fun () -> coord_opt ) ~process: (fun c -> Some c)
-       in comp_opt, unit_opt, coord_opt', canevas
+       let origin =
+         parse_P
+           line
+           ~onerror: (fun () -> comp.origin)
+           ~process: (fun c -> Some c)
+       in {comp with origin}, canevas
     | 'L' ->
-       let comp_opt' =
-         parse_L line ~onerror: (fun () ->  comp_opt) ~process: ( fun (s, _) -> Some s) in
-       comp_opt', unit_opt, coord_opt, canevas
-    | '	' -> let () = Printf.printf "found printing line\n" in
-       parse_transfo line
-                     ~onerror: ( fun () -> comp_opt, unit_opt, coord_opt, canevas)
-                     ~process: (fun (a, b, c, d) ->
-                       match comp_opt, unit_opt, coord_opt with
-                       | Some sym, Some unit, Some origin ->
-                          let canevas' = CompPainter.plot_comp lib sym origin ((a, b), (c, d)) canevas
-                          in None, None, None, canevas'
-                       | _ -> (Printf.printf "cannot plot component with missing definitions !"; comp_opt, unit_opt, coord_opt, canevas))
+       let component =
+         parse_L
+           line
+           ~onerror: (fun () ->  comp.component)
+           ~process: ( fun (s, _) -> Some s) in
+       {comp with component}, canevas
+    | '	' ->
+       parse_transfo
+         line
+         ~onerror: ( fun () -> comp, canevas)
+         ~process: (fun (a, b, c, d) ->
+           let {component; unit; origin; fields} = comp in
+           match component, unit, origin with
+           | Some sym, Some unit, Some origin ->
+              let transfo = ((a, b), (c, d)) in
+              let canevas' = CPainter.plot_comp lib sym origin transfo canevas in
+              let draw = draw_field origin transfo in
+              comp, List.fold_left draw canevas' fields
+           | _ ->
+              (Printf.printf "cannot plot component with missing definitions !";
+               comp, canevas))
 
-    | _ -> comp_opt, unit_opt, coord_opt, canevas
+    | _ -> comp, canevas
 
   let parse_wire_line = Schparse.create_parse_fun
     ~name:"Wire"
@@ -252,48 +296,65 @@ struct
   let parse_sheet_line line context canevas =
     match (String.get line 0) with
     | 'F' ->
-       context, (parse_sheet_field line
-                                   ~onerror:(fun () -> canevas) ~process:(fun (number, name, (Size size as s)) ->
-                                     match context with
-                                     | Some {c=Coord (x, y); dim=Coord (dim_x, dim_y)} ->
-                                        let y = if (number = 0) then y else y + dim_y + size in
-                                        P.paint_text name Orient_H (Coord (x, y))  s J_left NoStyle canevas
-                                     | None -> canevas))
-    | 'S' -> parse_sheet_rect line ~onerror:(fun () -> context,canevas) ~process:(fun ({c;dim} as range) -> (Some range), (P.paint_rect c dim canevas))
+       context,
+       (parse_sheet_field
+          line
+          ~onerror:(fun () -> canevas)
+          ~process:(fun (number, name, (Size size as s)) ->
+            match context with
+            | Some {c=Coord (x, y); dim=Coord (dim_x, dim_y)} ->
+               let y = if (number = 0) then y else y + dim_y + size in
+               P.paint_text name Orient_H (Coord (x, y))  s J_left NoStyle canevas
+            | None -> canevas))
+    | 'S' ->
+       parse_sheet_rect
+         line
+         ~onerror:(fun () -> context,canevas)
+         ~process:(fun ({c;dim} as range) ->
+           (Some range), (P.paint_rect c dim canevas))
     | 'U' -> context, canevas
     | _ -> (Printf.printf "unknown sheet line (%s)" line; context,canevas)
 
   let parse_body_line (lib, c,canevas) line =
     if (String.compare line "$Comp" = 0) then
-      (ComponentContext (None, None, None)), canevas
+      (ComponentContext {component=None; unit=None; origin=None;fields= []}), canevas
     else if (String.compare (String.sub line 0 4) "Wire" = 0) then
       WireContext, canevas
     else if (String.compare (String.sub line 0 6) "NoConn" = 0) then
-      BodyContext, parse_noconn_line line ~onerror:(fun () -> canevas) ~process:(fun (Coord (x,y)) ->
-                                       let delta = 20 in
-                                       canevas |>
-                                         P.paint_line (Coord (x - delta, y - delta)) (Coord (x + delta, y + delta)) |>
-                                         P.paint_line (Coord (x - delta, y + delta)) (Coord (x + delta, y - delta)))
+      BodyContext, parse_noconn_line
+                     line
+                     ~onerror:(fun () -> canevas)
+                     ~process:(fun (Coord (x,y)) ->
+                       let delta = 20 in
+                       canevas |>
+                         P.paint_line (Coord (x - delta, y - delta)) (Coord (x + delta, y + delta)) |>
+                         P.paint_line (Coord (x - delta, y + delta)) (Coord (x + delta, y - delta)))
 
     else if (String.length line > 10) && (String.compare (String.sub line 0 10) "Connection" = 0) then
-      BodyContext, parse_conn_line line ~onerror:(fun () -> canevas) ~process:(fun (Coord (x,y)) ->
-                                     let delta = 10 in
-                                     P.paint_circle ~fill:Black (Coord (x,y)) delta canevas)
+      BodyContext, parse_conn_line
+                     line
+                     ~onerror:(fun () -> canevas)
+                     ~process:(fun (Coord (x,y)) ->
+                       let delta = 10 in
+                       P.paint_circle ~fill:Black (Coord (x,y)) delta canevas)
     else if (String.compare line "$Sheet" = 0) then
       SheetContext None, canevas
     else if (String.length line > 5) && (String.compare (String.sub line 0 4) "Text" = 0) then
-      TextContext (parse_text_line line ~onerror:(fun () -> None) ~process:(fun c -> Some c)), canevas
+      TextContext (parse_text_line
+                     line
+                     ~onerror:(fun () -> None)
+                     ~process:(fun c -> Some c)), canevas
     else
       BodyContext, canevas
 
   let parse_line line (lib, c,canevas) =
     match c with
-    | ComponentContext (comp_opt, unit_opt, coord_opt) ->
+    | ComponentContext comp ->
        if (String.compare line "$EndComp" = 0) then
          (lib, BodyContext, canevas)
        else
-         let comp_opt, unit_opt, coord_opt, canevas = parse_component_line lib line comp_opt unit_opt coord_opt canevas in
-         (lib, (ComponentContext (comp_opt, unit_opt, coord_opt)), canevas)
+         let comp, canevas = parse_component_line lib line comp canevas in
+         (lib, (ComponentContext comp), canevas)
     | BodyContext ->
        let c, canevas = parse_body_line (lib, c,canevas) line
        in lib, c, canevas
@@ -319,6 +380,6 @@ struct
   let add_lib filename (lib, ctxt, canevas) =
     Printf.printf "parsing lib %s\n" filename;
     let ic = open_in filename in
-    (CompPainter.append_lib ic lib), ctxt, canevas
+    (CPainter.append_lib ic lib), ctxt, canevas
 
 end
