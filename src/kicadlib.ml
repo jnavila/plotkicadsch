@@ -196,11 +196,11 @@ struct
 
   and append_lib ic lib = append_line ic lib None []
 
+  let ( +$) (Coord(x1, y1)) (Coord(x2, y2)) = Coord((x1 + x2), (y1 + y2))
+  let ( *$) ((a,b),(c,d)) (Coord(x, y)) = Coord((a * x + b * y), (c * x + d * y))
+
   let rotate (origin: coord) (rotation:transfo) (relpoint:coord) =
-    let Coord (ox, oy) = origin in
-    let (a,b),(c,d) = rotation in
-    let Coord (x,y) = relpoint in
-    Coord ((ox + a * x + b * y), (oy  + c * x + d * y))
+     origin +$ rotation *$ relpoint
 
   let rec plot_poly rotfun thickness points ctx =
     match points with
@@ -213,12 +213,24 @@ struct
   let plot_pin rotfun {name;number;length;contact;orient} ctx =
     let Coord (x,y) = contact in
     let Size delta = length in
-    let sc = match orient with
-      | P_R -> Coord((x+delta),y)
-      | P_L -> Coord((x-delta),y)
-      | P_U -> Coord(x,(y+delta))
-      | P_D -> Coord(x,(y-delta)) in
-    (P.paint_line (rotfun sc) (rotfun contact) ctx)
+    let sc = Coord(match orient with
+      | P_R -> (x+delta), y
+      | P_L -> (x-delta), y
+      | P_U -> x, (y+delta)
+      | P_D -> x, (y-delta)) in
+    let Coord (nxsc, nysc) as new_sc = rotfun sc in
+    let Coord (nx, ny) as new_contact = rotfun contact  in
+    let new_J, new_orient =
+      if nx>nxsc then J_right, Orient_H
+      else if nx<nxsc then J_left, Orient_H
+      else if ny>nysc then J_top, Orient_V
+      else J_bottom, Orient_V in
+    let name_text, name_size = name in
+    let pin_text, pin_size = number in
+    ctx |>
+      P.paint_line new_sc new_contact |>
+      P.paint_text name_text new_orient new_sc name_size new_J NoStyle |>
+      P.paint_text pin_text new_orient new_contact pin_size new_J NoStyle
 
   let plot_elt elt rotfun ctx =
     match elt with
@@ -236,9 +248,10 @@ struct
 
   let plot_comp lib comp_name rotation origin (ctx:P.t) =
     let () = Printf.printf "trying to plot component %s\n" comp_name in
-    let rot = rotate rotation origin in
-    try
-      let thecomp = Lib.find lib comp_name in
-      plot_elts rot thecomp.graph ctx
-    with _ -> raise (Component_Not_Found comp_name)
+    let rot : (coord -> coord) = rotate rotation origin in
+    let thecomp =
+      try
+        Lib.find lib comp_name
+      with _ -> raise (Component_Not_Found comp_name) in
+    plot_elts rot thecomp.graph ctx
 end
