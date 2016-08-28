@@ -18,7 +18,7 @@ struct
     | Pin of pin
 
   type component = {
-      name: string;
+      names: string list;
       draw_pnum: bool;
       draw_pname: bool;
       graph : primitive list
@@ -147,6 +147,15 @@ struct
           Some Field
       )
 
+  let parse_alias =
+    create_lib_parse_fun
+      ~name: "ALIAS"
+      ~regexp_str: "ALIAS (.*)"
+      ~processing:
+      ( fun sp: string list option ->
+              Some (Str.split (Str.regexp " +") sp.(1))
+      )
+
   let parse_line line =
     match (String.get line 0) with
     |'P' ->
@@ -185,17 +194,23 @@ struct
               (String.compare (String.sub line 0 3) "DEF" = 0) then
            match parse_def line with
            | Some (name, draw_pnum, draw_pname ) ->
-              let new_comp = {name;draw_pnum; draw_pname; graph=[]} in
+              let new_comp = {names =[name];draw_pnum; draw_pname; graph=[]} in
               append_line ic lib (Some new_comp ) []
            | None -> failwith ("could not parse component definition " ^ line)
          else
            append_lib ic lib
       | Some comp ->
          if (String.compare line "ENDDEF" = 0) then
-           let comp_elts = List.rev acc in
-           (Lib.replace  lib comp.name {comp with graph=comp_elts});
-           (* Printf.printf "added new component %s\n" comp.name; *)
-           append_lib ic lib
+           (let comp = {comp with graph=(List.rev acc)} in
+            List.iter (fun name -> Lib.replace lib name comp) comp.names;
+            append_lib ic lib)
+         else if (String.length line > 6) &&
+              (String.compare (String.sub line 0 5) "ALIAS" = 0) then
+           match (parse_alias line) with
+           | None -> failwith (Printf.sprintf "ALIAS line %s parse error\n" line)
+           | Some name_list ->
+              append_line ic lib (Some {comp with names=(List.rev_append comp.names name_list)}) acc
+
          else
            let prim = parse_line line in
            append_line ic lib comp_option (prim::acc)
