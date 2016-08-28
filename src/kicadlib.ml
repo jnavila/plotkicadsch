@@ -81,7 +81,7 @@ struct
   let parse_Poly =
     create_lib_parse_fun
       ~name:"polygon"
-      ~regexp_str:"P ([\\d]+) ([\\d]+) (0|1|2) ([\\d]+) (([\\d-]+ [\\d-]+ )+)N?F?"
+      ~regexp_str:"P ([\\d]+) ([\\d]+) (0|1|2) ([\\d]+) +(([\\d-]+ [\\d-]+ +)+)N?F?"
     ~processing:
     (fun sp ->
       let thickness = int_of_string sp.(3) in
@@ -94,7 +94,7 @@ struct
   let parse_rect =
     create_lib_parse_fun
       ~name: "rectangle"
-      ~regexp_str: "S ([\\d-]+) ([\\d-]+) ([\\d-]+) ([\\d-]+) (0|1) ([\\d-]+) ([\\d-]+) (N)?(F)?"
+      ~regexp_str: "S ([\\d-]+) ([\\d-]+) ([\\d-]+) ([\\d-]+) (0|1) ([\\d-]+) ([\\d-]+) +(N)?(F)?"
       ~processing:
       ( fun sp ->
         try
@@ -113,7 +113,7 @@ struct
   let parse_circle =
     create_lib_parse_fun
       ~name: "circle"
-      ~regexp_str: "C ([\\d-]+) ([\\d-]+) ([\\d-]+) (0|1) ([\\d-]+) ([\\d-]+) (N|NF)"
+      ~regexp_str: "C ([\\d-]+) ([\\d-]+) ([\\d-]+) (0|1) ([\\d-]+) ([\\d-]+) +N?F?"
       ~processing:
       ( fun sp ->
         try
