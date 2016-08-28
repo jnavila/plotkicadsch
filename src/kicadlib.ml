@@ -19,6 +19,8 @@ struct
 
   type component = {
       name: string;
+      draw_pnum: bool;
+      draw_pname: bool;
       graph : primitive list
     }
 
@@ -55,7 +57,9 @@ struct
     ~regexp_str:"DEF ([^ ]+) ([^ ]+) 0 ([\\d-]+) (Y|N) (Y|N) ([\\d-]+) (F|L) (N|P)"
     ~processing:
     (fun sp ->
-       Some {name=sp.(1); graph = []}
+      let draw_pnum = (String.get sp.(4) 0 = 'Y') in
+      let draw_pname = (String.get sp.(5) 0 = 'Y') in
+       Some (sp.(1), draw_pnum, draw_pname)
     )
 
   (** Parsing component drawing primitives **)
@@ -125,22 +129,25 @@ struct
   let parse_pin =
           create_lib_parse_fun
       ~name: "pin"
-      ~regexp_str: "X ([^ ]+) ([^ ]+) ([\\d-]+) ([\\d-]+) ([\\d-]+) (R|L|U|D) ([\\d]+) ([\\d]+) ([\\d]+) (0|1|2)"
+      ~regexp_str: "X ([^ ]+) ([^ ]+) ([\\d-]+) ([\\d-]+) ([\\d-]+) (R|L|U|D) ([\\d]+) ([\\d]+) ([\\d]+) (0|1|2) .( N)?"
       ~processing:
       ( fun sp ->
-        try
-          let x = int_of_string sp.(3) in
-          let y = int_of_string sp.(4) in
-          let contact = Coord (x, y) in
-          let length = Size (int_of_string sp.(5)) in
-          let orient = pin_orientation_of_string sp.(6) in
-          let name = sp.(1), Size ((int_of_string sp.(7))) in
-          let number = sp.(2), (Size (int_of_string sp.(8))) in
-          Some (Pin {name;number;length;contact;orient})
-        with _ -> None
+        if String.length sp.(11) = 0 then
+          try
+            let x = int_of_string sp.(3) in
+            let y = int_of_string sp.(4) in
+            let contact = Coord (x, y) in
+            let length = Size (int_of_string sp.(5)) in
+            let orient = pin_orientation_of_string sp.(6) in
+            let name = sp.(1), Size ((int_of_string sp.(7))) in
+            let number = sp.(2), (Size (int_of_string sp.(8))) in
+            Some (Pin {name;number;length;contact;orient})
+          with _ -> None
+        else
+          Some Field
       )
 
-  let parse_line (line: string) =
+  let parse_line line =
     match (String.get line 0) with
     |'P' ->
       begin
@@ -150,7 +157,6 @@ struct
       end
     |'S' ->
       begin
-        Printf.printf "Parse Rectangle\n";
         match parse_rect line with
         | Some p -> p
         | None -> failwith ("Error parsing rectangle " ^ line)
@@ -168,7 +174,7 @@ struct
         |Some p -> p
         |None -> failwith ("Error parsing pin :" ^ line)
       end
-    | _ -> Printf.printf "throwing away line '%s'\n" line; Field
+    | _ -> (* Printf.printf "throwing away line '%s'\n" line; *) Field
 
   let rec append_line ic lib comp_option acc =
     try
@@ -178,7 +184,9 @@ struct
          if (String.length line > 3) &&
               (String.compare (String.sub line 0 3) "DEF" = 0) then
            match parse_def line with
-           | Some _ as thecomp-> append_line ic lib thecomp []
+           | Some (name, draw_pnum, draw_pname ) ->
+              let new_comp = {name;draw_pnum; draw_pname; graph=[]} in
+              append_line ic lib (Some new_comp ) []
            | None -> failwith ("could not parse component definition " ^ line)
          else
            append_lib ic lib
@@ -186,7 +194,7 @@ struct
          if (String.compare line "ENDDEF" = 0) then
            let comp_elts = List.rev acc in
            (Lib.replace  lib comp.name {comp with graph=comp_elts});
-           Printf.printf "added new component %s\n" comp.name;
+           (* Printf.printf "added new component %s\n" comp.name; *)
            append_lib ic lib
          else
            let prim = parse_line line in
@@ -210,7 +218,7 @@ struct
        let c2' = rotfun c2 in
        plot_poly rotfun thickness (c2::tl) (P.paint_line c1' c2' ctx)
 
-  let plot_pin rotfun {name;number;length;contact;orient} ctx =
+  let plot_pin rotfun {name;number;length;contact;orient} c ctx =
     let Coord (x,y) = contact in
     let Size delta = length in
     let sc = Coord(match orient with
@@ -227,22 +235,26 @@ struct
       else J_bottom, Orient_V in
     let name_text, name_size = name in
     let pin_text, pin_size = number in
-    ctx |>
-      P.paint_line new_sc new_contact |>
-      P.paint_text name_text new_orient new_sc name_size new_J NoStyle |>
-      P.paint_text pin_text new_orient new_contact pin_size new_J NoStyle
+    let pin_ctx = P.paint_line new_sc new_contact ctx in
+    let pname_ctx =
+      if c.draw_pname && (String.compare "~" name_text <> 0) then
+        P.paint_text name_text new_orient new_sc name_size new_J NoStyle pin_ctx
+      else pin_ctx in
+    if c.draw_pnum  && (String.compare "~" pin_text <> 0) then
+      P.paint_text pin_text new_orient new_contact pin_size new_J NoStyle pname_ctx
+    else pname_ctx
 
-  let plot_elt elt rotfun ctx =
+  let plot_elt elt rotfun comp ctx =
     match elt with
     | Polygon (t, pts) -> plot_poly rotfun t pts ctx
     | Circle (w,{center;radius}) -> P.paint_circle (rotfun center) radius ctx
     | Field -> ctx
-    | Pin p -> plot_pin rotfun p ctx
+    | Pin p -> plot_pin rotfun p comp ctx
 
-  let rec plot_elts rotfun compelts ctx =
-    match compelts with
+  let rec plot_elts rotfun elts comp ctx =
+    match elts with
     | [] -> ctx
-    | elt::tl -> plot_elts rotfun tl (plot_elt elt rotfun ctx)
+    | elt::tl -> plot_elts rotfun tl comp (plot_elt elt rotfun comp ctx)
 
   exception Component_Not_Found of string
 
@@ -253,5 +265,5 @@ struct
       try
         Lib.find lib comp_name
       with _ -> raise (Component_Not_Found comp_name) in
-    plot_elts rot thecomp.graph ctx
+    plot_elts rot thecomp.graph thecomp ctx
 end
