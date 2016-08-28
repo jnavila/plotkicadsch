@@ -17,11 +17,15 @@ struct
     | Circle of int * circle
     | Pin of pin
 
+  type elt = {
+      parts: int;
+      prim: primitive}
+
   type component = {
       names: string list;
       draw_pnum: bool;
       draw_pname: bool;
-      graph : primitive list
+      graph : elt list
     }
 
   let pin_orientation_of_string = function
@@ -88,7 +92,8 @@ struct
       let coords_str = Str.split (Str.regexp " +") sp.(5) in
       let coords = List.map int_of_string coords_str in
       let coord_list = make_double [] coords in
-      Some (Polygon (thickness, List.rev coord_list))
+      let parts = int_of_string sp.(2) in
+      Some ({parts; prim=Polygon (thickness, List.rev coord_list)})
     )
 
   let parse_rect =
@@ -102,11 +107,12 @@ struct
           let y1 = int_of_string sp.(2) in
           let x2 = int_of_string sp.(3) in
           let y2 = int_of_string sp.(4) in
+          let parts = int_of_string sp.(5) in
           let c1 = Coord (x1, y1) in
           let c2 = Coord (x2, y2) in
           let thickness = int_of_string sp.(6) in
           let rect_poly = [ c1 ; Coord (x1, y2) ; c2 ; Coord (x2, y1) ; c1 ] in
-          Some (Polygon (thickness, rect_poly))
+          Some ({parts; prim=Polygon (thickness, rect_poly)})
         with _ -> None
       )
 
@@ -121,8 +127,9 @@ struct
           let y = int_of_string sp.(2) in
           let center = Coord (x, y) in
           let radius = int_of_string sp.(3) in
+          let parts = int_of_string sp.(4) in
           let width = int_of_string sp.(6) in
-          Some (Circle (width, {center; radius}))
+          Some ({parts; prim=Circle (width, {center; radius})})
         with _ -> None
       )
 
@@ -141,10 +148,11 @@ struct
             let orient = pin_orientation_of_string sp.(6) in
             let name = sp.(1), Size ((int_of_string sp.(7))) in
             let number = sp.(2), (Size (int_of_string sp.(8))) in
-            Some (Pin {name;number;length;contact;orient})
+            let parts = int_of_string sp.(9) in
+            Some ({parts; prim=Pin {name;number;length;contact;orient}})
           with _ -> None
         else
-          Some Field
+          Some {parts=(-1); prim=Field}
       )
 
   let parse_alias =
@@ -176,14 +184,14 @@ struct
         | Some c -> c
         | None -> failwith ("Error parsing circle " ^ line)
       end
-    |'F' -> Field
+    |'F' -> {parts=(-1); prim=Field}
     |'X' ->
       begin
         match parse_pin line with
         |Some p -> p
         |None -> failwith ("Error parsing pin :" ^ line)
       end
-    | _ -> (* Printf.printf "throwing away line '%s'\n" line; *) Field
+    | _ -> Printf.printf "throwing away line '%s'\n" line; {parts=(-1); prim=Field}
 
   let rec append_line ic lib comp_option acc =
     try
@@ -259,26 +267,29 @@ struct
       P.paint_text pin_text new_orient new_contact pin_size new_J NoStyle pname_ctx
     else pname_ctx
 
-  let plot_elt elt rotfun comp ctx =
-    match elt with
-    | Polygon (t, pts) -> plot_poly rotfun t pts ctx
-    | Circle (w,{center;radius}) -> P.paint_circle (rotfun center) radius ctx
-    | Field -> ctx
-    | Pin p -> plot_pin rotfun p comp ctx
+  let plot_elt {parts;prim} rotfun comp part ctx =
+    if (parts = 0) || (parts = part) then
+      match prim with
+      | Polygon (t, pts) -> plot_poly rotfun t pts ctx
+      | Circle (w,{center;radius}) -> P.paint_circle (rotfun center) radius ctx
+      | Field -> ctx
+      | Pin p -> plot_pin rotfun p comp ctx
+    else
+      ctx
 
-  let rec plot_elts rotfun elts comp ctx =
+  let rec plot_elts rotfun elts comp part ctx =
     match elts with
     | [] -> ctx
-    | elt::tl -> plot_elts rotfun tl comp (plot_elt elt rotfun comp ctx)
+    | elt::tl -> plot_elts rotfun tl comp part (plot_elt elt rotfun comp part ctx)
 
   exception Component_Not_Found of string
 
-  let plot_comp lib comp_name rotation origin (ctx:P.t) =
-    let () = Printf.printf "trying to plot component %s\n" comp_name in
+  let plot_comp lib comp_name part rotation origin (ctx:P.t) =
+    let () = Printf.printf "trying to plot component %s %d\n" comp_name part in
     let rot : (coord -> coord) = rotate rotation origin in
     let thecomp =
       try
         Lib.find lib comp_name
       with _ -> raise (Component_Not_Found comp_name) in
-    plot_elts rot thecomp.graph thecomp ctx
+    plot_elts rot thecomp.graph thecomp part ctx
 end

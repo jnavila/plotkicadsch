@@ -44,6 +44,6 @@ sig
   type drawContext
   val lib: unit -> t
   val append_lib: in_channel -> t -> t
-  val plot_comp: t -> string -> coord -> transfo -> drawContext -> drawContext
+  val plot_comp: t -> string -> int -> coord -> transfo -> drawContext -> drawContext
 
 end

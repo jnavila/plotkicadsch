@@ -204,7 +204,7 @@ struct
            match component, unit, origin with
            | Some sym, Some unit, Some origin ->
               let transfo = ((a, b), (c, d)) in
-              let canevas' = CPainter.plot_comp lib sym origin transfo canevas in
+              let canevas' = CPainter.plot_comp lib sym unit origin transfo canevas in
               let draw = draw_field origin transfo in
               comp, List.fold_left draw canevas' fields
            | _ ->
