@@ -99,7 +99,7 @@ struct
   let parse_rect =
     create_lib_parse_fun
       ~name: "rectangle"
-      ~regexp_str: "S ([\\d-]+) ([\\d-]+) ([\\d-]+) ([\\d-]+) (0|1) ([\\d-]+) ([\\d-]+) +(N)?(F)?"
+      ~regexp_str: "S ([\\d-]+) ([\\d-]+) ([\\d-]+) ([\\d-]+) (0|1|2) ([\\d-]+) ([\\d-]+) +(N)?(F)?"
       ~processing:
       ( fun sp ->
         try
