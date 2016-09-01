@@ -17,6 +17,7 @@ struct
     | Polygon of int * (relcoord list)
     | Circle of int * circle
     | Pin of pin
+    | Text of {c: relcoord; text: string; s: size}
 
   type elt = {
       parts: int;
@@ -165,6 +166,19 @@ struct
               Some (Str.split (Str.regexp " +") sp.(1))
       )
 
+  let parse_text =
+    create_lib_parse_fun
+      ~name: "Text"
+      ~regexp_str: "T +([\\d]+) +([\\d-]+) +([\\d-]+) +([\\d-]+) +([\\d-]+) +([\\d-]+) +([\\d-]+) +([^ ]+)"
+      ~processing:
+      ( fun sp ->
+        let text = sp.(8) in
+        let c = RelCoord (int_of_string sp.(2),int_of_string sp.(3)) in
+        let s = Size (int_of_string sp.(4)) in
+        let parts = int_of_string sp.(6) in
+        Some {parts; prim = Text {c; text; s} }
+      )
+
   let parse_line line =
     match (String.get line 0) with
     |'P' ->
@@ -192,6 +206,13 @@ struct
         |Some p -> p
         |None -> failwith ("Error parsing pin :" ^ line)
       end
+    |'T' ->
+      begin
+        match parse_text line with
+        |Some t -> t
+        |None -> failwith ("Error parsing pin :" ^ line)
+      end
+
     | _ -> Printf.printf "throwing away line '%s'\n" line; {parts=(-1); prim=Field}
 
   let rec append_line ic lib comp_option acc =
@@ -276,6 +297,7 @@ struct
       | Circle (w,{center;radius}) -> P.paint_circle (rotfun center) radius ctx
       | Field -> ctx
       | Pin p -> plot_pin rotfun p comp ctx
+      | Text {c; text; s} -> P.paint_text text Orient_H (rotfun c) s J_left NoStyle ctx
     else
       ctx
 
