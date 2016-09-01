@@ -1,19 +1,20 @@
 open KicadSch_sigs
 module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) =
 struct
-  type circle = {center: coord; radius: int}
+  type relcoord = RelCoord of (int*int)
+  type circle = {center: relcoord; radius: int}
   type pin_orientation = P_L | P_R | P_U | P_D
   type pin_tag = (string * size)
   type pin = {
       name: pin_tag;
       number: pin_tag;
       length: size;
-      contact: coord;
+      contact: relcoord;
       orient: pin_orientation}
 
   type primitive =
     | Field
-    | Polygon of int * (coord list)
+    | Polygon of int * (relcoord list)
     | Circle of int * circle
     | Pin of pin
 
@@ -80,7 +81,7 @@ struct
     match il with
     | [] -> ol
     | [_] -> failwith "make double: odd number of coords!"
-    | x::y::tl -> make_double ((Coord (x,y))::ol) tl
+    | x::y::tl -> make_double ((RelCoord (x,y))::ol) tl
 
   let parse_Poly =
     create_lib_parse_fun
@@ -108,10 +109,10 @@ struct
           let x2 = int_of_string sp.(3) in
           let y2 = int_of_string sp.(4) in
           let parts = int_of_string sp.(5) in
-          let c1 = Coord (x1, y1) in
-          let c2 = Coord (x2, y2) in
+          let c1 = RelCoord (x1, y1) in
+          let c2 = RelCoord (x2, y2) in
           let thickness = int_of_string sp.(6) in
-          let rect_poly = [ c1 ; Coord (x1, y2) ; c2 ; Coord (x2, y1) ; c1 ] in
+          let rect_poly = [ c1 ; RelCoord (x1, y2) ; c2 ; RelCoord (x2, y1) ; c1 ] in
           Some ({parts; prim=Polygon (thickness, rect_poly)})
         with _ -> None
       )
@@ -125,7 +126,7 @@ struct
         try
           let x = int_of_string sp.(1) in
           let y = int_of_string sp.(2) in
-          let center = Coord (x, y) in
+          let center = RelCoord (x, y) in
           let radius = int_of_string sp.(3) in
           let parts = int_of_string sp.(4) in
           let width = int_of_string sp.(6) in
@@ -143,7 +144,7 @@ struct
           try
             let x = int_of_string sp.(3) in
             let y = int_of_string sp.(4) in
-            let contact = Coord (x, y) in
+            let contact = RelCoord (x, y) in
             let length = Size (int_of_string sp.(5)) in
             let orient = pin_orientation_of_string sp.(6) in
             let name = sp.(1), Size ((int_of_string sp.(7))) in
@@ -228,9 +229,9 @@ struct
   and append_lib ic lib = append_line ic lib None []
 
   let ( +$) (Coord(x1, y1)) (Coord(x2, y2)) = Coord((x1 + x2), (y1 + y2))
-  let ( *$) ((a,b),(c,d)) (Coord(x, y)) = Coord((a * x + b * y), (c * x + d * y))
+  let ( *$) ((a,b),(c,d)) (RelCoord(x, y)) = Coord((a * x + b * y), (c * x + d * y))
 
-  let rotate (origin: coord) (rotation:transfo) (relpoint:coord) =
+  let rotate (origin: coord) (rotation:transfo) (relpoint:relcoord): coord =
      origin +$ rotation *$ relpoint
 
   let rec plot_poly rotfun thickness points ctx =
@@ -242,13 +243,14 @@ struct
        plot_poly rotfun thickness (c2::tl) (P.paint_line c1' c2' ctx)
 
   let plot_pin rotfun {name;number;length;contact;orient} c ctx =
-    let Coord (x,y) = contact in
+    let RelCoord (x,y) = contact in
     let Size delta = length in
-    let sc = Coord(match orient with
+    let sci = match orient with
       | P_R -> (x+delta), y
       | P_L -> (x-delta), y
       | P_U -> x, (y+delta)
-      | P_D -> x, (y-delta)) in
+      | P_D -> x, (y-delta) in
+    let sc = RelCoord sci in
     let Coord (nxsc, nysc) as new_sc = rotfun sc in
     let Coord (nx, ny) as new_contact = rotfun contact  in
     let new_J, new_orient =
@@ -286,7 +288,7 @@ struct
 
   let plot_comp lib comp_name part rotation origin (ctx:P.t) =
     let () = Printf.printf "trying to plot component %s %d\n" comp_name part in
-    let rot : (coord -> coord) = rotate rotation origin in
+    let rot : (relcoord -> coord) = rotate rotation origin in
     let thecomp =
       try
         Lib.find lib comp_name
