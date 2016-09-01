@@ -75,6 +75,8 @@ struct
   let orientation_of_int = function
     | 0 -> Orient_H
     | 1 -> Orient_V
+    | 2 -> Orient_H
+    | 3 -> Orient_V
     | _ as d -> failwith (Printf.sprintf "no int value for orientation! (%d)" d)
 
   (* Parsing a sch file *)
@@ -110,7 +112,7 @@ struct
   let parse_L =
     Schparse.create_parse_fun
       ~name: "Component L"
-      ~regexp_str: "L ([-\\+\\w]+) ([-\\+\\w#\\d]+)"
+      ~regexp_str: "L ([^ ]+) +([^ ]+)"
       ~extract_fun:
       (fun sp ->
         Some (sp.(1), sp.(2))
@@ -263,7 +265,7 @@ struct
 
   let parse_text_line = Schparse.create_parse_fun
     ~name:"Text header"
-    ~regexp_str: "Text (GLabel|HLabel|Label|Notes) ([\\d-]+) ([\\d-]+) ([\\d-]+)    ([\\d-]+)   (~|UnSpc|3State|Output|Input)"
+    ~regexp_str: "Text (GLabel|HLabel|Label|Notes) +([\\d-]+) +([\\d-]+) +([\\d-]+)    +([\\d-]+) +(~|UnSpc|3State|Output|Input|BiDi)"
     ~extract_fun: (fun sp ->
       let c = Coord (int_of_string sp.(2), int_of_string sp.(3)) and
           orient = orientation_of_int(int_of_string sp.(4)) and

@@ -58,7 +58,7 @@ struct
 
   let parse_def = create_lib_parse_fun
     ~name:"component header"
-    ~regexp_str:"DEF ([^ ]+) ([^ ]+) 0 ([\\d-]+) (Y|N) (Y|N) ([\\d-]+) (F|L) (N|P)"
+    ~regexp_str:"DEF ~?([^ ]+) ([^ ]+) 0 ([\\d-]+) (Y|N) (Y|N) ([\\d-]+) (F|L) (N|P)"
     ~processing:
     (fun sp ->
       let draw_pnum = (String.get sp.(4) 0 = 'Y') in
@@ -99,7 +99,7 @@ struct
   let parse_rect =
     create_lib_parse_fun
       ~name: "rectangle"
-      ~regexp_str: "S ([\\d-]+) ([\\d-]+) ([\\d-]+) ([\\d-]+) (0|1|2) ([\\d-]+) ([\\d-]+) +(N)?(F)?"
+      ~regexp_str: "S ([\\d-]+) ([\\d-]+) ([\\d-]+) ([\\d-]+) ([\\d]+) ([\\d]+) ([\\d-]+) +(N)?(F)?"
       ~processing:
       ( fun sp ->
         try
