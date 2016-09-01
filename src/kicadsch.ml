@@ -7,13 +7,14 @@ struct
   type rect = { c:coord ; dim:coord }
   type portrange = Glabel | Hlabel
   type labeluse = WireLabel | TextNote
-  type porttype = UnSpcPort | ThreeStatePort | OutputPort | InputPort | NoPort
+  type porttype = UnSpcPort | ThreeStatePort | OutputPort | InputPort | NoPort | BiDiPort
 
   let porttype_of_string = function
     | "UnSpc" -> UnSpcPort
     | "3State" -> ThreeStatePort
     | "Output" -> OutputPort
     | "Input" -> InputPort
+    | "BiDi" -> BiDiPort
     | "~" -> NoPort
     |   _ as s -> Printf.printf "unknown port type %s\n" s; NoPort
 
