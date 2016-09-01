@@ -1,5 +1,5 @@
 open KicadSch_sigs
-module MakePainter (P: Painter): (CompPainter with type drawContext=P.t) =
+module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) =
 struct
   type circle = {center: coord; radius: int}
   type pin_orientation = P_L | P_R | P_U | P_D
