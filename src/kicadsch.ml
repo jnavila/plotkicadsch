@@ -10,11 +10,11 @@ struct
   type porttype = UnSpcPort | ThreeStatePort | OutputPort | InputPort | NoPort | BiDiPort
 
   let porttype_of_string = function
-    | "UnSpc" -> UnSpcPort
-    | "3State" -> ThreeStatePort
-    | "Output" -> OutputPort
-    | "Input" -> InputPort
-    | "BiDi" -> BiDiPort
+    | "U"| "UnSpc" -> UnSpcPort
+    | "T"| "3State" -> ThreeStatePort
+    | "O"| "Output" -> OutputPort
+    | "I"| "Input" -> InputPort
+    | "B"| "BiDi" -> BiDiPort
     | "~" -> NoPort
     |   _ as s -> Printf.printf "unknown port type %s\n" s; NoPort
 
@@ -245,14 +245,35 @@ struct
       Some (Coord (x,y))
     )
 
-  let parse_sheet_field = Schparse.create_parse_fun
-    ~name:"Sheet Field"
+  let parse_sheet_field01 = Schparse.create_parse_fun
+    ~name:"Sheet Field 0 or 1"
     ~regexp_str:"F(0|1) +\"([^\"]*)\" +([\\d-]+)"
     ~extract_fun:(fun sp ->
       let number= int_of_string sp.(1) and
           name = sp.(2) and
           size = int_of_string sp.(3) in
       Some (number, name, Size size))
+
+  let parse_sheet_other_fields =
+    Schparse.create_parse_fun
+      ~name: "Sheet generic field"
+      ~regexp_str: "F([\\d]+) +\"([^\"]*)\" (I|O|B|T|U) +(R|L|T|B) +([\\d-]+) +([\\d-]+) +([\\d]+)"
+      ~extract_fun:(fun sp ->
+        let name = sp.(2) in
+        let ptype = porttype_of_string sp.(3) in
+        let justif = justify_of_string sp.(4) in
+        let c = Coord ((int_of_string sp.(5)),int_of_string sp.(6)) in
+        let s = Size (int_of_string sp.(7)) in
+        Some (name, ptype, justif, c, s)
+      )
+
+  let parse_sheet_field =
+    Schparse.create_parse_fun
+      ~name: "detect sheet field"
+      ~regexp_str:"F([\\d]+)"
+      ~extract_fun:(fun sp ->
+        Some(int_of_string sp.(1))
+      )
 
   let parse_sheet_rect = Schparse.create_parse_fun
     ~name:"Sheet Rect"
@@ -303,12 +324,25 @@ struct
        (parse_sheet_field
           line
           ~onerror:(fun () -> canevas)
-          ~process:(fun (number, name, (Size size as s)) ->
-            match context with
-            | Some {c=Coord (x, y); dim=Coord (dim_x, dim_y)} ->
-               let y = if (number = 0) then y else y + dim_y + size in
-               P.paint_text name Orient_H (Coord (x, y))  s J_left NoStyle canevas
-            | None -> canevas))
+          ~process:(fun number ->
+            if number < 2 then
+              parse_sheet_field01
+                line
+                ~onerror:(fun () -> canevas)
+                ~process:(fun (number, name, (Size size as s)) ->
+                  match context with
+                  | Some {c=Coord (x, y); dim=Coord (dim_x, dim_y)} ->
+                     let y = if (number = 0) then y else y + dim_y + size in
+                     P.paint_text name Orient_H (Coord (x, y))  s J_left NoStyle canevas
+                  | None -> canevas)
+            else
+              parse_sheet_other_fields
+                line
+                ~onerror:(fun () -> canevas)
+                ~process:(fun (name, ptype, justif, c, s) ->
+                P.paint_text name Orient_H c s justif NoStyle canevas)
+          )
+       )
     | 'S' ->
        parse_sheet_rect
          line
