@@ -22,7 +22,7 @@ struct
     | PortLabel of portrange * porttype
     | TextLabel of labeluse
 
-  type label = { c: coord; size: size; orient: orientation; labeltype: labeltype }
+  type label = { c: coord; size: size; orient: justify; labeltype: labeltype }
 
   type field = { text: string;
                  o: orientation;
@@ -48,13 +48,27 @@ struct
 
   let initial_context () = CPainter.lib () , BodyContext, P.get_context ()
 
+  let swap_type = function
+    | UnSpcPort | ThreeStatePort  | NoPort | BiDiPort as p -> p
+    | OutputPort -> InputPort
+    | InputPort -> OutputPort
+
+  let porttype_of_string = function
+    | "U"| "UnSpc" -> UnSpcPort
+    | "T"| "3State" -> ThreeStatePort
+    | "O"| "Output" -> OutputPort
+    | "I"| "Input" -> InputPort
+    | "B"| "BiDi" -> BiDiPort
+    | "~" -> NoPort
+    |   _ as s -> Printf.printf "unknown port type %s\n" s; NoPort
+
   let justify_of_string s =
     match String.get s 0 with
-    | 'L' -> J_left
-    | 'R' -> J_right
+    | 'L'| '2' -> J_left
+    | 'R'| '0' -> J_right
     | 'C' -> J_center
-    | 'B' -> J_bottom
-    | 'T' -> J_top
+    | 'B' | '1' -> J_bottom
+    | 'T' | '3' -> J_top
     | c -> failwith (Printf.sprintf "no match for justify! (%c)" c)
 
   let style_of_string s =
@@ -73,12 +87,9 @@ struct
     | 'V' -> Orient_V
     | c -> failwith (Printf.sprintf "no match for orientation! (%c)" c)
 
-  let orientation_of_int = function
-    | 0 -> Orient_H
-    | 1 -> Orient_V
-    | 2 -> Orient_H
-    | 3 -> Orient_V
-    | _ as d -> failwith (Printf.sprintf "no int value for orientation! (%d)" d)
+  let orientation_of_justify = function
+    | J_left | J_right | J_center -> Orient_H
+    | J_top | J_bottom -> Orient_V
 
   (* Parsing a sch file *)
 
@@ -164,6 +175,30 @@ struct
       else
         o in
     P.paint_text text o' (Coord (x', y')) s j stl context
+
+
+  let right_arrow = "\xE2\x96\xB6"
+  let left_arrow = "\xE2\x97\x80"
+  let diamond = "\xE2\x97\x86"
+  let square = "\xE2\x97\xBC"
+
+  let decorate_port_name name ptype justif =
+    let port_char = match ptype, justif with
+      |  UnSpcPort,_ | NoPort,_ -> ""
+      | ThreeStatePort,_  | BiDiPort,_ -> diamond
+      | OutputPort,(J_left|J_top) | InputPort, (J_right | J_bottom) -> left_arrow
+      | OutputPort, (J_right | J_bottom) | InputPort, (J_left | J_top) -> right_arrow
+      | _, J_center -> square
+    in
+    match justif with
+      | J_left | J_top -> port_char ^ name
+      | J_right |J_bottom -> name ^ port_char
+      | J_center -> name
+
+  let draw_port name ptype justif (Coord (x,y)) (Size l as s) canevas =
+    let new_port_name = decorate_port_name name ptype justif in
+    P.paint_text new_port_name Orient_H (Coord (x,y+l/4)) s justif NoStyle canevas
+
 
   let parse_component_line lib (line: string) (comp: componentContext) canevas =
     let first = String.get line 0 in
@@ -290,7 +325,7 @@ struct
     ~regexp_str: "Text (GLabel|HLabel|Label|Notes) +([\\d-]+) +([\\d-]+) +([\\d-]+)    +([\\d-]+) +(~|UnSpc|3State|Output|Input|BiDi)"
     ~extract_fun: (fun sp ->
       let c = Coord (int_of_string sp.(2), int_of_string sp.(3)) and
-          orient = orientation_of_int(int_of_string sp.(4)) and
+          orient = justify_of_string sp.(4) and
           size = Size (int_of_string sp.(5)) in
       let labeltype =
         match sp.(1) with (* TODO: draw the connectors *)
@@ -309,13 +344,14 @@ struct
       let pcolor = match t with
         | TextNote ->  Green
         | WireLabel -> Red in
-      P.paint_text ~kolor:pcolor line l.orient l.c l.size J_left NoStyle c
+      P.paint_text ~kolor:pcolor line (orientation_of_justify l.orient) l.c l.size J_left NoStyle c
     end
     | PortLabel (prange, ptype) ->
        let pcolor = match prange with
          | Glabel -> Green
          | Hlabel -> Red in
-       P.paint_text ~kolor:pcolor line l.orient l.c l.size J_left NoStyle c
+       let new_port_name = decorate_port_name line (swap_type ptype) l.orient in
+       P.paint_text ~kolor:pcolor new_port_name (orientation_of_justify l.orient) l.c l.size l.orient NoStyle c
 
   let parse_sheet_line line context canevas =
     match (String.get line 0) with
@@ -340,7 +376,7 @@ struct
                 line
                 ~onerror:(fun () -> canevas)
                 ~process:(fun (name, ptype, justif, c, s) ->
-                P.paint_text name Orient_H c s justif NoStyle canevas)
+                draw_port name ptype justif c s canevas)
           )
        )
     | 'S' ->
