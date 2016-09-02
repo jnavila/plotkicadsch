@@ -290,7 +290,7 @@ struct
       P.paint_text pin_text new_orient new_contact pin_size new_J NoStyle pname_ctx
     else pname_ctx
 
-  let plot_elt {parts;prim} rotfun comp part ctx =
+  let plot_elt rotfun comp part ctx {parts;prim} =
     if (parts = 0) || (parts = part) then
       match prim with
       | Polygon (t, pts) -> plot_poly rotfun t pts ctx
@@ -301,19 +301,14 @@ struct
     else
       ctx
 
-  let rec plot_elts rotfun elts comp part ctx =
-    match elts with
-    | [] -> ctx
-    | elt::tl -> plot_elts rotfun tl comp part (plot_elt elt rotfun comp part ctx)
-
   exception Component_Not_Found of string
 
   let plot_comp lib comp_name part rotation origin (ctx:P.t) =
     let () = Printf.printf "trying to plot component %s %d\n" comp_name part in
-    let rot : (relcoord -> coord) = rotate rotation origin in
+    let rot = rotate rotation origin in
     let thecomp =
       try
         Lib.find lib comp_name
       with _ -> raise (Component_Not_Found comp_name) in
-    plot_elts rot thecomp.graph thecomp part ctx
+    List.fold_left (plot_elt rot thecomp part) ctx thecomp.graph
 end
