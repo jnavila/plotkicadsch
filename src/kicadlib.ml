@@ -212,7 +212,7 @@ struct
         |Some t -> t
         |None -> failwith ("Error parsing pin :" ^ line)
       end
-
+    | ' ' | '$' -> {parts=(-1); prim=Field}
     | _ -> Printf.printf "throwing away line '%s'\n" line; {parts=(-1); prim=Field}
 
   let rec append_line ic lib comp_option acc =
@@ -230,7 +230,9 @@ struct
          else
            append_lib ic lib
       | Some comp ->
-         if (String.compare line "ENDDEF" = 0) then
+         if (String.compare line "DRAW" = 0) || (String.compare line "ENDDRAW" = 0) then
+           append_line ic lib comp_option acc
+         else if (String.compare line "ENDDEF" = 0) then
            (let comp = {comp with graph=(List.rev acc)} in
             List.iter (fun name -> Lib.replace lib name comp) comp.names;
             append_lib ic lib)
@@ -304,7 +306,6 @@ struct
   exception Component_Not_Found of string
 
   let plot_comp lib comp_name part rotation origin (ctx:P.t) =
-    let () = Printf.printf "trying to plot component %s %d\n" comp_name part in
     let rot = rotate rotation origin in
     let thecomp =
       try

@@ -152,13 +152,15 @@ struct
   let parse_transfo =
     Schparse.create_parse_fun
       ~name: "Component transformation"
-      ~regexp_str: "	(0|1|-1) +(0|1|-1) +(0|1|-1) +(0|1|-1) +"
+      ~regexp_str: "	([\\d-]+) +([\\d-]+) +([\\d-]+)( +([\\d-]+))?"
       ~extract_fun:
       (fun sp ->
-        let a= int_of_string sp.(1) and
-            b= int_of_string sp.(2) and
-            c= int_of_string sp.(3) and
-            d= int_of_string sp.(4) in
+        let a = int_of_string sp.(1) and
+            b = int_of_string sp.(2) and
+            c = int_of_string sp.(3) and
+            d = try
+                  int_of_string sp.(5)
+              with _ -> -5000 in
         Some (a, b, c, d)
       )
 
@@ -238,16 +240,18 @@ struct
          line
          ~onerror: ( fun () -> comp, canevas)
          ~process: (fun (a, b, c, d) ->
-           let {component; unit; origin; fields} = comp in
-           match component, unit, origin with
-           | Some sym, Some unit, Some origin ->
-              let transfo = ((a, b), (c, d)) in
-              let canevas' = CPainter.plot_comp lib sym unit origin transfo canevas in
-              let draw = draw_field origin transfo in
-              comp, List.fold_left draw canevas' fields
-           | _ ->
-              (Printf.printf "cannot plot component with missing definitions !";
-               comp, canevas))
+           if d > -5000 then
+             let {component; unit; origin; fields} = comp in
+             match component, unit, origin with
+             | Some sym, Some unit, Some origin ->
+                let transfo = ((a, b), (c, d)) in
+                let canevas' = CPainter.plot_comp lib sym unit origin transfo canevas in
+                let draw = draw_field origin transfo in
+                comp, List.fold_left draw canevas' fields
+             | _ ->
+                (Printf.printf "cannot plot component with missing definitions !";
+                 comp, canevas)
+           else comp,canevas)
 
     | _ -> comp, canevas
 
