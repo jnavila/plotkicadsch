@@ -11,7 +11,9 @@ let stream_fold f stream init =
 let () =
   let init = ref (initial_context ()) in
   let speclist = [
-      ("-l", Arg.String (fun lib -> init := add_lib lib !init ), "specify component library");
+      ("-l", Arg.String (fun lib ->Printf.printf "parsing lib %s\n" lib;
+                                let ic = open_in lib in
+                                init := add_lib ic !init ), "specify component library");
       ("-f", Arg.String(fun sch ->
                let fileout = sch ^ ".svg" in
                let ic = open_in sch in

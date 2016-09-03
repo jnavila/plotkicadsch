@@ -28,7 +28,7 @@ module type SchPainter = sig
 
   val initial_context : unit -> schContext
 
-  val add_lib: string -> schContext -> schContext
+  val add_lib: in_channel -> schContext -> schContext
 
   val parse_line :
     String.t -> schContext -> schContext

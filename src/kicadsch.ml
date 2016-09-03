@@ -453,9 +453,7 @@ struct
   let output_context (lib, ctxt, canevas) oc =
     P.write oc canevas
 
-  let add_lib filename (lib, ctxt, canevas) =
-    Printf.printf "parsing lib %s\n" filename;
-    let ic = open_in filename in
+  let add_lib ic (lib, ctxt, canevas) =
     (CPainter.append_lib ic lib), ctxt, canevas
 
 end
