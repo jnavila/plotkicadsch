@@ -178,7 +178,6 @@ struct
         o in
     P.paint_text text o' (Coord (x', y')) s j stl context
 
-
   let right_arrow = "\xE2\x96\xB6"
   let left_arrow = "\xE2\x97\x80"
   let diamond = "\xE2\x97\x86"
@@ -197,7 +196,7 @@ struct
       | J_right |J_bottom -> name ^ port_char
       | J_center -> name
 
-  let draw_port name ptype justif (Coord (x,y)) (Size l as s) canevas =
+  let draw_port ?(kolor=Black) name ptype justif (Coord (x,y)) (Size l as s) canevas =
     let new_port_name = decorate_port_name name ptype justif in
     P.paint_text new_port_name Orient_H (Coord (x,y+l/4)) s justif NoStyle canevas
 
@@ -354,8 +353,8 @@ struct
        let pcolor = match prange with
          | Glabel -> Green
          | Hlabel -> Red in
-       let new_port_name = decorate_port_name line (swap_type ptype) l.orient in
-       P.paint_text ~kolor:pcolor new_port_name (orientation_of_justify l.orient) l.c l.size l.orient NoStyle c
+       let new_type = (swap_type ptype) in
+       draw_port ~kolor:pcolor line new_type l.orient l.c l.size c
 
   let parse_sheet_line line context canevas =
     match (String.get line 0) with
