@@ -39,6 +39,7 @@ struct
 
   type schParseContext =
       BodyContext
+    | DescrContext of coord
     | WireContext
     | ComponentContext of componentContext
     | SheetContext of rect option
@@ -326,6 +327,24 @@ struct
         | _ -> TextLabel TextNote in
       Some {c; size; orient; labeltype})
 
+  let parse_descr_header =
+    Schparse.create_parse_fun
+      ~name: "Descr header"
+      ~regexp_str: "Descr ([^ ]+) +(\\d+) +(\\d+)"
+      ~extract_fun: (fun sp ->
+        let x = int_of_string sp.(2) in
+        let y = int_of_string sp.(3) in
+        Some (sp.(1), Coord (x,y))
+      )
+
+  let parse_descr_body =
+    Schparse.create_parse_fun
+      ~name: "Description line"
+      ~regexp_str: "([^ ]+) \"?([^\"]*)\"?"
+      ~extract_fun: (fun sp ->
+        Some (sp.(1), sp.(2))
+      )
+
   (* Printing things *)
 
   let print_text_line line l c =
@@ -342,6 +361,21 @@ struct
          | Hlabel -> Red in
        let new_type = (swap_type ptype) in
        draw_port ~kolor:pcolor line new_type l.orient l.c l.size c
+
+  let plot_page_frame (Coord (x, y)) canevas =
+    let b_width = 100 in
+    let f_width = 4000 in
+    let bot_x = x - b_width in
+    let bot_y = y - b_width in
+    let frame_x = bot_x - f_width in
+    canevas |>
+      P.paint_rect (Coord (b_width, b_width)) (Coord (x -2*b_width, y - 2*b_width)) |>
+      P.paint_rect (Coord (frame_x, bot_y - 150)) (Coord (f_width, 150)) |>
+      P.paint_rect (Coord (frame_x, bot_y - 250)) (Coord (f_width, 100)) |>
+      P.paint_rect (Coord (frame_x, bot_y - 550)) (Coord (f_width, 400))
+
+
+  (* high level parsing *)
 
   let parse_sheet_line line context canevas =
     match (String.get line 0) with
@@ -394,6 +428,12 @@ struct
   let parse_body_line (lib, c,canevas) line =
     if (String.compare line "$Comp" = 0) then
       (ComponentContext {component=None; unit=None; origin=None;fields= []}), canevas
+    else if starts_with line "$Descr" then
+      parse_descr_header
+                      line
+                      ~onerror: (fun () -> BodyContext, canevas)
+                      ~process: (fun (form, (Coord (x,y) as f_left)) ->
+                        DescrContext (Coord ((x - 4000), (y - 100))), (plot_page_frame f_left canevas))
     else if starts_with line "Wire" then
       WireContext, canevas
     else if starts_with line "NoConn" then
@@ -423,8 +463,32 @@ struct
     else
       BodyContext, canevas
 
+  let parse_descr_line line (Coord (x,y)) canevas =
+    parse_descr_body
+      line
+      ~onerror:(fun () -> canevas)
+      ~process:(fun (field, content) ->
+        let title_text content x y s =
+          P.paint_text content Orient_H (Coord (x, y)) (Size s) J_left NoStyle canevas in
+        match field with
+        | "Sheet" -> title_text ("Page: " ^ content) x (y - 200) 50
+        | "Title" -> title_text ("Title: "^ content) x (y - 50) 100
+        | "Rev" -> title_text ("Rev: "^ content) (x + 3200) (y - 50) 100
+        | "Date" -> title_text ("Date: " ^ content) (x + 500) (y -200) 50
+        | "Comp"  -> title_text (content) (x + 1000) (y -200) 50
+        | "Comment1"  -> title_text (content) (x) (y - 400) 50
+        | "Comment2"  -> title_text (content) (x + 2000) (y - 400) 50
+        | "Comment3"  -> title_text (content) (x) (y - 300) 50
+        | "Comment4"  -> title_text (content) (x + 2000) (y - 300) 50
+        | _ -> canevas)
+
   let parse_line line (lib, c,canevas) =
     match c with
+    | DescrContext page_size as context ->
+       if (String.compare line "$EndDescr" = 0) then
+         (lib, BodyContext, canevas)
+       else
+         lib, context, (parse_descr_line line page_size canevas)
     | ComponentContext comp ->
        if (String.compare line "$EndComp" = 0) then
          (lib, BodyContext, canevas)
