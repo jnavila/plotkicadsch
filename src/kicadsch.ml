@@ -93,19 +93,6 @@ struct
 
   (* Parsing a sch file *)
 
-  (** This function generates a parsing function which outputs an 'a
-      option Note that some lines may not yield any correct output, so
-      the output is an option.
-  let create_sch_parse_fun ~name ~regexp_str ~processing =
-    let regexp = Pcre.regexp regexp_str in
-    let parser ?context line c =
-      try
-        let sp = Pcre.extract ~rex:regexp line in
-        processing context sp c
-      with Not_found ->
-        (Printf.printf "could not match %s (%s)\n" name line; c)
-    in parser
-  **)
   let parse_F =
     Schparse.create_parse_fun
     ~name:"Component F"
