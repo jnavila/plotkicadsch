@@ -378,12 +378,25 @@ struct
     | 'U' -> context, canevas
     | _ -> (Printf.printf "unknown sheet line (%s)" line; context,canevas)
 
+  let starts_with str p =
+    let len = String.length p in
+    if String.length str < len then
+      false
+    else
+      let rec comp_rec str p i =
+        if String.get str i <> String.get p i then
+          false
+        else if i = len - 1 then
+          true
+        else comp_rec str p (i + 1) in
+      comp_rec str p 0
+
   let parse_body_line (lib, c,canevas) line =
     if (String.compare line "$Comp" = 0) then
       (ComponentContext {component=None; unit=None; origin=None;fields= []}), canevas
-    else if (String.compare (String.sub line 0 4) "Wire" = 0) then
+    else if starts_with line "Wire" then
       WireContext, canevas
-    else if (String.compare (String.sub line 0 6) "NoConn" = 0) then
+    else if starts_with line "NoConn" then
       BodyContext, parse_noconn_line
                      line
                      ~onerror:(fun () -> canevas)
@@ -393,7 +406,7 @@ struct
                          P.paint_line (Coord (x - delta, y - delta)) (Coord (x + delta, y + delta)) |>
                          P.paint_line (Coord (x - delta, y + delta)) (Coord (x + delta, y - delta)))
 
-    else if (String.length line > 10) && (String.compare (String.sub line 0 10) "Connection" = 0) then
+    else if starts_with line "Connection" then
       BodyContext, parse_conn_line
                      line
                      ~onerror:(fun () -> canevas)
@@ -402,7 +415,7 @@ struct
                        P.paint_circle ~fill:Black (Coord (x,y)) delta canevas)
     else if (String.compare line "$Sheet" = 0) then
       SheetContext None, canevas
-    else if (String.length line > 5) && (String.compare (String.sub line 0 4) "Text" = 0) then
+    else if starts_with line "Text" then
       TextContext (parse_text_line
                      line
                      ~onerror:(fun () -> None)
