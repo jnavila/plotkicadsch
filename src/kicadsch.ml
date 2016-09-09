@@ -8,6 +8,7 @@ struct
   type portrange = Glabel | Hlabel
   type labeluse = WireLabel | TextNote
   type porttype = UnSpcPort | ThreeStatePort | OutputPort | InputPort | NoPort | BiDiPort
+  type linetype = Wire | Bus | Line | WireEntry | BusEntry
 
   let porttype_of_string = function
     | "U"| "UnSpc" -> UnSpcPort
@@ -40,7 +41,7 @@ struct
   type schParseContext =
       BodyContext
     | DescrContext of coord
-    | WireContext
+    | WireContext of linetype
     | ComponentContext of componentContext
     | SheetContext of rect option
     | TextContext of label option
@@ -188,7 +189,6 @@ struct
     let new_port_name = decorate_port_name name ptype justif in
     P.paint_text new_port_name Orient_H (Coord (x,y+l/4)) s justif NoStyle canevas
 
-
   let parse_component_line lib (line: string) (comp: componentContext) canevas =
     let first = String.get line 0 in
     match first with
@@ -239,8 +239,22 @@ struct
                 (Printf.printf "cannot plot component with missing definitions !";
                  comp, canevas)
            else comp,canevas)
-
     | _ -> comp, canevas
+
+  let parse_wire_wire =
+    Schparse.create_parse_fun
+      ~name:"Wire header"
+      ~regexp_str: "(Wire|Entry) (Wire|Bus|Notes) (Line|Note)"
+      ~extract_fun:
+      (fun sp ->
+        match sp.(1), sp.(2), sp.(3) with
+        | "Wire", "Wire", "Line" -> Some Wire
+        | "Wire", "Bus", "Line"  -> Some Bus
+        | "Wire", "Wire", "Note" -> Some Line
+        | "Entry", "Wire", "Line"  -> Some WireEntry
+        | "Entry", "Bus", "Line"   -> Some BusEntry
+        | _, _, _ -> None
+      )
 
   let parse_wire_line = Schparse.create_parse_fun
     ~name:"Wire"
@@ -434,8 +448,12 @@ struct
                       ~onerror: (fun () -> BodyContext, canevas)
                       ~process: (fun (form, (Coord (x,y) as f_left)) ->
                         DescrContext (Coord ((x - 4000), (y - 100))), (plot_page_frame f_left canevas))
-    else if starts_with line "Wire" then
-      WireContext, canevas
+    else if (starts_with line "Wire") || (starts_with line "Entry") then
+      (parse_wire_wire
+        line
+        ~onerror: (fun () -> BodyContext)
+        ~process: (fun lt -> WireContext lt))
+      , canevas
     else if starts_with line "NoConn" then
       BodyContext, parse_noconn_line
                      line
@@ -498,7 +516,7 @@ struct
     | BodyContext ->
        let c, canevas = parse_body_line (lib, c,canevas) line
        in lib, c, canevas
-    | WireContext ->
+    | WireContext l ->
        lib, BodyContext, (parse_wire_line
                             line
                             ~onerror: (fun () -> canevas)
