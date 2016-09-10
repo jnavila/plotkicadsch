@@ -26,6 +26,8 @@ let color_of_kolor k =
   | Black -> "#000000"
   | Red -> "#FF0000"
   | Green -> "#00FF00"
+  | Blue -> "#0000CD"
+  | Brown -> "#800000"
   in `Color (cstring, None)
 
 (** SVG coord type conversion from int **)
@@ -45,12 +47,14 @@ let paint_text ?(kolor=Black) t (o:orientation) (Coord (x,y)) (Size size) justif
   let color = color_of_kolor kolor in
   (text ~a:([a_x_list [coord_of_int x] ; a_y_list [coord_of_int y] ; a_font_size size_in; j; a_transform[`Rotate orient]; a_fill color]@s) [pcdata t]) :: c
 
-let paint_line (Coord (x1, y1)) (Coord (x2, y2)) c =
+let paint_line ?(kolor=Black) ?(width=(Size 2)) (Coord (x1, y1)) (Coord (x2, y2)) c =
   let x1_in = float_of_int x1 in
   let y1_in = float_of_int y1 in
   let x2_in = float_of_int x2 in
   let y2_in = float_of_int y2 in
-  (polyline ~a:([a_points [(x1_in, y1_in); (x2_in, y2_in) ]; a_stroke_width (2., Some `Px); a_stroke ( color_of_kolor Black) ]) []) :: c
+  let Size width = width in
+  let fwidth = float_of_int width in
+  (polyline ~a:([a_points [(x1_in, y1_in); (x2_in, y2_in) ]; a_stroke_width (fwidth, Some `Px); a_stroke ( color_of_kolor kolor) ]) []) :: c
 
 let paint_rect ?(fill=NoColor) (Coord(x, y)) (Coord (dim_x, dim_y)) c =
   (rect ~a:[ a_x (coord_of_int x); a_y (coord_of_int y); a_width (coord_of_int dim_x); a_height (coord_of_int dim_y);a_fill (color_of_kolor fill); a_stroke_width (1., Some `Px); a_stroke (color_of_kolor Black)] []) :: c

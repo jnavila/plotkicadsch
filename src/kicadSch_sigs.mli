@@ -3,7 +3,7 @@ type coord = Coord of (int*int)
 type size = Size of int
 type justify = J_left | J_right | J_center | J_bottom | J_top
 type style = Bold | Italic | BoldItalic | NoStyle
-type kolor = NoColor | Black | Green | Red
+type kolor = NoColor | Black | Green | Red | Blue | Brown
 type transfo = ((int * int) * (int * int))
 
 module type Painter = sig
@@ -12,7 +12,7 @@ module type Painter = sig
 
   val paint_text: ?kolor: kolor -> String.t -> orientation -> coord -> size -> justify -> style -> t -> t
 
-  val paint_line: coord -> coord -> t -> t
+  val paint_line: ?kolor: kolor -> ?width: size -> coord -> coord -> t -> t
 
   val paint_circle: ?fill: kolor -> coord -> int -> t -> t
 

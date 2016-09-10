@@ -520,7 +520,12 @@ struct
        lib, BodyContext, (parse_wire_line
                             line
                             ~onerror: (fun () -> canevas)
-                            ~process: (fun (c1, c2) -> P.paint_line c1 c2 canevas))
+                            ~process: (fun (c1, c2) ->
+                              let kolor, width  = match l with
+                                | Bus | BusEntry -> Blue, Size 5
+                                | Wire | WireEntry -> Brown, Size 2
+                                | Line -> Black, Size 2
+                              in P.paint_line ~kolor ~width c1 c2 canevas))
     | SheetContext sc ->
        if (String.compare line "$EndSheet" = 0) then
          (lib, BodyContext, canevas)
