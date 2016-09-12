@@ -19,8 +19,9 @@ Library drawsch
   BuildDepends:
     pcre,
     tyxml,
-    str
-
+    str,
+    lwt,
+    lwt.unix
 
 Executable plotkicadsch
   Path:       src
@@ -29,7 +30,9 @@ Executable plotkicadsch
   CompiledObject: best
   BuildDepends:
     kicadsch,
-    tyxml
+    tyxml,
+    lwt,
+    lwt.unix
 
 Executable test
   Path: test

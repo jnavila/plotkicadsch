@@ -66,5 +66,7 @@ let get_context () = []
 
 let write oc c =
   let svg_doc = svg  ~a:[a_width (29.7, Some `Cm); a_height (21., Some `Cm); a_viewBox (0.,0., 11693., 8268.)] c in
-  let fmt = Format.formatter_of_out_channel oc in
-  Tyxml.Svg.pp () fmt svg_doc
+  let s = Format.asprintf "%a" (Tyxml.Svg.pp ()) svg_doc in
+(*  let fmt = Format.formatter_of_out_channel oc in
+  Tyxml.Svg.pp () fmt svg_doc *)
+  Lwt_io.write oc s

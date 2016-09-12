@@ -3,6 +3,7 @@ struct
   module CPainter = Kicadlib.MakePainter(P)
 
   open KicadSch_sigs
+  open Lwt
 
   type rect = { c:coord ; dim:coord }
   type portrange = Glabel | Hlabel
@@ -538,7 +539,7 @@ struct
        |Some v -> (lib, BodyContext, print_text_line line v canevas)
 
   let output_context (lib, ctxt, canevas) oc =
-    P.write oc canevas
+     P.write oc canevas
 
   let add_lib ic (lib, ctxt, canevas) =
     (CPainter.append_lib ic lib), ctxt, canevas

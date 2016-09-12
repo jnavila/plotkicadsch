@@ -20,7 +20,7 @@ module type Painter = sig
 
   val get_context: unit -> t
 
-  val write: out_channel -> t -> unit
+  val write: Lwt_io.output_channel -> t -> unit Lwt.t
 end
 
 module type SchPainter = sig
@@ -33,7 +33,7 @@ module type SchPainter = sig
   val parse_line :
     String.t -> schContext -> schContext
 
-  val output_context: schContext -> out_channel -> unit
+  val output_context: schContext -> Lwt_io.output_channel -> unit Lwt.t
 
 end
 

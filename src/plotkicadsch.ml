@@ -1,5 +1,6 @@
 module SvgSchPainter = Kicadsch.MakeSchPainter(SvgPainter)
 open SvgSchPainter
+open Lwt
 
 let stream_fold f stream init =
   let result = ref init in
@@ -8,21 +9,27 @@ let stream_fold f stream init =
     stream;
   !result
 
+let process_file init sch =
+  let slen = String.length sch in
+  let fileout = (String.sub sch 0 (slen - 4)) ^ ".svg" in
+  Lwt_io.open_file Lwt_io.Output fileout >>=
+    fun o -> Lwt_io.open_file Lwt_io.Input sch >>=
+    fun i -> Lwt_stream.fold parse_line (Lwt_io.read_lines i) init >>=
+    fun endcontext ->  output_context endcontext o >>=
+    fun _ -> Lwt_io.close i >>=
+    fun _ -> Lwt_io.close o
+
+
 let () =
-  let init = ref (initial_context ()) in
+  let init = ref @@ initial_context () in
+  let files = ref [] in
   let speclist = [
       ("-l", Arg.String (fun lib ->Printf.printf "parsing lib %s\n" lib;
                                 let ic = open_in lib in
                                 init := add_lib ic !init ), "specify component library");
       ("-f", Arg.String(fun sch ->
-               let fileout = sch ^ ".svg" in
-               let ic = open_in sch in
-               let oc = open_out fileout in
-               let ss () = Stream.from (fun _ -> try Some (input_line ic) with _ -> None) in
-               let endcontext = stream_fold parse_line  (ss ()) !init in
-               output_context endcontext oc;
-               Printf.printf "processing %s to %s\n" sch fileout;
-               close_out oc;
-               close_in ic), "sch file to process")] in
+                 files := sch::!files
+               ), "sch file to process")] in
   let usage_msg = "plotkicadsch prints Kicad sch files to svg" in
-  Arg.parse speclist print_endline usage_msg
+  Arg.parse speclist print_endline usage_msg;
+  Lwt_main.run (Lwt_list.iter_p (process_file !init) !files)
