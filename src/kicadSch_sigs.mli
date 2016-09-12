@@ -28,7 +28,7 @@ module type SchPainter = sig
 
   val initial_context : unit -> schContext
 
-  val add_lib: in_channel -> schContext -> schContext
+  val add_lib: string Lwt_stream.t -> schContext -> schContext Lwt.t
 
   val parse_line :
     String.t -> schContext -> schContext
@@ -43,7 +43,7 @@ sig
   type t
   type drawContext
   val lib: unit -> t
-  val append_lib: in_channel -> t -> t
+  val append_lib: string Lwt_stream.t -> t -> t Lwt.t
   val plot_comp: t -> string -> int -> coord -> transfo -> drawContext -> drawContext
 
 end

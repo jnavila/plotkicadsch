@@ -1,4 +1,6 @@
 open KicadSch_sigs
+open Lwt
+
 module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) =
 struct
   type relcoord = RelCoord of (int*int)
@@ -216,38 +218,39 @@ struct
     | _ -> Printf.printf "throwing away line '%s'\n" line; {parts=(-1); prim=Field}
 
   let rec append_line ic lib comp_option acc =
-    try
-      let line = input_line ic in
-      match comp_option with
-      | None ->
-         if (String.length line > 3) &&
-              (String.compare (String.sub line 0 3) "DEF" = 0) then
-           match parse_def line with
-           | Some (name, draw_pnum, draw_pname ) ->
-              let new_comp = {names =[name];draw_pnum; draw_pname; graph=[]} in
-              append_line ic lib (Some new_comp ) []
-           | None -> failwith ("could not parse component definition " ^ line)
-         else
-           append_lib ic lib
-      | Some comp ->
-         if (String.compare line "DRAW" = 0) || (String.compare line "ENDDRAW" = 0) then
-           append_line ic lib comp_option acc
-         else if (String.compare line "ENDDEF" = 0) then
-           (let comp = {comp with graph=(List.rev acc)} in
-            List.iter (fun name -> Lib.replace lib name comp) comp.names;
-            append_lib ic lib)
-         else if (String.length line > 6) &&
-              (String.compare (String.sub line 0 5) "ALIAS" = 0) then
-           match (parse_alias line) with
-           | None -> failwith (Printf.sprintf "ALIAS line %s parse error\n" line)
-           | Some name_list ->
-              append_line ic lib (Some {comp with names=(List.rev_append comp.names name_list)}) acc
-
-         else
-           let prim = parse_line line in
-           append_line ic lib comp_option (prim::acc)
-    with
-      End_of_file -> lib
+    Lwt_stream.get ic >>= fun lineopt ->
+    match lineopt with
+    |  Some line ->
+        begin
+          match comp_option with
+          | None ->
+             if (String.length line > 3) &&
+                  (String.compare (String.sub line 0 3) "DEF" = 0) then
+               match parse_def line with
+               | Some (name, draw_pnum, draw_pname ) ->
+                  let new_comp = {names =[name];draw_pnum; draw_pname; graph=[]} in
+                  append_line ic lib (Some new_comp ) []
+               | None -> failwith ("could not parse component definition " ^ line)
+             else
+               append_lib ic lib
+          | Some comp ->
+             if (String.compare line "DRAW" = 0) || (String.compare line "ENDDRAW" = 0) then
+               append_line ic lib comp_option acc
+             else if (String.compare line "ENDDEF" = 0) then
+               (let comp = {comp with graph=(List.rev acc)} in
+                List.iter (fun name -> Lib.replace lib name comp) comp.names;
+                append_lib ic lib)
+             else if (String.length line > 6) &&
+                       (String.compare (String.sub line 0 5) "ALIAS" = 0) then
+               match (parse_alias line) with
+               | None -> failwith (Printf.sprintf "ALIAS line %s parse error\n" line)
+               | Some name_list ->
+                  append_line ic lib (Some {comp with names=(List.rev_append comp.names name_list)}) acc
+             else
+               let prim = parse_line line in
+               append_line ic lib comp_option (prim::acc)
+        end
+    | None -> Lwt.return lib
 
   and append_lib ic lib = append_line ic lib None []
 

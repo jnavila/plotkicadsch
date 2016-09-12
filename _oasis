@@ -34,6 +34,17 @@ Executable plotkicadsch
     lwt,
     lwt.unix
 
+Executable plotgitsch
+  Path:       src
+  BuildTools: ocamlbuild
+  MainIs:     plotgitsch.ml
+  CompiledObject: best
+  BuildDepends:
+    kicadsch,
+    lwt,
+    lwt.unix,
+    git.unix
+
 Executable test
   Path: test
   Build$: flag(tests)

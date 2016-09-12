@@ -542,6 +542,7 @@ struct
      P.write oc canevas
 
   let add_lib ic (lib, ctxt, canevas) =
-    (CPainter.append_lib ic lib), ctxt, canevas
+    (CPainter.append_lib ic lib)
+    >|= (fun c -> c, ctxt, canevas)
 
 end
