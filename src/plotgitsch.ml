@@ -62,11 +62,13 @@ let process_file initctx svg_name content =
   Lwt_io.close o
 
 let rev_parse r =
-  Lwt_process.pread ("", [|"git" ;"rev-parse"; r|]) >|= (fun s ->
-    Git_unix.Hash_IO.of_hex @@ try Str.first_chars s 40 with Invalid_argument _ -> failwith (r ^ " does not exist"))
+  Lwt_process.pread ("", [|"git" ;"rev-parse"; r|]) >>= (fun s ->
+    try Lwt.return @@ Git_unix.Hash_IO.of_hex @@ Str.first_chars s 40 with exn -> Lwt.fail exn)
 
-let delete_file fn =
-  Lwt_process.exec ("", [| "rm" ; "-f"; fn|])
+let to_unit l = ()
+
+let delete_file fnl =
+  fnl >>=  fun fn -> Lwt_process.exec ("", [| "rm" ; "-f"; fn |]) >|= to_unit
 
 let build_svg_name aref aschname =
   let fileout = (String.sub aschname 0 (String.length aschname - 4)) ^ ".svg" in
@@ -79,7 +81,7 @@ let () =
   let from_context = find_libs from_ref >>= read_libs (initial_context ()) from_ref in
   let to_context = find_libs to_ref >>= read_libs (initial_context ()) to_ref in
   let from_content = read_file [filename] from_ref in
-  let  to_content = read_file [filename] to_ref in
+  let to_content = read_file [filename] to_ref in
   let from_filename = build_svg_name from_ref filename in
   let to_filename = build_svg_name to_ref filename in
   let first = from_filename >>= fun n -> process_file from_context n from_content in
@@ -89,8 +91,11 @@ let () =
                      from_filename >>= fun fname ->
                      to_filename >>= fun tname ->
                      both >>= fun _ ->
-                     Lwt_process.exec ("", [| "git-imgdiff"; fname ; tname|]) >>= fun _ ->
-                     delete_file fname >>= fun _ ->
-                     delete_file tname  >|= fun _ ->
-                     () in
-   Lwt_main.run compare_them
+                     Lwt_process.exec ("", [| "git-imgdiff"; fname ; tname|]) >|= fun _ ->
+                     ()
+  in
+  let tidy = Lwt.join [
+                 Lwt.catch (fun () -> compare_them >>= fun () -> delete_file from_filename) (function _ -> Lwt.return_unit);
+                 Lwt.catch (fun () -> compare_them >>= fun () -> delete_file to_filename) (function _ -> Lwt.return_unit)
+               ] in
+  Lwt_main.run tidy
