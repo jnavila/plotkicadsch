@@ -25,26 +25,27 @@ let find_cache_libs t =
     List.map (fun e -> e.name)
 
 let fs = FS.create ()
+exception InternalGitError of string
 
 let find_libs ref =
   fs >>= fun t ->
   ref >>= fun h ->
   Search.find t h (`Commit(`Path [])) >>= function
-  | None     -> failwith "path not found"
+  | None     -> Lwt.fail(InternalGitError "path not found")
   | Some sha ->
-     FS.read t sha >|= function
-     | Some Git.Value.Tree t -> find_cache_libs t
-     | Some a -> Git.Value.pp Fmt.stdout a;failwith "not a tree!"
-     | None -> Git.Hash.pp Fmt.stdout sha; failwith "sha not found"
+     FS.read t sha >>= function
+     | Some Git.Value.Tree t -> Lwt.return @@ find_cache_libs t
+     | Some a -> Lwt.fail (InternalGitError "not a tree!")
+     | None -> Lwt.fail (InternalGitError "sha not found")
 
 let read_file file ref =
   fs >>= fun t ->
   ref >>= fun h ->
     Search.find t h (`Commit (`Path file)) >>= function
-    | None     -> failwith "file not found"
+    | None     -> Lwt.fail (InternalGitError ("file not found: " ^ (String.concat "/" file)))
     | Some sha -> FS.read_exn t sha >>= function
                  | Git.Value.Blob b -> Lwt.return (Git.Blob.to_raw b)
-                 | _ -> failwith "not a valid path"
+                 | _ -> Lwt.fail(InternalGitError "not a valid path")
 
 let read_libs context ref (lib_list:string list)  =
   Lwt_list.map_p (fun l -> read_file [l] ref) lib_list >|=
@@ -62,8 +63,9 @@ let process_file initctx svg_name content =
   Lwt_io.close o
 
 let rev_parse r =
-  Lwt_process.pread ("", [|"git" ;"rev-parse"; r|]) >>= (fun s ->
-    try Lwt.return @@ Git_unix.Hash_IO.of_hex @@ Str.first_chars s 40 with exn -> Lwt.fail exn)
+  let open Lwt_process in
+  pread ~stderr:`Dev_null ("", [|"git" ;"rev-parse"; r|]) >>= (fun s ->
+    try Lwt.return @@ Git_unix.Hash_IO.of_hex @@ Str.first_chars s 40 with exn -> Lwt.fail (InternalGitError ("cannot parse rev " ^ r)))
 
 let to_unit l = ()
 
@@ -91,11 +93,16 @@ let () =
                      from_filename >>= fun fname ->
                      to_filename >>= fun tname ->
                      both >>= fun _ ->
-                     Lwt_process.exec ("", [| "git-imgdiff"; fname ; tname|]) >|= fun _ ->
-                     ()
+                     Lwt_process.exec ("", [| "git-imgdiff"; fname ; tname|]) >|= fun _ -> ()
   in
-  let tidy = Lwt.join [
-                 Lwt.catch (fun () -> compare_them >>= fun () -> delete_file from_filename) (function _ -> Lwt.return_unit);
-                 Lwt.catch (fun () -> compare_them >>= fun () -> delete_file to_filename) (function _ -> Lwt.return_unit)
-               ] in
+  let tidy = Lwt.join @@
+               List.map (fun f ->
+                   Lwt.catch
+                     (fun () ->
+                       compare_them >>= fun () ->
+                       delete_file f)
+                     (function
+                      | InternalGitError s -> Printf.printf "%s\n" s;Lwt.return_unit
+                      | _ -> Printf.printf "unknown error\n";Lwt.return_unit))
+                        [from_filename; to_filename] in
   Lwt_main.run tidy
