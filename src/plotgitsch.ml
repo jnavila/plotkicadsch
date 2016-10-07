@@ -25,27 +25,28 @@ let find_cache_libs t =
     List.map (fun e -> e.name)
 
 let fs = FS.create ()
+
 exception InternalGitError of string
 
-let find_libs ref =
+let with_path theref path action =
   fs >>= fun t ->
-  ref >>= fun h ->
-  Search.find t h (`Commit(`Path [])) >>= function
+  theref >>= fun h ->
+  Search.find t h (`Commit(`Path path)) >>= function
   | None     -> Lwt.fail(InternalGitError "path not found")
   | Some sha ->
      FS.read t sha >>= function
-     | Some Git.Value.Tree t -> Lwt.return @@ find_cache_libs t
-     | Some a -> Lwt.fail (InternalGitError "not a tree!")
+     | Some a -> action a
      | None -> Lwt.fail (InternalGitError "sha not found")
 
-let read_file file ref =
-  fs >>= fun t ->
-  ref >>= fun h ->
-    Search.find t h (`Commit (`Path file)) >>= function
-    | None     -> Lwt.fail (InternalGitError ("file not found: " ^ (String.concat "/" file)))
-    | Some sha -> FS.read_exn t sha >>= function
-                 | Git.Value.Blob b -> Lwt.return (Git.Blob.to_raw b)
-                 | _ -> Lwt.fail(InternalGitError "not a valid path")
+let find_libs theref =
+  with_path theref [] @@ function
+     | Git.Value.Tree t -> Lwt.return @@ find_cache_libs t
+     | _ -> Lwt.fail (InternalGitError "not a tree!")
+
+let read_file file theref =
+  with_path theref file @@ function
+    | Git.Value.Blob b -> Lwt.return (Git.Blob.to_raw b)
+    | _ -> Lwt.fail(InternalGitError "not a valid path")
 
 let read_libs context ref (lib_list:string list)  =
   Lwt_list.map_p (fun l -> read_file [l] ref) lib_list >|=
@@ -93,7 +94,7 @@ let () =
                      from_filename >>= fun fname ->
                      to_filename >>= fun tname ->
                      both >>= fun _ ->
-                     Lwt_process.exec ("", [| "git-imgdiff"; fname ; tname|]) >|= fun _ -> ()
+                     Lwt_process.exec ("", [| "git-imgdiff"; fname ; tname|]) >|= to_unit
   in
   let tidy = Lwt.join @@
                List.map (fun f ->
