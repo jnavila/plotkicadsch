@@ -49,11 +49,11 @@ let read_file file theref =
     | _ -> Lwt.fail(InternalGitError "not a valid path")
 
 let read_libs context ref (lib_list:string list)  =
-  Lwt_list.map_p (fun l -> read_file [l] ref) lib_list >|=
-    String.concat "\n"  >|=
-    Str.split (Str.regexp "\n") >|=
-    Lwt_stream.of_list >>=
-    fun sl -> add_lib sl context
+  Lwt_list.map_p (fun l -> read_file [l] ref) lib_list >|= (fun contents ->
+  let content = String.concat "\n"  contents in
+  let lines = Str.split (Str.regexp "\n") content in
+  Lwt_stream.of_list lines) >>= fun sl ->
+  add_lib sl context
 
 let process_file initctx svg_name content =
   initctx >>= fun init ->
