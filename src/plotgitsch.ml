@@ -58,10 +58,8 @@ let read_libs context ref (lib_list:string list)  =
 let process_file initctx svg_name content =
   initctx >>= fun init ->
   content >|= Str.split (Str.regexp "\n") >>= fun lines ->
-  Lwt_io.open_file Lwt_io.Output svg_name >>= fun o ->
   Lwt_stream.fold parse_line (Lwt_stream.of_list lines) init >>= fun endcontext ->
-  output_context endcontext o >>= fun _ ->
-  Lwt_io.close o
+  Lwt_io.with_file Lwt_io.Output svg_name (fun o -> output_context endcontext o)
 
 let rev_parse r =
   let open Lwt_process in
