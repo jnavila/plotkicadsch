@@ -20,6 +20,7 @@ struct
     | Circle of int * circle
     | Pin of pin
     | Text of {c: relcoord; text: string; s: size}
+    | Arc of {s: size; radius: int; sp: relcoord; ep: relcoord}
 
   type elt = {
       parts: int;
@@ -181,8 +182,28 @@ struct
         Some {parts; prim = Text {c; text; s} }
       )
 
+  let parse_arc =
+    create_lib_parse_fun
+      ~name:"Arc"
+      ~regexp_str:"A +[\\d-]+ +[\\d-]+ +([\\d-]+) +[\\d-]+ +[\\d-]+ +([\\d-]+) +([\\d-]+) +([\\d-]+) +(N?)(F?) +([\\d-]+) +([\\d-]+) +([\\d-]+) +([\\d-]+)"
+      ~processing:
+      ( fun sa ->
+      let sp = RelCoord (int_of_string sa.(7), int_of_string sa.(8)) in
+      let ep = RelCoord (int_of_string sa.(9), int_of_string sa.(10)) in
+      let s = Size (int_of_string sa.(4)) in
+      let radius = int_of_string sa.(1) in
+      let parts = int_of_string sa.(2) in
+      Some {parts; prim = Arc {sp;ep;s;radius}})
+
+
   let parse_line line =
     match (String.get line 0) with
+    |'A' ->
+      begin
+        match parse_arc line with
+        | Some a -> a
+        | None -> failwith ("Error parsing arc " ^ line)
+      end
     |'P' ->
       begin
         match parse_Poly line with
@@ -303,6 +324,7 @@ struct
       | Field -> ctx
       | Pin p -> plot_pin rotfun p comp ctx
       | Text {c; text; s} -> P.paint_text text Orient_H (rotfun c) s J_left NoStyle ctx
+      | Arc {radius; sp; ep} -> P.paint_arc (rotfun sp) (rotfun ep) radius ctx
     else
       ctx
 
