@@ -275,8 +275,8 @@ struct
 
   and append_lib ic lib = append_line ic lib None []
 
-  let ( +$) (Coord(x1, y1)) (Coord(x2, y2)) = Coord((x1 + x2), (y1 + y2))
-  let ( *$) ((a,b),(c,d)) (RelCoord(x, y)) = Coord((a * x + b * y), (c * x + d * y))
+  let ( +$) (Coord(x1, y1)) (RelCoord(x2, y2)) = Coord((x1 + x2), (y1 + y2))
+  let ( *$) ((a,b),(c,d)) (RelCoord(x, y)) = RelCoord((a * x + b * y), (c * x + d * y))
 
   let rotate (origin: coord) (rotation:transfo) (relpoint:relcoord): coord =
      origin +$ rotation *$ relpoint
