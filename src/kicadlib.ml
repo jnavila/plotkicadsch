@@ -90,15 +90,23 @@ struct
   let parse_Poly =
     create_lib_parse_fun
       ~name:"polygon"
-      ~regexp_str:"P ([\\d]+) ([\\d]+) (0|1|2) ([\\d]+) +(([\\d-]+ [\\d-]+ +)+)N?F?"
+      ~regexp_str:"P ([\\d]+) ([\\d]+) (0|1|2) ([\\d]+) +(([\\d-]+ [\\d-]+ +)+)N?(F?)"
     ~processing:
     (fun sp ->
       let thickness = int_of_string sp.(3) in
+      let finish = String.compare sp.(7) "F" = 0 in
       let coords_str = Str.split (Str.regexp " +") sp.(5) in
       let coords = List.map int_of_string coords_str in
       let coord_list = make_double [] coords in
+      let corner_list =
+        if finish then
+          match coord_list with
+          | [_] | [] -> coord_list
+          | c::_ -> c :: (List.rev coord_list)
+        else
+          List.rev coord_list in
       let parts = int_of_string sp.(2) in
-      Some ({parts; prim=Polygon (thickness, List.rev coord_list)})
+      Some ({parts; prim=Polygon (thickness, corner_list)})
     )
 
   let parse_rect =
