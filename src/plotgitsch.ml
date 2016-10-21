@@ -63,7 +63,7 @@ let process_file initctx svg_name content =
 
 let rev_parse r =
   let open Lwt_process in
-  pread ~stderr:`Dev_null ("", [|"git" ;"rev-parse"; r|]) >>= (fun s ->
+  pread ~stderr:`Dev_null ("", [|"git" ;"rev-parse"; r ^ "^{commit}"|]) >>= (fun s ->
     try Lwt.return @@ Git_unix.Hash_IO.of_hex @@ Str.first_chars s 40 with exn -> Lwt.fail (InternalGitError ("cannot parse rev " ^ r)))
 
 let to_unit l = ()
