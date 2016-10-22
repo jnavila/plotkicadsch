@@ -35,7 +35,7 @@ struct
 
   type componentContext = {
       component: string option;
-      unit: int option;
+      unitnr: int option;
       origin: coord option;
       fields: field list }
 
@@ -194,43 +194,43 @@ struct
     let first = String.get line 0 in
     match first with
     | 'F' ->
-       let fields =
+       let nc =
          parse_F
            line
-           ~onerror: (fun () -> comp.fields)
+           ~onerror: (fun () -> comp)
            ~process: (fun (visible, text, o, co, s, j, stl) ->
              if visible then
-               {text; o; co; s; j; stl}::comp.fields else comp.fields) in
-       {comp with fields}, canevas
+               {comp with fields={text; o; co; s; j; stl}::comp.fields} else comp) in
+       nc, canevas
     | 'U' ->
-       let unit =
+       let nc =
          parse_U
            line
-           ~onerror: (fun () ->  comp.unit)
-           ~process: (fun (u, _, _) -> Some u ) in
-       {comp with unit}, canevas
+           ~onerror: (fun () ->  comp)
+           ~process: (fun (u, _, _) -> {comp with unitnr=Some u} ) in
+       nc, canevas
     | 'P' ->
-       let origin =
+       let nc =
          parse_P
            line
-           ~onerror: (fun () -> comp.origin)
-           ~process: (fun c -> Some c)
-       in {comp with origin}, canevas
+           ~onerror: (fun () -> comp)
+           ~process: (fun c -> {comp with origin=Some c})
+       in nc, canevas
     | 'L' ->
-       let component =
+       let nc =
          parse_L
            line
-           ~onerror: (fun () ->  comp.component)
-           ~process: ( fun (s, _) -> Some s) in
-       {comp with component}, canevas
+           ~onerror: (fun () ->  comp)
+           ~process: ( fun (s, _) -> {comp with component=Some s}) in
+       nc, canevas
     | '	' ->
        parse_transfo
          line
          ~onerror: ( fun () -> comp, canevas)
          ~process: (fun (a, b, c, d) ->
            if d > -5000 then
-             let {component; unit; origin; fields} = comp in
-             match component, unit, origin with
+             let {component; unitnr; origin; fields} = comp in
+             match component, unitnr, origin with
              | Some sym, Some unit, Some origin ->
                 let transfo = ((a, b), (c, d)) in
                 let canevas' = CPainter.plot_comp lib sym unit origin transfo canevas in
@@ -442,7 +442,7 @@ struct
 
   let parse_body_line (lib, c,canevas) line =
     if (String.compare line "$Comp" = 0) then
-      (ComponentContext {component=None; unit=None; origin=None;fields= []}), canevas
+      (ComponentContext {component=None; unitnr=None; origin=None;fields= []}), canevas
     else if starts_with line "$Descr" then
       parse_descr_header
                       line
