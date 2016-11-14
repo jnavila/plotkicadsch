@@ -1,8 +1,7 @@
 open KicadSch_sigs
 open Lwt
 
-module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) =
-struct
+module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = struct
   type relcoord = RelCoord of (int*int)
   type circle = {center: relcoord; radius: int}
   type pin_orientation = P_L | P_R | P_U | P_D
@@ -291,7 +290,7 @@ struct
 
   let rec plot_poly rotfun thickness points ctx =
     match points with
-    | []  | [_]-> ctx
+    | []  | [_] -> ctx
     | c1::c2::tl ->
        let c1' = rotfun c1 in
        let c2' = rotfun c2 in
