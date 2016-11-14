@@ -32,7 +32,7 @@ let with_path theref path action =
   fs >>= fun t ->
   theref >>= fun h ->
   Search.find t h (`Commit(`Path path)) >>= function
-  | None     -> Lwt.fail(InternalGitError "path not found")
+  | None     -> Lwt.fail(InternalGitError ("path not found: /" ^ (String.concat "/" path)))
   | Some sha ->
      FS.read t sha >>= function
      | Some a -> action a
