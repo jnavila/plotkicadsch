@@ -3,4 +3,4 @@ S test
 B _build/src
 B _build/test
 
-PKG pcre tyxml oUnit lwt git
+PKG pcre tyxml oUnit lwt git base64

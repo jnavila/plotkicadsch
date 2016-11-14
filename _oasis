@@ -21,7 +21,8 @@ Library drawsch
     tyxml,
     str,
     lwt,
-    lwt.unix
+    lwt.unix,
+    base64
 
 Executable plotkicadsch
   Path:       src

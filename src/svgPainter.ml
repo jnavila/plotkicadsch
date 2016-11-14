@@ -3,7 +3,7 @@ open Tyxml_svg
 open Svg_types
 open KicadSch_sigs
 
-type content = [ `Polyline | `Text | `Svg | `Rect | `Circle |`Path ]
+type content = [ `Polyline | `Text | `Svg | `Rect | `Circle |`Path | `Image ]
 type t =  content elt list
 
 let style_attr_of_style = function
@@ -67,6 +67,12 @@ let paint_arc ?(fill=NoColor) (Coord(x1, y1)) (Coord (x2, y2)) radius c =
   let sweepflag = if y1>=y2 then 0 else 1 in
   ( path ~a:[a_d (Printf.sprintf "M%d,%d A%d,%d 0 0,%d %d,%d" x1 y1 radius radius sweepflag x2 y2); a_fill (color_of_kolor fill); a_stroke_width (1., Some`Px); a_stroke (color_of_kolor Black)] []
   ) :: c
+
+let paint_image (Coord (x,y)) scale b c =
+  Printf.printf "painting image! %f %d %d" scale x y;
+  (image ~a:[a_x (coord_of_int x); a_y (coord_of_int y); a_height ((100. *. scale), Some `Percent); a_width ((100. *. scale), Some `Percent); a_xlink_href @@ "data:image/png;base64," ^ (B64.encode (Buffer.contents b)) ] [])
+  :: c
+
 let get_context () = []
 
 let write oc c =

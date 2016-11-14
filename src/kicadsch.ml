@@ -39,6 +39,8 @@ struct
       origin: coord option;
       fields: field list }
 
+  type bitmapContext = { pos:coord option; scale:float option; data: Buffer.t option}
+
   type schParseContext =
       BodyContext
     | DescrContext of coord
@@ -46,6 +48,7 @@ struct
     | ComponentContext of componentContext
     | SheetContext of rect option
     | TextContext of label option
+    | BitmapContext of bitmapContext
 
   type schContext = CPainter.t * schParseContext * P.t
 
@@ -360,6 +363,20 @@ struct
         Some (sp.(1), sp.(2))
       )
 
+  let parse_bm_pos =
+    Schparse.create_parse_fun
+      ~name: "Bitmap Pos"
+      ~regexp_str: "Pos ([\\d-]+) ([\\d-]+)"
+      ~extract_fun: (fun sp ->
+        Some (Coord (int_of_string sp.(1), int_of_string sp.(2))))
+
+  let parse_bm_scale =
+    Schparse.create_parse_fun
+      ~name: "Bitmap Scale"
+      ~regexp_str: "Scale ([\\d-.]+)"
+      ~extract_fun: (fun sp ->
+        Some (float_of_string sp.(1)))
+
   (* Printing things *)
 
   let print_text_line line l c =
@@ -389,6 +406,10 @@ struct
       P.paint_rect (Coord (frame_x, bot_y - 250)) (Coord (f_width, 100)) |>
       P.paint_rect (Coord (frame_x, bot_y - 550)) (Coord (f_width, 400))
 
+  let plot_bitmap b context =
+    match b.pos, b.scale, b.data with
+    | Some p, Some s, Some d -> P.paint_image p s d context
+    | _ -> context
 
   (* high level parsing *)
 
@@ -443,6 +464,8 @@ struct
   let parse_body_line (lib, c,canevas) line =
     if (String.compare line "$Comp" = 0) then
       (ComponentContext {component=None; unitnr=None; origin=None;fields= []}), canevas
+    else if (String.compare line "$Bitmap" = 0) then
+      BitmapContext {pos=None;scale=None;data=None}, canevas
     else if starts_with line "$Descr" then
       parse_descr_header
                       line
@@ -501,6 +524,25 @@ struct
         | "Comment4"  -> title_text (content) (x + 2000) (y - 300) 50
         | _ -> canevas)
 
+
+  let append_bm_line data_opt line =
+    match data_opt with
+    | None -> failwith "not adding data to None image"
+    | Some buf ->
+       Str.split (Str.regexp " +") line |>
+       List.map (fun s -> Scanf.sscanf s "%x" char_of_int ) |>
+       List.iter (Buffer.add_char buf)
+
+  let parse_bitmap_line line b =
+    if starts_with line "Pos" then
+      { b with pos = parse_bm_pos line ~onerror: (fun () -> b.pos) ~process: (fun c -> Some c)}
+    else if starts_with line "Scale" then
+      { b with scale = parse_bm_scale line ~onerror: (fun () -> b.scale) ~process: (fun s -> Some s)}
+    else if starts_with line "Data" then
+      { b with data = Some (Buffer.create 1000) }
+    else
+      (append_bm_line b.data line; b)
+
   let parse_line line (lib, c,canevas) =
     match c with
     | DescrContext page_size as context ->
@@ -534,9 +576,15 @@ struct
          let nsc, o = parse_sheet_line line sc canevas in
          lib, SheetContext nsc, o
     | TextContext sc ->
-       match sc with
-       |None -> failwith "TextContext without definition!"
-       |Some v -> (lib, BodyContext, print_text_line line v canevas)
+       (match sc with
+       | None -> failwith "TextContext without definition!"
+       | Some v -> (lib, BodyContext, print_text_line line v canevas))
+    | BitmapContext b ->
+       if (String.compare line "$EndBitmap" = 0) then
+         (lib, BodyContext, plot_bitmap b canevas)
+       else
+         let nb = parse_bitmap_line line b in
+         lib, BitmapContext nb, canevas
 
   let output_context (lib, ctxt, canevas) oc =
      P.write oc canevas

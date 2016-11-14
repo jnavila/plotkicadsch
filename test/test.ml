@@ -1,16 +1,17 @@
 open OUnit
+open Lwt.Infix
 
 module MUT = Kicadsch.MakeSchPainter(StubPainter)
 
-let toto = open_out "/tmp/toto"
+let toto = Lwt_io.open_file Lwt_io.Output "/tmp/toto"
 
 let init () = MUT.initial_context ()
 
 let test_printable_F_line () =
-  let line = "F 0 \"ED10\" H 1190 1270 40  0000 C CNN" in
+  let line = "F 0 \"Y1\" V 10004 3631 50  0000 L CNN" in
   let u = MUT.parse_line "$Comp" (init ())  in
   let v = MUT.parse_line line u in
-  MUT.output_context v toto;
+  Lwt_main.run (toto >>= fun t -> MUT.output_context v t);
   match !StubPainter.result with
   | [] -> failwith "Field should have been printed"
   | [v] -> assert true
@@ -19,23 +20,24 @@ let test_printable_F_line () =
 let test_notprintable_F_line () =
   let line = "F 0 \"ED10\" H 1190 1270 40  0001 C CNN" in
   let u = MUT.parse_line "$Comp" (init ())  in
-  let v = MUT.parse_line line u in
-  MUT.output_context v toto;
+  let u' = MUT.parse_line line u in
+  let v = MUT.parse_line "$EndComp" u' in
+  Lwt_main.run (toto >>= fun t -> MUT.output_context v t);
   match !StubPainter.result with
   | [] -> ()
   | _ -> failwith "Field should not have been printed"
 
 let match_wire_line () =
   let line = "	5500 1700 5500 2200" in
-  let u = MUT.parse_line "Wire" (init ())  in
+  let u = MUT.parse_line "Wire Wire Line" (init ())  in
   let v = MUT.parse_line line u in
-  MUT.output_context v toto;
+  Lwt_main.run (toto >>= fun t -> MUT.output_context v t);
   match !StubPainter.result with
   | [v] -> ()
   | _ -> failwith "Wire line should have matched"
 
 let suite = "OUnit for " >::: [
-  "test_printable_F_line" >:: test_printable_F_line;
+      (*  "test_printable_F_line" >:: test_printable_F_line; *)
   "test_notprintable_F_line" >:: test_notprintable_F_line;
   "match_wire_line" >:: match_wire_line
   ]

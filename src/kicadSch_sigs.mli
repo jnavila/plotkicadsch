@@ -18,6 +18,8 @@ module type Painter = sig
 
   val paint_rect: ?fill: kolor -> coord -> coord -> t -> t
 
+  val paint_image: coord -> float -> Buffer.t -> t -> t
+
   val paint_arc: ?fill:kolor -> coord -> coord -> int -> t -> t
 
   val get_context: unit -> t
