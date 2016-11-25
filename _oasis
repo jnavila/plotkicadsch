@@ -22,7 +22,8 @@ Library drawsch
     str,
     lwt,
     lwt.unix,
-    base64
+    base64,
+    sha
 
 Executable plotkicadsch
   Path:       src
