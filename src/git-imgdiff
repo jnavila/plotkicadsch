@@ -1,0 +1,4 @@
+#!/bin/bash
+PIPE=$(mktemp -u)
+(! compare -metric RMSE $2 $1 png:${PIPE} 2> /dev/null) &&  (montage -geometry +4+4 $2 $PIPE $1 png:- | display -title "$1" -)
+rm $PIPE
