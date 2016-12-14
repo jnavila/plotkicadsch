@@ -79,8 +79,6 @@ let find_schematics thefs =
     let module M = (val thefs: Simple_FS) in
   M.list_files (fun name -> ends_with name ".sch")
 
-
-
 let read_libs context thefs lib_list  =
   let module M = (val thefs: Simple_FS) in
   Lwt_list.map_p (fun l -> M.get_content [l]) lib_list >|= (fun contents ->
@@ -156,6 +154,8 @@ let doit from_fs to_fs =
 
 let () =
   match Array.length Sys.argv with
+  | 1 -> let from_ref = rev_parse "HEAD" in
+        doit (git_fs from_ref) (true_fs ".")
   | 2 ->
     let from_ref = rev_parse Sys.argv.(1) in
     doit (git_fs from_ref) ( true_fs ".")
@@ -164,4 +164,4 @@ let () =
      let to_ref = rev_parse Sys.argv.(2) in
      doit (git_fs from_ref) (git_fs to_ref)
   | _ ->
-    Printf.printf "%s needs 1 or 2 revs to compare\n" Sys.argv.(0); exit 3
+    Printf.printf "%s needs 0, 1 or 2 revs to compare\n" Sys.argv.(0); exit 3
