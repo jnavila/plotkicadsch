@@ -385,7 +385,12 @@ struct
       let pcolor = match t with
         | TextNote ->  Green
         | WireLabel -> Red in
-      P.paint_text ~kolor:pcolor line (orientation_of_justify l.orient) l.c l.size J_left NoStyle c
+      let Size s = l.size in
+      let Coord (x,y) = l.c in
+      let paint_line c' (line_index,l') =
+        P.paint_text ~kolor:pcolor l' (orientation_of_justify l.orient) (Coord(x, y+line_index*s)) l.size J_left NoStyle c' in
+      let lines = Str.split (Str.regexp "\\\\n") line in
+      List.fold_left paint_line c (List.mapi (fun i l -> (i,l)) lines)
     end
     | PortLabel (prange, ptype) ->
        let pcolor = match prange with
