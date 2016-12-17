@@ -88,8 +88,9 @@ With this one, you should be able to diff your project and get a more understand
 The textual diffs between revisions of a schematic sheet have cleared up a bit with the filters, but most of us poor humans on't read the schematic format in the text. To put it bluntly, except when only properties of parts are changing, the text diff is totally useless. The good news is that there is a better visual solution: diffing visually the schematic.
 
 For this feature, two components are needed:
+
  * imagemagick's `compare` utility to compare two images, wrapped into a custom script
- * a utility I developed specially for this purpose https://github.com/jnavila/plotkicadsch[Plotgitsch].
+ * a utility I developed specially for this purpose [Plotgitsch]https://github.com/jnavila/plotkicadsch.
 
 First, let's create a script that allows to compare two images. If the images are identical, the script just finishes, otherwise a three-pane image is displayed, showing the visual diff at the center and the revisions on each side. Here it is:
 
@@ -103,11 +104,13 @@ rm $PIPE
 Save this file as `git-imgdiff` script, make executable and available in your `$PATH`. You can also find it in the repo of `plotkicadsch`.
 
 Now you can `plotgitsch` can be invoked in your project's root directory in three forms:
+
  1. `plotgitsch rev1 rev2`, `rev1` and `rev2` being two references to commits ( tags, branch or any commitish form). The differing schematic sheets between the two revisions will be compared.
  2. `plotgitsch rev` performs the comparison between the working copy and the given revision. You can see quickly what changed since the last tagged prototype.
  3. `plotgitsch` alone, which performs the comparison between the working copy and the HEAD. This is by far the most used one. Very helpful for checking what's changed before committing.
 
-plotgitsch's plotting capabilities are not supposed to match those of Kicad, but to allow to quickly review the changes. The real job of comparing the two svg plots of schematic is done by the script which is quite rough, so feel free to share a better alternative for this part.
+Plotgitsch's plotting capabilities are not supposed to match those of Kicad, but to allow to quickly review the changes. The real job of comparing the two svg plots of schematic is done by the script which is quite rough, so feel free to share a better alternative for this part.
+
 
 ## Archiving the Project
 
