@@ -19,7 +19,7 @@ Of course, you can choose to put other files of your project, such as datasheets
 
 On the other side, there are files that you surely don't want to follow in version, because they are some by-products of the schematic. This encompasses typically intermediate files between the schematic and the manufacturing files.
 
-I usually add these lines  to my `.gitignore`
+I usually add these lines to my `.gitignore`
 
 
 ```bash
@@ -35,7 +35,7 @@ I usually add these lines  to my `.gitignore`
 
 Kicad generally has a nice behavior with respect to version controlling, such as taking care to not upset the structure of a schematic file when a small change is introduced. This lands very well in the version control world because when reviewing the changes between two versions, the changes are limited to some small chunks of the files. Nevertheless, some other behaviors are really annoying for version control. One of these behaviors is the fact of changing the content of the files for administrative purpose, without any causal or visual relationship with user's actions.
 
-Fortunately, to solve this issue, there is a very handy feature of git that allows to filter files when they are about to be commited and changed again if needed when they are checked out. This feature is called cleaning (when checking in)/smudging (when checking out). Using this feature, we can force the content of certain parts of the files to remain the same in version control, even when these parts are changing in the working copy.
+Fortunately, to solve this issue, there is a very handy feature of git that allows to filter the content of the files when they are about to be commited and changed back if needed when they are checked out. This feature is called cleaning (when checking in)/smudging (when checking out). Using this feature, we can force the content of certain parts of the files to remain the same in version control, even when these parts are changing in the working copy.
 
 ### How it works
 
@@ -43,7 +43,7 @@ The set up in Git is simple: first, we define a `filter` attribute for certain f
 
 ### removing the date in the .pro file
 
-A particulare one is the fact that the project file contains a field that represents the date of last modification of the project, for example, when a lib is added to the project. I don't know where this date is supposed to appear, but the changes in this field are quite disruptive for version control.
+A particular one is the fact that the project file contains a field that represents the date of last modification of the project, for example, when a lib is added to the project. I don't know where this date is supposed to appear, but the changes in this field are quite disruptive for version control.
 
 First, let's define the filter `kicad_project` for the `*.pro` files. We do so by adding a `.gitattributes` file at the root of working copy, with the following content:
 
@@ -52,7 +52,7 @@ First, let's define the filter `kicad_project` for the `*.pro` files. We do so b
 *.pro filter=kicad_project
 ```
 
-After that, we define the filters, and we want it to be available for all the projects where the attribute will be defined, so we define it at the user config level. The `clean` part of the filter (for checkin) will get rid of the date, while the `smudge` part of the filter (checkout) will do nothing.
+After that, we define the filters and we want them to be available for all the projects where the attribute is defined, so we define it at the user config level. The `clean` part of the filter (for checkin) will get rid of the date, while the `smudge` part of the filter (checkout) will do nothing.
 
 Doing nothing is just passing the content through the `cat` command.
 On the other hand, the actual filtering in the `clean` part needs a little more work. Basically, we apply a stream edition, via the `sed` command:
@@ -67,8 +67,7 @@ The `--global` option makes the filter available any every project where the att
 
 #### Power and Flags Numbering
 
-Another annoying behavior in Kicad Schematics is the way the power and flag parts are numbered. These part are part of the schematic but they don't appear in the BOM. So, their numbering is all managed internally by Kicad. Kicad renumbers them all everytime the user requests an annotation of the project, which modifies all those references in all the sheets each time. This feature is only really needed when generating the netlists (only for internal purpose), so it's better keeping the references for all theses phantom parts to "unknown" in the revision control system. Let's kick off another filter for that! First add a new attribute in the `.gitattributes` file:
-
+Another annoying behavior in Kicad Schematics is the way the power and flag parts are numbered. These components are part of the schematic but they don't appear in the BOM. So, their numbering is all managed internally by Kicad. Kicad renumbers them all everytime the user requests an annotation of the project, which modifies all those references in all the sheets each time. This feature is only really needed when generating the netlists (only for internal purpose), so it's better keeping the references for all theses phantom parts to "unknown" in the revision control system. Let's kick off another filter for that! First let's add a new attribute in the `.gitattributes` file:
 
 ```ini
 *.sch filter=kicad_sch
@@ -85,14 +84,14 @@ With this one, you should be able to diff your project and get a more understand
 
 ## Visual Diffing
 
-The textual diffs between revisions of a schematic sheet have cleared up a bit with the filters, but most of us poor humans on't read the schematic format in the text. To put it bluntly, except when only properties of parts are changing, the text diff is totally useless. The good news is that there is a better visual solution: diffing visually the schematic.
+The textual diffs between revisions of a schematic sheet have cleared up a bit with the filters, but most of us poor humans don't read the schematic format in the text. To put it bluntly, except when only properties of parts are changed, the text diff is totally useless. The good news is that there is a better solution: diffing visually the schematic.
 
 For this feature, two components are needed:
 
  * imagemagick's `compare` utility to compare two images, wrapped into a custom script
- * a utility I developed specially for this purpose [Plotgitsch]https://github.com/jnavila/plotkicadsch.
+ * a utility I developed specially for this purpose [Plotgitsch](https://github.com/jnavila/plotkicadsch).
 
-First, let's create a script that allows to compare two images. If the images are identical, the script just finishes, otherwise a three-pane image is displayed, showing the visual diff at the center and the revisions on each side. Here it is:
+First, let's create the script that allows to compare two images. If the images are identical, the script just finishes, otherwise a three-pane image is displayed, showing the visual diff at the center and the revisions on each side. Here it is:
 
 ```bash
 #!/bin/bash
@@ -101,20 +100,20 @@ PIPE=$(mktemp -u)
 rm $PIPE
 ```
 
-Save this file as `git-imgdiff` script, make executable and available in your `$PATH`. You can also find it in the repo of `plotkicadsch`.
+Save this file as `git-imgdiff` script, make it executable and available in your `$PATH`. You can also find it in the repo of `plotkicadsch`.
 
-Now you can `plotgitsch` can be invoked in your project's root directory in three forms:
+Now, `plotgitsch` can be invoked in your project's root directory in three forms:
 
- 1. `plotgitsch rev1 rev2`, `rev1` and `rev2` being two references to commits ( tags, branch or any commitish form). The differing schematic sheets between the two revisions will be compared.
- 2. `plotgitsch rev` performs the comparison between the working copy and the given revision. You can see quickly what changed since the last tagged prototype.
+ 1. `plotgitsch rev1 rev2`, with  `rev1` and `rev2` being two references to commits ( tags, branch or any commitish form). The differing schematic sheets between the two revisions will be compared.
+ 2. `plotgitsch rev` performs the comparison between the working copy and the given revision. You can see quickly spot what changed since the last tagged prototype.
  3. `plotgitsch` alone, which performs the comparison between the working copy and the HEAD. This is by far the most used one. Very helpful for checking what's changed before committing.
 
-Plotgitsch's plotting capabilities are not supposed to match those of Kicad, but to allow to quickly review the changes. The real job of comparing the two svg plots of schematic is done by the script which is quite rough, so feel free to share a better alternative for this part.
+Plotgitsch's plotting capabilities are not supposed to match those of Kicad, but to allow to quickly review the changes. The real job of comparing the two svg plots of schematic is done by the script which is quite rough, so feel free to share a better alternative for this function.
 
 
 ## Archiving the Project
 
-Now that you are managing your project in Git, you can add other types of files to your project such as datasheets, BOMs and any additional files that you see fit. In this case, the Kicad archiving feature becomes less useful, it is more interesting to create your archives from Git. You benefit from the version system and can create archive files of your project at a given revision.
+Now that you are managing your project in Git, you can add other types of files to your project such as datasheets, BOMs and any additional files that you see fit. In this case, the Kicad archiving feature becomes less useful, it is more interesting to create your archives from Git. You benefit from the version system and you can create archive files of your project at a given revision.
 
 Say you want a zip archive of the version 1.0 of your project. Just type:
 
