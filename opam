@@ -21,4 +21,5 @@ depends: ["oasis"
  "base64"
  "sha"
  "git"
+ "git-unix"
 ]
