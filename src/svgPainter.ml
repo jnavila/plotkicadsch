@@ -1,5 +1,5 @@
 
-open Tyxml_svg
+open Tyxml.Svg
 open Svg_types
 open KicadSch_sigs
 
