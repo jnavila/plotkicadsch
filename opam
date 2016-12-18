@@ -5,7 +5,7 @@ maintainer: "Jean-Noel Avila <jn.avila@free.fr>"
 author: "Jean-Noel Avila <jn.avila@free.fr>"
 homepage: "https://jnavila.github.io/plotkicadsch/"
 bug-reports: "https://github.com/jnavila/plotkicadsch/issues"
-license: "GPL2"
+license: "GPL-2.0"
 dev-repo: "https://github.com/jnavila/plotkicadsch.git"
 build: [
   ["oasis" "setup"]
