@@ -1,0 +1,25 @@
+opam-version: "1.2"
+name: "plotkicadsch"
+version: "0.1"
+maintainer: "Jean-Noel Avila <jn.avila@free.fr>"
+author: "Jean-Noel Avila <jn.avila@free.fr>"
+homepage: "https://jnavila.github.io/plotkicadsch/"
+bug-reports: "https://github.com/jnavila/plotkicadsch/issues"
+license: "GPL2"
+dev-repo: "https://github.com/jnavila/plotkicadsch.git"
+build: [
+  ["oasis" "setup"]
+  [make]
+]
+install: [make "install"]
+remove: ["ocamlfind" "remove" "project"]
+depends: ["oasis"
+ "ocamlfind"
+ "pcre"
+ "tyxml"
+ "str"
+ "lwt"
+ "lwt.unix"
+ "base64"
+ "sha"
+]
