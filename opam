@@ -20,4 +20,5 @@ depends: ["oasis"
  "lwt"
  "base64"
  "sha"
+ "git"
 ]
