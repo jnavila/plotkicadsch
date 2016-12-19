@@ -3,6 +3,9 @@ sudo: required
 language: c
 install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-opam.sh
 script: bash -ex .travis-opam.sh
+cache:
+  directories:
+  - $HOME/.opam
 env:
   - OCAML_VERSION=4.04
 os:
