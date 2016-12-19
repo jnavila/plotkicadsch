@@ -8,13 +8,13 @@ Plugins:     META (0.4), DevFiles (0.4)
 
 SourceRepository toto
   Type:     git
-  Location: http://toto.com
+  Location: https://github.com/jnavila/plotkicadsch.git
 
-Library drawsch
+Library plotkicadsch
   Path:       src
   BuildTools: ocamlbuild
-  Modules:     Kicadsch
-  FindlibName: kicadsch
+#  Modules:     Plotkicadsch
+  FindlibName: plotkicadsch
   CompiledObject: byte
   BuildDepends:
     pcre,
@@ -31,7 +31,7 @@ Executable plotkicadsch
   MainIs:     plotkicadsch.ml
   CompiledObject: best
   BuildDepends:
-    kicadsch,
+    plotkicadsch,
     tyxml,
     lwt,
     lwt.unix
@@ -42,7 +42,7 @@ Executable plotgitsch
   MainIs:     plotgitsch.ml
   CompiledObject: best
   BuildDepends:
-    kicadsch,
+    plotkicadsch,
     lwt,
     lwt.unix,
     git.unix

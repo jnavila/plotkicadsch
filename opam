@@ -12,8 +12,8 @@ build: [
   ["./configure" "--prefix=%{prefix}%"]  
   [make]
 ]
-#install: [make "install"]
-remove: ["ocamlfind" "remove" "project"]
+install: [make "install"]
+remove: ["ocamlfind" "remove" "plotkicadsch"]
 depends: ["oasis"
  "ocamlfind"
  "pcre"
