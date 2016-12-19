@@ -12,7 +12,7 @@ build: [
   ["./configure" "--prefix=%{prefix}%"]  
   [make]
 ]
-install: [make "install"]
+#install: [make "install"]
 remove: ["ocamlfind" "remove" "project"]
 depends: ["oasis"
  "ocamlfind"
