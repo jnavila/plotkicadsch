@@ -16,7 +16,7 @@ remove: ["ocamlfind" "remove" "project"]
 depends: ["oasis"
  "ocamlfind"
  "pcre"
- "tyxml"
+ "tyxml" {>= "4.0.0"}
  "lwt"
  "base64"
  "sha"
