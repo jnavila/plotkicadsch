@@ -9,6 +9,7 @@ license: "GPL-2.0"
 dev-repo: "https://github.com/jnavila/plotkicadsch.git"
 build: [
   ["oasis" "setup"]
+  ["./configure" "--prefix=%{prefix}%"]  
   [make]
 ]
 install: [make "install"]
