@@ -76,7 +76,7 @@ Another annoying behavior in Kicad Schematics is the way the power and flag part
 Then let's clean up all the `sch` files before staging:
 
 ```console
-$ git config --global filter.kicad_sch.clean sed -E 's/#(PWR|FLG)[0-9]+/#\1?/'"
+$ git config --global filter.kicad_sch.clean "sed -E 's/#(PWR|FLG)[0-9]+/#\1?/'"
 $ git config --global filter.kicad_sch.smudge cat
 ```
 
