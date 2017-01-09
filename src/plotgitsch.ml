@@ -116,23 +116,24 @@ let delete_file fnl =
 let build_svg_name aprefix aschname =
   aprefix ^ (String.sub aschname 0 (String.length aschname - 4)) ^ ".svg"
 
+let context_from fs = find_libs fs >>= read_libs (initial_context ()) fs
 
 let doit from_fs to_fs =
-  let module From_M = (val from_fs: Simple_FS) in
-  let module To_M = (val to_fs: Simple_FS) in
-  let from_context = find_libs from_fs >>= read_libs (initial_context ()) from_fs in
-  let to_context = find_libs to_fs >>= read_libs (initial_context ()) to_fs in
+  let from_context = context_from from_fs in
+  let to_context = context_from to_fs in
   let from_list = find_schematics from_fs in
   let to_list = find_schematics to_fs in
   let file_list = intersect_lists from_list to_list in
   let display_diff filename =
-    let from_content = From_M.get_content [filename] in
-    let to_content = To_M.get_content [filename] in
     let from_filename = build_svg_name "from_" filename in
     let to_filename = build_svg_name "to_" filename in
-    let first = process_file from_context from_filename from_content in
-    let second = process_file to_context to_filename to_content in
-    let both = Lwt.join [ first; second] in
+    let both_files =
+      List.map (
+          fun (fs, svg_name, context) ->
+          let module M = (val fs: Simple_FS) in
+          let content = M.get_content [filename] in
+          process_file context svg_name content) [(from_fs, from_filename, from_context); (to_fs, to_filename, to_context)] in
+    let both = Lwt.join both_files in
     let compare_them =
       both >>= fun _ ->
       Lwt_process.exec ("", [| "git-imgdiff"; from_filename ; to_filename|]) >|= to_unit in
