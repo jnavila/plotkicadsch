@@ -2,7 +2,7 @@ open KicadSch_sigs
 open Lwt
 
 module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = struct
-  type relcoord = RelCoord of (int*int)
+  type relcoord = RelCoord of int*int
   type circle = {center: relcoord; radius: int}
   type pin_orientation = P_L | P_R | P_U | P_D
   type pin_tag = (string * size)
@@ -299,12 +299,11 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
   let plot_pin rotfun {name;number;length;contact;orient} c ctx =
     let RelCoord (x,y) = contact in
     let Size delta = length in
-    let sci = match orient with
-      | P_R -> (x+delta), y
-      | P_L -> (x-delta), y
-      | P_U -> x, (y+delta)
-      | P_D -> x, (y-delta) in
-    let sc = RelCoord sci in
+    let sc = match orient with
+      | P_R -> RelCoord ((x+delta), y)
+      | P_L -> RelCoord ((x-delta), y)
+      | P_U -> RelCoord (x, (y+delta))
+      | P_D -> RelCoord (x, (y-delta)) in
     let Coord (nxsc, nysc) as new_sc = rotfun sc in
     let Coord (nx, ny) as new_contact = rotfun contact  in
     let new_J, new_orient =

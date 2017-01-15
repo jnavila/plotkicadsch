@@ -1,5 +1,5 @@
 type orientation = Orient_H | Orient_V
-type coord = Coord of (int*int)
+type coord = Coord of int*int
 type size = Size of int
 type justify = J_left | J_right | J_center | J_bottom | J_top
 type style = Bold | Italic | BoldItalic | NoStyle
