@@ -6,16 +6,15 @@ Authors:     Jean-Noël Avila
 License:     GPL-2
 Plugins:     META (0.4), DevFiles (0.4)
 
-SourceRepository toto
+SourceRepository master
   Type:     git
   Location: https://github.com/jnavila/plotkicadsch.git
 
-Library plotkicadsch
+Library kicad_sigs
   Path:       src
   BuildTools: ocamlbuild
-#  Modules:     Plotkicadsch
-  FindlibName: plotkicadsch
-  CompiledObject: byte
+  CompiledObject: best
+  Modules:  KicadSch_sigs
   BuildDepends:
     pcre,
     tyxml,
@@ -31,7 +30,7 @@ Executable plotkicadsch
   MainIs:     plotkicadsch.ml
   CompiledObject: best
   BuildDepends:
-    plotkicadsch,
+    kicad_sigs,
     tyxml,
     lwt,
     lwt.unix
@@ -42,10 +41,20 @@ Executable plotgitsch
   MainIs:     plotgitsch.ml
   CompiledObject: best
   BuildDepends:
-    plotkicadsch,
+    kicad_sigs,
     lwt,
     lwt.unix,
     git.unix
+
+Document API
+  Title:           API reference for Plotkicadsch
+  Type:            OCamlbuild (0.4)
+  InstallDir:      $docdir/api
+  BuildTools:      ocamldoc, ocamlbuild
+  Format:	   HTML
+  Index:           doc/index.txt
+  XOCamlbuildPath: .
+  XOCamlbuildLibraries: kicad_sigs
 
 Executable test
   Path: test
