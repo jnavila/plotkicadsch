@@ -13,7 +13,7 @@ let process_file init sch =
     fun _ -> Lwt_io.close o
 
 let process_libs libs =
- Lwt_list.fold_left_s (fun c l -> add_lib (Lwt_io.lines_of_file l) c) (initial_context ()) libs
+  Lwt_list.fold_left_s (fun c l -> Lwt_stream.fold add_lib (Lwt_io.lines_of_file l) c) (initial_context () ) libs
 
 let () =
   let files = ref [] in

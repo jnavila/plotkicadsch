@@ -81,11 +81,10 @@ let find_schematics thefs =
 
 let read_libs context thefs lib_list  =
   let module M = (val thefs: Simple_FS) in
-  Lwt_list.map_p (fun l -> M.get_content [l]) lib_list >|= (fun contents ->
-  let content = String.concat "\n"  contents in
-  let lines = Str.split (Str.regexp "\n") content in
-  Lwt_stream.of_list lines) >>= fun sl ->
-  add_lib sl context
+  Lwt_list.fold_left_s (fun c l ->
+      M.get_content [l] >|=
+      Str.split (Str.regexp "\n") >|=
+      List.fold_left (fun ctxt l -> add_lib l ctxt) c) (initial_context () ) lib_list
 
 let intersect_lists l1l l2l =
   l1l >>= fun l1 ->

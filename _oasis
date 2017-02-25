@@ -18,11 +18,7 @@ Library kicad_sigs
   BuildDepends:
     pcre,
     tyxml,
-    str,
-    lwt,
-    lwt.unix,
-    base64,
-    sha
+    str
 
 Executable plotkicadsch
   Path:       src

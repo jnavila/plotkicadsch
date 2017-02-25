@@ -77,9 +77,9 @@ module type SchPainter = sig
   (** [initial_context ()] @return an new empty context *)
   val initial_context : unit -> schContext
 
-  (** [add_lib stream context] add the content of lib provided in a
-     [stream] to the [context]. @return the updated context *)
-  val add_lib: string Lwt_stream.t -> schContext -> schContext Lwt.t
+  (** [add_lib line context] parse the content of [line] provided to
+     libs to the [context]. @return the updated context *)
+  val add_lib: string -> schContext -> schContext
 
   (** [parse_line line context] parse a new [line] of schematic and
      update [context]. @return the updated context *)
@@ -107,7 +107,7 @@ sig
 
   (** [append_lib stream context] appends the lib contained in the
      [stream] to the context. @return the updated context *)
-  val append_lib: string Lwt_stream.t -> t -> t Lwt.t
+  val append_lib: string -> t -> t
 
   (** [plot_comp lib name partnumber origin transformation context]
      find in [lib] the component with given [name] and plot the part

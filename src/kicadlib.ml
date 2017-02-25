@@ -55,10 +55,11 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
         in build_hash 0 (String.length s - 1)
     end)
 
-  type t = component Lib.t
+  type t = component Lib.t * component option * elt list
+
   type drawContext = P.t
 
-  let lib () : t = Lib.create 256
+  let lib () : t = Lib.create 256, None, []
 
   let parse_def = create_lib_parse_fun
     ~name:"component header"
@@ -245,11 +246,7 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
     | ' ' | '$' -> {parts=(-1); prim=Field}
     | _ -> Printf.printf "throwing away line '%s'\n" line; {parts=(-1); prim=Field}
 
-  let rec append_line ic lib comp_option acc =
-    Lwt_stream.get ic >>= fun lineopt ->
-    match lineopt with
-    |  Some line ->
-        begin
+  let rec append_lib line (lib, comp_option, acc) =
           match comp_option with
           | None ->
              if (String.length line > 3) &&
@@ -257,30 +254,26 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
                match parse_def line with
                | Some (name, draw_pnum, draw_pname ) ->
                   let new_comp = {names =[name];draw_pnum; draw_pname; graph=[]} in
-                  append_line ic lib (Some new_comp ) []
+                   lib, (Some new_comp ), []
                | None -> failwith ("could not parse component definition " ^ line)
              else
-               append_lib ic lib
+               lib, None, []
           | Some comp ->
              if (String.compare line "DRAW" = 0) || (String.compare line "ENDDRAW" = 0) then
-               append_line ic lib comp_option acc
+               lib, comp_option, acc
              else if (String.compare line "ENDDEF" = 0) then
                (let comp = {comp with graph=(List.rev acc)} in
                 List.iter (fun name -> Lib.replace lib name comp) comp.names;
-                append_lib ic lib)
+                lib, None,[])
              else if (String.length line > 6) &&
                        (String.compare (String.sub line 0 5) "ALIAS" = 0) then
                match (parse_alias line) with
                | None -> failwith (Printf.sprintf "ALIAS line %s parse error\n" line)
                | Some name_list ->
-                  append_line ic lib (Some {comp with names=(List.rev_append comp.names name_list)}) acc
+                  lib, (Some {comp with names=(List.rev_append comp.names name_list)}), acc
              else
                let prim = parse_line line in
-               append_line ic lib comp_option (prim::acc)
-        end
-    | None -> Lwt.return lib
-
-  and append_lib ic lib = append_line ic lib None []
+               lib, comp_option, (prim::acc)
 
   let ( +$) (Coord(x1, y1)) (RelCoord(x2, y2)) = Coord((x1 + x2), (y1 + y2))
   let ( *$) ((a,b),(c,d)) (RelCoord(x, y)) = RelCoord((a * x + b * y), (c * x + d * y))
@@ -336,7 +329,7 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
 
   exception Component_Not_Found of string
 
-  let plot_comp lib comp_name part rotation origin (ctx:P.t) =
+  let plot_comp (lib,_,_) comp_name part rotation origin (ctx:P.t) =
     let rot = rotate rotation origin in
     let thecomp =
       try

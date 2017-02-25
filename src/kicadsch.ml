@@ -594,8 +594,8 @@ struct
   let output_context (lib, ctxt, canevas) oc =
      P.write oc canevas
 
-  let add_lib ic (lib, ctxt, canevas) =
-    (CPainter.append_lib ic lib)
-    >|= (fun c -> c, ctxt, canevas)
+  let add_lib line (lib, ctxt, canevas) =
+    (CPainter.append_lib line lib) |>
+    (fun c -> c, ctxt, canevas)
 
 end
