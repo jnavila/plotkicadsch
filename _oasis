@@ -18,6 +18,7 @@ Library kicad_sigs
   BuildDepends:
     pcre,
     tyxml,
+    base64,
     str
 
 Executable plotkicadsch
@@ -40,7 +41,8 @@ Executable plotgitsch
     kicad_sigs,
     lwt,
     lwt.unix,
-    git.unix
+    git.unix,
+    sha
 
 Document API
   Title:           API reference for Plotkicadsch
