@@ -15,7 +15,7 @@ exception InternalGitError of string
 let git_fs theref =
   (module
      struct
-       let fs = FS.create ()
+       let fs = FS.create ~root:(Sys.getcwd ()) ()
        let theref = theref
        let with_path path action =
          fs >>= fun t ->
