@@ -41,7 +41,7 @@ Executable plotgitsch
     kicad_sigs,
     lwt,
     lwt.unix,
-    git.unix,
+    git-unix,
     sha
 
 Document API
