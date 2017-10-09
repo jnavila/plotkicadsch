@@ -1,0 +1,51 @@
+(jbuild_version 1)
+
+;;(library
+;; ((name kicad_sigs)
+;;  (public_name kicad_sigs)
+;;  (synopsis "")
+;;  (libraries
+;;   (
+;;    pcre
+;;    tyxml
+;;    base64
+;;    str
+;;    )
+;;   )
+;;  )
+;; )
+
+;;(executable
+;; ((public_name plotkicadsch)
+;;  ;;(package     plotkicadsch)
+;;  (name        plotkicadsch)
+;;
+;;  (libraries
+;;   (
+;;    tyxml
+;;    lwt
+;;    lwt.unix
+;;    ))
+;;  (flags (:standard -w  -safe-string))
+;;  )
+;; )
+
+(executables
+ ((names        (plotgitsch plotkicadsch))
+  (public_names (plotgitsch plotkicadsch))
+  (package kicad_sigs)
+ (libraries
+  (
+   git-unix
+   lwt
+   lwt.unix
+   sha
+   pcre
+   tyxml
+   base64
+   str
+   )
+  )
+ (flags (:standard -w  -safe-string))
+ ))
+
