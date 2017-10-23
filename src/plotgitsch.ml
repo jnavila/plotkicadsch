@@ -73,13 +73,13 @@ let ends_with s e =
 
 let find_libs thefs =
   let module M = (val thefs: Simple_FS) in
-  M.list_files (fun name -> ends_with name "-cache.lib")  >|= List.map (fun (n, h) -> n)
+  M.list_files (fun name -> ends_with name "-cache.lib")  >|= List.map (fun (n, _) -> n)
 
 let find_schematics thefs =
     let module M = (val thefs: Simple_FS) in
   M.list_files (fun name -> ends_with name ".sch")
 
-let read_libs context thefs lib_list  =
+let read_libs _ thefs lib_list  =
   let module M = (val thefs: Simple_FS) in
   Lwt_list.fold_left_s (fun c l ->
       M.get_content [l] >|=
@@ -90,14 +90,14 @@ let intersect_lists l1l l2l =
   l1l >>= fun l1 ->
   l2l >|= fun l2 -> (
   List.filter (fun (name2, sha2) -> (List.exists (fun (name1, sha1) -> ((String.equal name1 name2) && (not(String.equal sha2 sha1)))) l1)) l2 |>
-    List.map (fun (n,s) -> n))
+    List.map (fun (n, _) -> n))
 
 
 let process_file initctx svg_name content =
   initctx >>= fun init ->
   content >|= Str.split (Str.regexp "\n") >>= fun lines ->
   Lwt_stream.fold parse_line (Lwt_stream.of_list lines) init >>= fun endcontext ->
-  Lwt_io.with_file Lwt_io.Output svg_name (fun o -> output_context endcontext o)
+  Lwt_io.with_file ~mode:Lwt_io.Output svg_name (fun o -> output_context endcontext o)
 
 let rev_parse r =
   let open Lwt_process in
@@ -105,9 +105,9 @@ let rev_parse r =
     try
       Lwt.return @@ Git_unix.Hash_IO.of_hex @@ Str.first_chars s 40
     with
-      exn -> Lwt.fail (InternalGitError ("cannot parse rev " ^ r)))
+      _ -> Lwt.fail (InternalGitError ("cannot parse rev " ^ r)))
 
-let to_unit l = ()
+let to_unit _ = ()
 
 let delete_file fnl =
   Lwt_unix.unlink fnl

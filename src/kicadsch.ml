@@ -10,15 +10,6 @@ struct
   type porttype = UnSpcPort | ThreeStatePort | OutputPort | InputPort | NoPort | BiDiPort
   type linetype = Wire | Bus | Line | WireEntry | BusEntry
 
-  let porttype_of_string = function
-    | "U"| "UnSpc" -> UnSpcPort
-    | "T"| "3State" -> ThreeStatePort
-    | "O"| "Output" -> OutputPort
-    | "I"| "Input" -> InputPort
-    | "B"| "BiDi" -> BiDiPort
-    | "~" -> NoPort
-    |   _ as s -> Printf.printf "unknown port type %s\n" s; NoPort
-
   type labeltype =
     | PortLabel of portrange * porttype
     | TextLabel of labeluse
@@ -202,6 +193,7 @@ struct
     let new_port_name = decorate_port_name name ptype justif in
     let orient = orientation_of_justify justif in
     let j = if orient = Orient_H then swap_justify justif else justif in
+    let _ = kolor in
     let c = match orient with
     | Orient_H -> Coord (x,y+l/4)
     | Orient_V -> Coord (x+l/4,y) in
@@ -447,7 +439,7 @@ struct
                 ~onerror:(fun () -> canevas)
                 ~process:(fun (number, name, (Size size as s)) ->
                   match context with
-                  | Some {c=Coord (x, y); dim=Coord (dim_x, dim_y)} ->
+                  | Some {c=Coord (x, y); dim=Coord (_, dim_y)} ->
                      let y = if (number = 0) then y else y + dim_y + size in
                      P.paint_text name Orient_H (Coord (x, y))  s J_left NoStyle canevas
                   | None -> canevas)
@@ -481,7 +473,7 @@ struct
         else comp_rec str p (i + 1) in
       comp_rec str p 0
 
-  let parse_body_line (lib, c,canevas) line =
+  let parse_body_line (_, _,canevas) line =
     if (String.compare line "$Comp" = 0) then
       (ComponentContext {component=None; unitnr=None; origin=None;fields= []}), canevas
     else if (String.compare line "$Bitmap" = 0) then
@@ -490,7 +482,7 @@ struct
       parse_descr_header
                       line
                       ~onerror: (fun () -> BodyContext, canevas)
-                      ~process: (fun (form, (Coord (x,y) as f_left)) ->
+                      ~process: (fun (_, (Coord (x,y) as f_left)) ->
                         DescrContext (Coord ((x - 4000), (y - 100))), (plot_page_frame f_left canevas))
     else if (starts_with line "Wire") || (starts_with line "Entry") then
       (parse_wire_wire
@@ -606,7 +598,7 @@ struct
          let nb = parse_bitmap_line line b in
          lib, BitmapContext nb, canevas
 
-  let output_context (lib, ctxt, canevas) oc =
+  let output_context (_, _, canevas) oc =
      P.write oc canevas
 
   let add_lib line (lib, ctxt, canevas) =

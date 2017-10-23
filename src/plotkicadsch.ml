@@ -5,8 +5,8 @@ open Lwt
 let process_file init sch =
   let slen = String.length sch in
   let fileout = (String.sub sch 0 (slen - 4)) ^ ".svg" in
-  Lwt_io.open_file Lwt_io.Output fileout >>=
-    fun o -> Lwt_io.open_file Lwt_io.Input sch >>=
+  Lwt_io.open_file ~mode:Lwt_io.Output fileout >>=
+    fun o -> Lwt_io.open_file ~mode:Lwt_io.Input sch >>=
     fun i -> Lwt_stream.fold parse_line (Lwt_io.read_lines i) init >>=
     fun endcontext ->  output_context endcontext o >>=
     fun _ -> Lwt_io.close i >>=

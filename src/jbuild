@@ -46,5 +46,5 @@
    str
    )
   )
- (flags (:standard -w  -safe-string))
+ (flags (:standard -w -3 -safe-string))
  ))

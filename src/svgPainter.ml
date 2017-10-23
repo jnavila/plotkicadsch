@@ -1,6 +1,5 @@
 
 open Tyxml.Svg
-open Svg_types
 open KicadSch_sigs
 
 type content = [ `Polyline | `Text | `Svg | `Rect | `Circle |`Path | `Image ]

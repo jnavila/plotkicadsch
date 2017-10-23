@@ -1,5 +1,4 @@
 open KicadSch_sigs
-open Lwt
 
 module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = struct
   type relcoord = RelCoord of int*int
@@ -75,12 +74,12 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
 
   (** Parse a poly line
       P Nb parts convert thickness x0 y0 x1 y1 xi yi cc
-   **)
+
   let rec draw_lines coords ctx =
     match coords with
     | []  | [_]-> ctx
     | c1::c2::tl -> draw_lines tl (P.paint_line c1 c2 ctx)
-
+ **)
   let rec make_double ol il =
     match il with
     | [] -> ol
@@ -246,7 +245,7 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
     | ' ' | '$' -> {parts=(-1); prim=Field}
     | _ -> Printf.printf "throwing away line '%s'\n" line; {parts=(-1); prim=Field}
 
-  let rec append_lib line (lib, comp_option, acc) =
+  let append_lib line (lib, comp_option, acc) =
           match comp_option with
           | None ->
              if (String.length line > 3) &&
@@ -319,17 +318,17 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
     if (parts = 0) || (parts = part) then
       match prim with
       | Polygon (t, pts) -> plot_poly rotfun t pts ctx
-      | Circle (w,{center;radius}) -> P.paint_circle (rotfun center) radius ctx
+      | Circle (_,{center;radius}) -> P.paint_circle (rotfun center) radius ctx
       | Field -> ctx
       | Pin p -> plot_pin rotfun p comp ctx
       | Text {c; text; s} -> P.paint_text text Orient_H (rotfun c) s J_left NoStyle ctx
-      | Arc {radius; sp; ep} -> P.paint_arc (rotfun sp) (rotfun ep) radius ctx
+      | Arc {radius; sp; ep; _} -> P.paint_arc (rotfun sp) (rotfun ep) radius ctx
     else
       ctx
 
   exception Component_Not_Found of string
 
-  let plot_comp (lib,_,_) comp_name part rotation origin (ctx:P.t) =
+  let plot_comp (lib,_,_) comp_name part rotation origin (ctx: drawContext) =
     let rot = rotate rotation origin in
     let thecomp =
       try
