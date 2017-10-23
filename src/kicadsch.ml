@@ -3,7 +3,6 @@ struct
   module CPainter = Kicadlib.MakePainter(P)
 
   open KicadSch_sigs
-  open Lwt
 
   type rect = { c:coord ; dim:coord }
   type portrange = Glabel | Hlabel
@@ -66,15 +65,15 @@ struct
     | "I"| "Input" -> InputPort
     | "B"| "BiDi" -> BiDiPort
     | "~" -> NoPort
-    |   _ as s -> Printf.printf "unknown port type %s\n" s; NoPort
+    |   _ as s -> ignore (Lwt_io.eprintf "unknown port type %s\n" s); NoPort
 
   let justify_of_string s =
     match String.get s 0 with
-    | 'L'| '2' -> J_left
-    | 'R'| '0' -> J_right
+    | 'L'| '0' -> J_left
+    | 'R'| '2' -> J_right
     | 'C' -> J_center
-    | 'B' | '1' -> J_bottom
-    | 'T' | '3' -> J_top
+    | 'B' | '3' -> J_bottom
+    | 'T' | '1' -> J_top
     | c -> failwith (Printf.sprintf "no match for justify! (%c)" c)
 
   let style_of_string s =
@@ -156,6 +155,13 @@ struct
               with _ -> -5000 in
         Some (a, b, c, d)
       )
+  let swap_justify = function
+    | J_left -> J_right
+    | J_center -> J_center
+    | J_right -> J_left
+    | J_bottom -> J_top
+    | J_top -> J_bottom
+
 
   let draw_field (Coord (x0, y0)) ((a,b),(c,d)) context {text; o; co; s; j; stl} =
     let Coord (x, y) = co in
@@ -163,13 +169,16 @@ struct
     let x' = (a * xrel + b * yrel) + x0 in
     let y' = (c * xrel + d * yrel) + y0 in
     let o' =
-      if a = 0 then
+      if a = 0 then (* this is a ±90° rotation matrix *)
         match o with
         | Orient_H -> Orient_V
         | Orient_V -> Orient_H
       else
         o in
-    P.paint_text text o' (Coord (x', y')) s j stl context
+    let j' = match o' with
+      | Orient_H -> if ((a = (-1)) or (b = (1))) then (swap_justify j) else j
+      | Orient_V -> if ((c = (1)) or (d = (-1))) then (swap_justify j) else j in
+    P.paint_text text o' (Coord (x', y')) s j' stl context
 
   let right_arrow = "\xE2\x96\xB6"
   let left_arrow = "\xE2\x97\x80"
@@ -180,18 +189,23 @@ struct
     let port_char = match ptype, justif with
       |  UnSpcPort,_ | NoPort,_ -> ""
       | ThreeStatePort,_  | BiDiPort,_ -> diamond
-      | OutputPort,(J_left|J_top) | InputPort, (J_right | J_bottom) -> left_arrow
-      | OutputPort, (J_right | J_bottom) | InputPort, (J_left | J_top) -> right_arrow
+      | OutputPort,(J_right|J_top) | InputPort, (J_left | J_bottom) -> left_arrow
+      | OutputPort, (J_left | J_bottom) | InputPort, (J_right | J_top) -> right_arrow
       | _, J_center -> square
     in
     match justif with
-      | J_left | J_top -> port_char ^ name
-      | J_right |J_bottom -> name ^ port_char
+      | J_right | J_top -> port_char ^ name
+      | J_left |J_bottom -> name ^ port_char
       | J_center -> name
 
   let draw_port ?(kolor=Black) name ptype justif (Coord (x,y)) (Size l as s) canevas =
     let new_port_name = decorate_port_name name ptype justif in
-    P.paint_text new_port_name Orient_H (Coord (x,y+l/4)) s justif NoStyle canevas
+    let orient = orientation_of_justify justif in
+    let j = if orient = Orient_H then swap_justify justif else justif in
+    let c = match orient with
+    | Orient_H -> Coord (x,y+l/4)
+    | Orient_V -> Coord (x+l/4,y) in
+    P.paint_text new_port_name orient c s j NoStyle canevas
 
   let parse_component_line lib (line: string) (comp: componentContext) canevas =
     let first = String.get line 0 in
@@ -243,7 +257,8 @@ struct
                 (Printf.printf "cannot plot component with missing definitions !";
                  comp, canevas)
            else comp,canevas)
-    | _ -> comp, canevas
+    | _ -> (ignore(Lwt_io.eprintf "ignored %s\n" line);
+          comp, canevas)
 
   let parse_wire_wire =
     Schparse.create_parse_fun
@@ -331,13 +346,13 @@ struct
 
   let parse_text_line = Schparse.create_parse_fun
     ~name:"Text header"
-    ~regexp_str: "Text (GLabel|HLabel|Label|Notes) +([\\d-]+) +([\\d-]+) +([\\d-]+)    +([\\d-]+) +(~|UnSpc|3State|Output|Input|BiDi)"
+    ~regexp_str: "Text (GLabel|HLabel|Label|Notes) +([\\d-]+) +([\\d-]+) +([\\d-]+) +([\\d-]+) +(~|UnSpc|3State|Output|Input|BiDi)"
     ~extract_fun: (fun sp ->
       let c = Coord (int_of_string sp.(2), int_of_string sp.(3)) and
           orient = justify_of_string sp.(4) and
           size = Size (int_of_string sp.(5)) in
       let labeltype =
-        match sp.(1) with (* TODO: draw the connectors *)
+        match sp.(1) with
         | "GLabel" -> PortLabel (Glabel, porttype_of_string sp.(6))
         | "HLabel" -> PortLabel (Hlabel, porttype_of_string sp.(6))
         | "Label" -> TextLabel WireLabel
@@ -388,7 +403,7 @@ struct
       let Size s = l.size in
       let Coord (x,y) = l.c in
       let paint_line c' (line_index,l') =
-        P.paint_text ~kolor:pcolor l' (orientation_of_justify l.orient) (Coord(x, y+line_index*s)) l.size J_left NoStyle c' in
+        P.paint_text ~kolor:pcolor l' (orientation_of_justify l.orient) (Coord(x, y+line_index*s)) l.size l.orient NoStyle c' in
       let lines = Str.split (Str.regexp "\\\\n") line in
       List.fold_left paint_line c (List.mapi (fun i l -> (i,l)) lines)
     end
