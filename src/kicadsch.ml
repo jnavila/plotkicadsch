@@ -395,9 +395,10 @@ struct
       let Size s = l.size in
       let Coord (x,y) = l.c in
       let paint_line c' (line_index,l') =
-        P.paint_text ~kolor:pcolor l' (orientation_of_justify l.orient) (Coord(x, y+line_index*s)) l.size l.orient NoStyle c' in
+        P.paint_text ~kolor:pcolor l' (orientation_of_justify l.orient) (Coord(x, (y-line_index*s))) l.size l.orient NoStyle c' in
       let lines = Str.split (Str.regexp "\\\\n") line in
-      List.fold_left paint_line c (List.mapi (fun i l -> (i,l)) lines)
+      let ilines = List.rev lines in
+      List.fold_left paint_line c (List.mapi (fun i l -> (i,l)) ilines)
     end
     | PortLabel (prange, ptype) ->
        let pcolor = match prange with
