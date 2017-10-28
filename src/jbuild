@@ -1,34 +1,5 @@
 (jbuild_version 1)
 
-;;(library
-;; ((name kicad_sigs)
-;;  (public_name kicad_sigs)
-;;  (synopsis "")
-;;  (libraries
-;;   (
-;;    pcre
-;;    tyxml
-;;    base64
-;;    str
-;;    )
-;;   )
-;;  )
-;; )
-
-;;(executable
-;; ((public_name plotkicadsch)
-;;  ;;(package     plotkicadsch)
-;;  (name        plotkicadsch)
-;;
-;;  (libraries
-;;   (
-;;    tyxml
-;;    lwt
-;;    lwt.unix
-;;    ))
-;;  (flags (:standard -w  -safe-string))
-;;  )
-;; )
 
 (executables
  ((names        (plotgitsch plotkicadsch))
@@ -48,3 +19,8 @@
   )
  (flags (:standard -w -3 -safe-string))
  ))
+
+(install
+  ((section bin)
+   (files   (git-imgdiff))
+  ))
