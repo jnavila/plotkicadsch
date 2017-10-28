@@ -484,7 +484,7 @@ struct
                       line
                       ~onerror: (fun () -> BodyContext, canevas)
                       ~process: (fun (_, (Coord (x,y) as f_left)) ->
-                        DescrContext (Coord ((x - 4000), (y - 100))), (plot_page_frame f_left canevas))
+                        DescrContext (Coord ((x - 4000), (y - 100))), (plot_page_frame f_left (P.set_canevas_size x y canevas)))
     else if (starts_with line "Wire") || (starts_with line "Entry") then
       (parse_wire_wire
         line

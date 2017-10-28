@@ -61,6 +61,10 @@ module type Painter = sig
      [canvas]. @return the modified canvas *)
   val paint_arc: ?fill:kolor -> coord -> coord -> int -> t -> t
 
+  (** [set_canevas x y canvas] set the size of the canevas
+      @return the modified canvas *)
+  val set_canevas_size: int -> int -> t -> t
+
   (** [get_context ()] @return a new canvas *)
   val get_context: unit -> t
 
