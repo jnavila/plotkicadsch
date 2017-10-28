@@ -19,3 +19,4 @@ depends: [
  "git"
  "git-unix"
 ]
+available: [ ocaml-version >= "4.03" ]
