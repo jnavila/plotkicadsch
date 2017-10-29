@@ -10,7 +10,8 @@ build: [
   [ "jbuilder" "build" "-p" name "-j" jobs ]
 ]
 depends: [
- "ocamlfind"
+  "ocamlfind" {build}
+  "jbuilder" {build}
  "pcre"
  "tyxml" {>= "4.0.0"}
  "lwt"
