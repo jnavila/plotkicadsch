@@ -1,4 +1,5 @@
-module MakeSchPainter (P: KicadSch_sigs.Painter): KicadSch_sigs.SchPainter =
+open KicadSch_sigs
+module MakeSchPainter (P: Painter): (SchPainter with type painterContext := P.t) =
 struct
   module CPainter = Kicadlib.MakePainter(P)
 
@@ -603,8 +604,8 @@ struct
          let nb = parse_bitmap_line line b in
          lib, BitmapContext nb, canevas
 
-  let output_context (_, _, canevas) oc =
-     P.write oc canevas
+  let output_context (_, _, canevas):P.t =
+     canevas
 
   let add_lib line (lib, ctxt, canevas) =
     (CPainter.append_lib line lib) |>

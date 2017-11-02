@@ -68,15 +68,15 @@ module type Painter = sig
   (** [get_context ()] @return a new canvas *)
   val get_context: unit -> t
 
-  (** [write output canvas] write to [output] the content of [canvas]
-     *)
-  val write: Lwt_io.output_channel -> t -> unit Lwt.t
 end
 
 (** A module able to paint a schematic in a schematic context *)
 module type SchPainter = sig
   (** the schematic context *)
   type schContext
+
+  (** the underlying context **)
+  type painterContext
 
   (** [initial_context ()] @return an new empty context *)
   val initial_context : unit -> schContext
@@ -92,7 +92,7 @@ module type SchPainter = sig
 
   (** [output_context context output] write the [context] as a image
      format to [output] *)
-  val output_context: schContext -> Lwt_io.output_channel -> unit Lwt.t
+  val output_context: schContext -> painterContext
 
 end
 

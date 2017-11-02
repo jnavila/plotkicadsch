@@ -1,4 +1,3 @@
-
 open Tyxml.Svg
 open KicadSch_sigs
 
@@ -68,9 +67,9 @@ let paint_arc ?(fill=NoColor) (Coord(x1, y1)) (Coord (x2, y2)) radius ({c; _} as
   ( path ~a:[a_d (Printf.sprintf "M%d,%d A%d,%d 0 0,%d %d,%d" x1 y1 radius radius sweepflag x2 y2); a_fill (color_of_kolor fill); a_stroke_width (1., Some`Px); a_stroke (color_of_kolor Black)] []
   ) :: c}
 
-let paint_image (Coord (x,y)) scale b ({c; _} as ctxt) =
+let paint_image (Coord (x, y)) scale b ({c; _} as ctxt) =
   Printf.printf "painting image! %f %d %d\n" scale x y;
-  {ctxt with c = (image ~a:[ a_height ((100.), Some `Percent); a_width ((100.), Some `Percent); a_xlink_href @@ "data:image/png;base64," ^ (B64.encode (Buffer.contents b));a_transform [ `Scale (scale /. 4., None) ] ] [])
+  {ctxt with c = (image ~a:[ a_height ((100.), Some `Percent); a_width ((100.), Some `Percent); a_xlink_href @@ "data:image/png;base64," ^ (B64.encode (Buffer.contents b));a_transform [ `Scale (scale *. 0.3, None) ; `Matrix (1., 0. , 0., 0., -1., 0.) ; `Translate (float x, Some (float (-y))) ; `Matrix (1., 0. , 0., 0., -1., 0.)] ] [])
   :: c }
 
 let get_context () = {d=(0,0) ; c=[]}
@@ -80,7 +79,7 @@ let set_canevas_size x y ctxt = {ctxt with d = (x,y)}
 let write oc {d= (x,y); c} =
   let fx = float x in
   let fy = float y in
-  let svg_doc = svg  ~a:[a_width (fx *. 0.00254, Some `Cm); a_height (fy *. 0.00254, Some `Cm); a_viewBox (0.,0., float x, float y)] c in
+  let svg_doc = svg  ~a:[a_width (fx *. 0.00254, Some `Cm); a_height (fy *. 0.00254, Some `Cm); a_viewBox (0.,0., float x, float y); a_font_family "Noto Sans"] c in
   let s = Format.asprintf "%a" (Tyxml.Svg.pp ()) svg_doc in
 (*  let fmt = Format.formatter_of_out_channel oc in
   Tyxml.Svg.pp () fmt svg_doc *)

@@ -97,7 +97,7 @@ let process_file initctx svg_name content =
   initctx >>= fun init ->
   content >|= Str.split (Str.regexp "\n") >>= fun lines ->
   Lwt_stream.fold parse_line (Lwt_stream.of_list lines) init >>= fun endcontext ->
-  Lwt_io.with_file ~mode:Lwt_io.Output svg_name (fun o -> output_context endcontext o)
+  Lwt_io.with_file ~mode:Lwt_io.Output svg_name (fun o -> SvgPainter.write o (output_context endcontext))
 
 let rev_parse r =
   let open Lwt_process in

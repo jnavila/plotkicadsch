@@ -1,6 +1,6 @@
 module SvgSchPainter = Kicadsch.MakeSchPainter(SvgPainter)
-open SvgSchPainter
 open Lwt
+open SvgSchPainter
 
 let process_file init sch =
   let slen = String.length sch in
@@ -8,7 +8,8 @@ let process_file init sch =
   Lwt_io.open_file ~mode:Lwt_io.Output fileout >>=
     fun o -> Lwt_io.open_file ~mode:Lwt_io.Input sch >>=
     fun i -> Lwt_stream.fold parse_line (Lwt_io.read_lines i) init >>=
-    fun endcontext ->  output_context endcontext o >>=
+    fun endcontext -> let canvas:SvgPainter.t = (output_context endcontext) in
+    SvgPainter.write o canvas >>=
     fun _ -> Lwt_io.close i >>=
     fun _ -> Lwt_io.close o
 
