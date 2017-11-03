@@ -76,11 +76,8 @@ let get_context () = {d=(0,0) ; c=[]}
 
 let set_canevas_size x y ctxt = {ctxt with d = (x,y)}
 
-let write oc {d= (x,y); c} =
+let write {d= (x,y); c} =
   let fx = float x in
   let fy = float y in
   let svg_doc = svg  ~a:[a_width (fx *. 0.00254, Some `Cm); a_height (fy *. 0.00254, Some `Cm); a_viewBox (0.,0., float x, float y); a_font_family "Noto Sans"] c in
-  let s = Format.asprintf "%a" (Tyxml.Svg.pp ()) svg_doc in
-(*  let fmt = Format.formatter_of_out_channel oc in
-  Tyxml.Svg.pp () fmt svg_doc *)
-  Lwt_io.write oc s
+  Format.asprintf "%a" (Tyxml.Svg.pp ()) svg_doc

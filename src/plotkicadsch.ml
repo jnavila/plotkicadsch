@@ -9,7 +9,7 @@ let process_file init sch =
     fun o -> Lwt_io.open_file ~mode:Lwt_io.Input sch >>=
     fun i -> Lwt_stream.fold parse_line (Lwt_io.read_lines i) init >>=
     fun endcontext -> let canvas:SvgPainter.t = (output_context endcontext) in
-    SvgPainter.write o canvas >>=
+    Lwt_io.write o (SvgPainter.write canvas) >>=
     fun _ -> Lwt_io.close i >>=
     fun _ -> Lwt_io.close o
 
