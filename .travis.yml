@@ -6,7 +6,8 @@ cache:
   directories:
   - $HOME/.opam
 env:
-  - OCAML_VERSION=4.04
+  - OCAML_VERSION=4.04 PACKAGE=kicadsch
+  - PINS="kicadsch:." OCAML_VERSION=4.04 PACKAGE=plotkicadsch
 os:
   - linux
   - osx
