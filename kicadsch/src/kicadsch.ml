@@ -1,4 +1,6 @@
 open KicadSch_sigs
+module SvgPainter = SvgPainter
+module Sigs=KicadSch_sigs
 module MakeSchPainter (P: Painter): (SchPainter with type painterContext := P.t) =
 struct
   module CPainter = Kicadlib.MakePainter(P)
@@ -57,7 +59,7 @@ struct
     | "I"| "Input" -> InputPort
     | "B"| "BiDi" -> BiDiPort
     | "~" -> NoPort
-    |   _ as s -> ignore (Lwt_io.eprintf "unknown port type %s\n" s); NoPort
+    |   _ as s -> ignore (Printf.printf "unknown port type %s\n" s); NoPort
 
   let justify_of_string s =
     match String.get s 0 with
@@ -254,7 +256,7 @@ struct
                 (Printf.printf "cannot plot component with missing definitions !";
                  comp, canevas)
            else comp,canevas)
-    | _ -> (ignore(Lwt_io.eprintf "ignored %s\n" line);
+    | _ -> (ignore(Printf.printf "ignored %s\n" line);
           comp, canevas)
 
   let parse_wire_wire =

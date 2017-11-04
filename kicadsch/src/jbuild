@@ -1,0 +1,16 @@
+(jbuild_version 1)
+
+(library
+ ((name        kicadsch)
+  (public_name kicadsch)
+  (synopsis "Library to plotting KiCAD schematics")
+  (libraries
+   (
+    pcre
+    tyxml
+    base64
+    str
+    )
+   )
+  (flags (:standard -w -3 -safe-string))
+  ))

@@ -7,20 +7,18 @@
   (package plotkicadsch)
  (libraries
   (
+   kicadsch
    git-unix
    lwt
    lwt.unix
    sha
-   pcre
-   tyxml
-   base64
    str
    )
   )
- (flags (:standard -w -3 -safe-string))
  ))
 
 (install
-  ((section bin)
+ ((package plotkicadsch)
+  (section bin)
    (files   (git-imgdiff))
   ))

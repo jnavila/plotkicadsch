@@ -2,7 +2,7 @@ open Lwt.Infix
 open Git_unix
 module Search = Git.Search.Make(FS)
 
-module SvgSchPainter = Kicadsch.MakeSchPainter(SvgPainter)
+module SvgSchPainter = Kicadsch.MakeSchPainter(Kicadsch.SvgPainter)
 open SvgSchPainter
 
 module type Simple_FS = sig
@@ -97,7 +97,7 @@ let process_file initctx svg_name content =
   initctx >>= fun init ->
   content >|= Str.split (Str.regexp "\n") >>= fun lines ->
   Lwt_stream.fold parse_line (Lwt_stream.of_list lines) init >>= fun endcontext ->
-  Lwt_io.with_file ~mode:Lwt_io.Output svg_name (fun o -> Lwt_io.write o (SvgPainter.write @@ output_context endcontext))
+  Lwt_io.with_file ~mode:Lwt_io.Output svg_name (fun o -> Lwt_io.write o (Kicadsch.SvgPainter.write @@ output_context endcontext))
 
 let rev_parse r =
   let open Lwt_process in

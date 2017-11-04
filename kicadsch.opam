@@ -5,14 +5,17 @@ homepage: "https://jnavila.github.io/plotkicadsch/"
 bug-reports: "https://github.com/jnavila/plotkicadsch/issues"
 license: "ISC"
 dev-repo: "https://github.com/jnavila/plotkicadsch.git"
+doc: ""
 build: [
-  [ "jbuilder" "subst"] {pinned}
+  [ "jbuilder" "subst" ] {pinned}
   [ "jbuilder" "build" "-p" name "-j" jobs ]
 ]
+build-test: [["jbuilder" "runtest" "-p" name "-j" jobs]]
 depends: [
   "jbuilder" {build}
-  "lwt"
-  "sha"
-  "git"
-  "git-unix"
+  "oUnit" {test}
+  "pcre"
+  "tyxml" {>= "4.0.0"}
+  "base64"
 ]
+available: [ ocaml-version >= "4.03" ]

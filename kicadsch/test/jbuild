@@ -1,0 +1,17 @@
+
+(executable
+ ((name        test)
+  (libraries
+   (
+    oUnit
+    kicadsch
+    )
+   )
+  (flags (:standard -w -27 ))
+
+  ))
+
+(alias
+ ((name    runtest)
+  (deps    (test.exe))
+  (action  (run ${<}))))

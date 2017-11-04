@@ -1,4 +1,5 @@
-module SvgSchPainter = Kicadsch.MakeSchPainter(SvgPainter)
+open Kicadsch
+module SvgSchPainter = MakeSchPainter(SvgPainter)
 open Lwt
 open SvgSchPainter
 

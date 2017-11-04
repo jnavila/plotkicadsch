@@ -1,4 +1,4 @@
-open KicadSch_sigs
+open Kicadsch.Sigs
 
 type t = string list
 
@@ -46,7 +46,7 @@ let paint_image co s b c =
   c
 let get_context () = []
 
-let result: string list ref = ref []
+let set_canevas_size _ _ c =
+  c
 
-let write oc c =
-  result := c; Lwt.return_unit
+let write c = c
