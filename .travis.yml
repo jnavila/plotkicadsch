@@ -1,13 +1,9 @@
-sudo: required
 language: c
-install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-opam.sh
-script: bash -ex .travis-opam.sh
-cache:
-  directories:
-  - $HOME/.opam
+sudo: false
+services:
+  - docker
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-docker.sh
+script: bash -ex ./.travis-docker.sh
 env:
-  - OCAML_VERSION=4.04 PACKAGE=kicadsch
-  - PINS="kicadsch:." OCAML_VERSION=4.04 PACKAGE=plotkicadsch
-os:
-  - linux
-  - osx
+  - OCAML_VERSION=4.04.2 DISTRO="ubuntu-16.04" PACKAGE=kicadsch
+  - PINS="kicadsch:." OCAML_VERSION=4.04.2 DISTRO="ubuntu-16.04" PACKAGE=plotkicadsch
