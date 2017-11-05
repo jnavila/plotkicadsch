@@ -66,8 +66,8 @@ struct
     | 'L'| '0' -> J_left
     | 'R'| '2' -> J_right
     | 'C' -> J_center
-    | 'B' | '3' -> J_bottom
-    | 'T' | '1' -> J_top
+    | 'B' | '1' -> J_bottom
+    | 'T' | '3' -> J_top
     | c -> failwith (Printf.sprintf "no match for justify! (%c)" c)
 
   let style_of_string s =
@@ -170,7 +170,7 @@ struct
       else
         o in
     let j' = match o' with
-      | Orient_H -> if ((a = (-1)) or (b = (1))) then (swap_justify j) else j
+      | Orient_H -> if ((a = (-1)) or (b = (-1))) then (swap_justify j) else j
       | Orient_V -> if ((c = (1)) or (d = (-1))) then (swap_justify j) else j in
     P.paint_text text o' (Coord (x', y')) s j' stl context
 
@@ -183,19 +183,19 @@ struct
     let port_char = match ptype, justif with
       |  UnSpcPort,_ | NoPort,_ -> ""
       | ThreeStatePort,_  | BiDiPort,_ -> diamond
-      | OutputPort,(J_right|J_top) | InputPort, (J_left | J_bottom) -> left_arrow
-      | OutputPort, (J_left | J_bottom) | InputPort, (J_right | J_top) -> right_arrow
+      | OutputPort,(J_left|J_top) | InputPort, (J_right | J_bottom) -> left_arrow
+      | OutputPort, (J_right | J_bottom) | InputPort, (J_left | J_top) -> right_arrow
       | _, J_center -> square
     in
     match justif with
-      | J_right | J_top -> port_char ^ name
-      | J_left |J_bottom -> name ^ port_char
+      | J_left | J_top -> port_char ^ name
+      | J_right |J_bottom -> name ^ port_char
       | J_center -> name
 
   let draw_port ?(kolor=Black) name ptype justif (Coord (x,y)) (Size l as s) canevas =
     let new_port_name = decorate_port_name name ptype justif in
     let orient = orientation_of_justify justif in
-    let j = if orient = Orient_H then swap_justify justif else justif in
+    let j = justif in
     let _ = kolor in
     let c = match orient with
     | Orient_H -> Coord (x,y+l/4)
@@ -344,15 +344,15 @@ struct
     ~regexp_str: "Text (GLabel|HLabel|Label|Notes) +([\\d-]+) +([\\d-]+) +([\\d-]+) +([\\d-]+) +(~|UnSpc|3State|Output|Input|BiDi)"
     ~extract_fun: (fun sp ->
       let c = Coord (int_of_string sp.(2), int_of_string sp.(3)) and
-          orient = justify_of_string sp.(4) and
+          j = justify_of_string sp.(4) and
           size = Size (int_of_string sp.(5)) in
-      let labeltype =
+      let labeltype, orient =
         match sp.(1) with
-        | "GLabel" -> PortLabel (Glabel, porttype_of_string sp.(6))
-        | "HLabel" -> PortLabel (Hlabel, porttype_of_string sp.(6))
-        | "Label" -> TextLabel WireLabel
-        | "Notes" -> TextLabel TextNote
-        | _ -> TextLabel TextNote in
+        | "GLabel" -> PortLabel (Glabel, porttype_of_string sp.(6)), swap_justify j
+        | "HLabel" -> PortLabel (Hlabel, porttype_of_string sp.(6)), swap_justify j
+        | "Label" -> TextLabel WireLabel, j
+        | "Notes" -> TextLabel TextNote, j
+        | _ -> TextLabel TextNote, j in
       Some {c; size; orient; labeltype})
 
   let parse_descr_header =
