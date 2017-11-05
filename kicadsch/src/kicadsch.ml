@@ -98,16 +98,12 @@ struct
     ~regexp_str:"F [\\d-]+ \"([^\"]*)\" (H|V) ([\\d-]+) ([\\d-]+) ([\\d-]+)? +(0|1)(0|1)(0|1)(0|1) (L|R|C|B|T) (L|R|C|B|T)(I|N)(B|N)"
     ~extract_fun:
     (fun sp ->
-      if (String.equal sp.(1) "~") then
-        (* Field without text does not exist *)
-        None
-      else
         let co = Coord (int_of_string sp.(3), int_of_string sp.(4)) and
             o = orientation_of_string sp.(2) and
             s = Size (int_of_string sp.(5))and
             j = justify_of_string sp.(10) and
             stl = style_of_string (sp.(12), sp.(13)) and
-            visible = (String.get sp.(9) 0 == '0') in
+            visible = (String.get sp.(9) 0 == '0') && not (String.equal "~" sp.(1)) in
         Some (visible, sp.(1), o, co, s, j, stl)
     )
 
