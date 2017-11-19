@@ -67,9 +67,29 @@ let paint_arc ?(fill=NoColor) (Coord(x1, y1)) (Coord (x2, y2)) radius ({c; _} as
   ( path ~a:[a_d (Printf.sprintf "M%d,%d A%d,%d 0 0,%d %d,%d" x1 y1 radius radius sweepflag x2 y2); a_fill (color_of_kolor fill); a_stroke_width (1., Some`Px); a_stroke (color_of_kolor Black)] []
   ) :: c}
 
+let get_png_dims b =
+  if Buffer.sub b 1 3 = "PNG" then begin
+    let belong str =
+      int_of_char str.[0] lsl 24 +
+      int_of_char str.[1] lsl 16 +
+      int_of_char str.[2] lsl 8 +
+      int_of_char str.[3] in
+    let w = belong (Buffer.sub b 16 4) in
+    let h = belong (Buffer.sub b 20 4) in
+    (w,h)
+  end
+  else
+    (0,0)
+
 let paint_image (Coord (x, y)) scale b ({c; _} as ctxt) =
-  Printf.printf "painting image! %f %d %d\n" scale x y;
-  {ctxt with c = (image ~a:[ a_height ((100.), Some `Percent); a_width ((100.), Some `Percent); a_xlink_href @@ "data:image/png;base64," ^ (B64.encode (Buffer.contents b));a_transform [ `Scale (scale *. 0.3, None) ; `Matrix (1., 0. , 0., 0., -1., 0.) ; `Translate (float x, Some (float (-y))) ; `Matrix (1., 0. , 0., 0., -1., 0.)] ] [])
+  let s = scale /. 0.3 in
+  let w, h = get_png_dims b in
+  {ctxt with c = (image ~a:[
+       a_x ((float(x) -. float(w/2)*.s), None);
+       a_y ((float(y)-.float(h/2)*.s),None);
+       a_height (float(h)*.s, None);
+       a_width (float(w)*.s, None);
+       a_xlink_href @@ "data:image/png;base64," ^ (B64.encode (Buffer.contents b))] [])
   :: c }
 
 let get_context () = {d=(0,0) ; c=[]}
