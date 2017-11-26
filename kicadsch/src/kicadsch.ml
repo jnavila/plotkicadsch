@@ -203,38 +203,35 @@ struct
     P.paint_text new_port_name orient c s j NoStyle canevas
 
   let parse_component_line lib (line: string) (comp: componentContext) canevas =
+    let update_comp comp = comp, canevas in
     let first = String.get line 0 in
     match first with
     | 'F' ->
-       let nc =
+       update_comp @@
          parse_F
            line
            ~onerror: (fun () -> comp)
            ~process: (fun (visible, text, o, co, s, j, stl) ->
              if visible then
-               {comp with fields={text; o; co; s; j; stl}::comp.fields} else comp) in
-       nc, canevas
+               {comp with fields={text; o; co; s; j; stl}::comp.fields} else comp)
     | 'U' ->
-       let nc =
+       update_comp @@
          parse_U
            line
            ~onerror: (fun () ->  comp)
-           ~process: (fun (u, _, _) -> {comp with unitnr=Some u} ) in
-       nc, canevas
+           ~process: (fun (u, _, _) -> {comp with unitnr=Some u} )
     | 'P' ->
-       let nc =
+       update_comp @@
          parse_P
            line
            ~onerror: (fun () -> comp)
            ~process: (fun c -> {comp with origin=Some c})
-       in nc, canevas
     | 'L' ->
-       let nc =
+       update_comp @@
          parse_L
            line
            ~onerror: (fun () ->  comp)
-           ~process: ( fun (s, _) -> {comp with component=Some s}) in
-       nc, canevas
+           ~process: ( fun (s, _) -> {comp with component=Some s})
     | '	' ->
        parse_transfo
          line
