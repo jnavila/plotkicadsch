@@ -1,6 +1,6 @@
-open KicadSch_sigs
 module SvgPainter = SvgPainter
 module Sigs=KicadSch_sigs
+open Sigs
 module MakeSchPainter (P: Painter): (SchPainter with type painterContext := P.t) =
 struct
   module CPainter = Kicadlib.MakePainter(P)
