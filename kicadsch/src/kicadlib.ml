@@ -38,8 +38,6 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
     | "D" -> P_D
     | s -> failwith ("pin orientation mismatch "  ^ s)
 
-  let create_lib_parse_fun = Schparse.create_lib_parse_fun
-
   module Lib : (Hashtbl.S with type key:=string) = Hashtbl.Make(
     struct
       type t = string
@@ -60,14 +58,19 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
 
   let lib () : t = Lib.create 256, None, []
 
+  open Schparse
   let parse_def = create_lib_parse_fun
     ~name:"component header"
-    ~regexp_str:"DEF ~?([^ ]+) ([^ ]+) 0 ([\\d-]+) (Y|N) (Y|N) ([\\d-]+) (F|L) (N|P)"
+    ~regexp_str:"DEF %s %s 0 %d %[YN] %[YN] %d %[FL] %[NP]"
     ~processing:
-    (fun sp ->
-      let draw_pnum = (String.get sp.(4) 0 = 'Y') in
-      let draw_pname = (String.get sp.(5) 0 = 'Y') in
-       Some (sp.(1), draw_pnum, draw_pname)
+    (fun name _ _ dpnum dpname _ _ _ ->
+      let draw_pnum = (String.get dpnum 0 = 'Y') in
+      let draw_pname = (String.get dpname 0 = 'Y') in
+      let nname = if String.get name 0 == '~' then
+          String.sub name 1 ((String.length name) - 1)
+        else
+          name in
+       Some (nname, draw_pnum, draw_pname)
     )
 
   (** Parsing component drawing primitives **)
@@ -86,43 +89,36 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
     | [_] -> failwith "make double: odd number of coords!"
     | x::y::tl -> make_double ((RelCoord (x,y))::ol) tl
 
+  let parse_integers = parse_list " %d "
+
   let parse_Poly =
     create_lib_parse_fun
       ~name:"polygon"
-      ~regexp_str:"P ([\\d]+) ([\\d]+) (0|1|2) ([\\d]+) +(([\\d-]+ [\\d-]+ +)+)N?(F?)"
-    ~processing:
-    (fun sp ->
-      let thickness = int_of_string sp.(3) in
-      let finish = String.compare sp.(7) "F" = 0 in
-      let coords_str = Str.split (Str.regexp " +") sp.(5) in
-      let coords = List.map int_of_string coords_str in
-      let coord_list = make_double [] coords in
-      let corner_list =
-        if finish then
-          match coord_list with
-          | [_] | [] -> coord_list
-          | c::_ -> c :: (List.rev coord_list)
-        else
-          List.rev coord_list in
-      let parts = int_of_string sp.(2) in
-      Some ({parts; prim=Polygon (thickness, corner_list)})
-    )
+      ~regexp_str:"P %d %d %d %d %s@@"
+      ~processing:
+        (fun _ parts _ thickness remainder ->
+           let coords = List.rev (parse_integers remainder) in
+           let finish = String.get remainder ((String.length remainder) - 1) == 'F' in
+           let coord_list = make_double [] coords in
+           let corner_list =
+             if finish then
+               match coord_list with
+               | [_] | [] -> coord_list
+               | c::_ -> c :: List.rev coord_list
+             else
+               List.rev coord_list in
+           Some ({parts; prim=Polygon (thickness, corner_list)})
+        )
 
   let parse_rect =
     create_lib_parse_fun
       ~name: "rectangle"
-      ~regexp_str: "S ([\\d-]+) ([\\d-]+) ([\\d-]+) ([\\d-]+) ([\\d]+) ([\\d]+) ([\\d-]+) +(N)?(F)?"
+      ~regexp_str: "S %d %d %d %d %d %d %d %s"
       ~processing:
-      ( fun sp ->
+      ( fun x1 y1 x2 y2 parts _ thickness _ ->
         try
-          let x1 = int_of_string sp.(1) in
-          let y1 = int_of_string sp.(2) in
-          let x2 = int_of_string sp.(3) in
-          let y2 = int_of_string sp.(4) in
-          let parts = int_of_string sp.(5) in
           let c1 = RelCoord (x1, y1) in
           let c2 = RelCoord (x2, y2) in
-          let thickness = int_of_string sp.(6) in
           let rect_poly = [ c1 ; RelCoord (x1, y2) ; c2 ; RelCoord (x2, y1) ; c1 ] in
           Some ({parts; prim=Polygon (thickness, rect_poly)})
         with _ -> None
@@ -131,16 +127,11 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
   let parse_circle =
     create_lib_parse_fun
       ~name: "circle"
-      ~regexp_str: "C ([\\d-]+) ([\\d-]+) ([\\d-]+) (0|1) ([\\d-]+) ([\\d-]+) +N?F?"
+      ~regexp_str: "C %d %d %d %d %d %d"
       ~processing:
-      ( fun sp ->
+      ( fun x y radius parts _ width ->
         try
-          let x = int_of_string sp.(1) in
-          let y = int_of_string sp.(2) in
           let center = RelCoord (x, y) in
-          let radius = int_of_string sp.(3) in
-          let parts = int_of_string sp.(4) in
-          let width = int_of_string sp.(6) in
           Some ({parts; prim=Circle (width, {center; radius})})
         with _ -> None
       )
@@ -148,19 +139,16 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
   let parse_pin =
           create_lib_parse_fun
       ~name: "pin"
-      ~regexp_str: "X ([^ ]+) ([^ ]+) ([\\d-]+) ([\\d-]+) ([\\d-]+) (R|L|U|D) ([\\d]+) ([\\d]+) ([\\d]+) (0|1|2) .( N)?"
+      ~regexp_str: "X %s %s %d %d %d %[RLUD] %d %d %d %d %s %s"
       ~processing:
-      ( fun sp ->
-        if String.length sp.(11) = 0 then
+      ( fun nm nb x y sz o nm_sz nb_sz parts _ _ c  ->
+        if (String.length c = 0) || (String.get c 0 != 'N')   then
           try
-            let x = int_of_string sp.(3) in
-            let y = int_of_string sp.(4) in
             let contact = RelCoord (x, y) in
-            let length = Size (int_of_string sp.(5)) in
-            let orient = pin_orientation_of_string sp.(6) in
-            let name = sp.(1), Size ((int_of_string sp.(7))) in
-            let number = sp.(2), (Size (int_of_string sp.(8))) in
-            let parts = int_of_string sp.(9) in
+            let length = Size sz in
+            let orient = pin_orientation_of_string o in
+            let name = nm, Size nm_sz in
+            let number = nb, Size nb_sz in
             Some ({parts; prim=Pin {name;number;length;contact;orient}})
           with _ -> None
         else
@@ -170,41 +158,38 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
   let parse_alias =
     create_lib_parse_fun
       ~name: "ALIAS"
-      ~regexp_str: "ALIAS (.*)"
+      ~regexp_str: "ALIAS %s@@"
       ~processing:
-      ( fun sp: string list option ->
-              Some (Str.split (Str.regexp " +") sp.(1))
+        ( fun sp ->
+            Printf.printf "%s\n" sp;
+              Some (parse_list ~cond:(fun s -> (String.length s) > 0) "%s" sp)
       )
 
   let parse_text =
     create_lib_parse_fun
       ~name: "Text"
-      ~regexp_str: "T +([\\d]+) +([\\d-]+) +([\\d-]+) +([\\d-]+) +([\\d-]+) +([\\d-]+) +([\\d-]+) +([^ ]+)"
+      ~regexp_str: "T %d %d %d %d %d %d %d %s"
       ~processing:
-      ( fun sp ->
-        let text = sp.(8) in
-        let c = RelCoord (int_of_string sp.(2),int_of_string sp.(3)) in
-        let s = Size (int_of_string sp.(4)) in
-        let parts = int_of_string sp.(6) in
+      ( fun _ x y sz _ parts _ text ->
+         let c = RelCoord (x, y) in
+        let s = Size sz in
         Some {parts; prim = Text {c; text; s} }
       )
 
   let parse_arc =
     create_lib_parse_fun
       ~name:"Arc"
-      ~regexp_str:"A +[\\d-]+ +[\\d-]+ +([\\d-]+) +[\\d-]+ +[\\d-]+ +([\\d-]+) +([\\d-]+) +([\\d-]+) +(N?)(F?) +([\\d-]+) +([\\d-]+) +([\\d-]+) +([\\d-]+)"
+      ~regexp_str:"A %d %d %d %d %d %d %d %d %s %d %d %d %d"
       ~processing:
-      ( fun sa ->
-      let sp = RelCoord (int_of_string sa.(7), int_of_string sa.(8)) in
-      let ep = RelCoord (int_of_string sa.(9), int_of_string sa.(10)) in
-      let s = Size (int_of_string sa.(4)) in
-      let radius = int_of_string sa.(1) in
-      let parts = int_of_string sa.(2) in
+      ( fun _ _ radius _ _ parts _ sz _ spx spy epx epy ->
+      let sp = RelCoord (spx, spy) in
+      let ep = RelCoord (epx, epy) in
+      let s = Size sz in
       Some {parts; prim = Arc {sp;ep;s;radius}})
 
 
   let parse_line line =
-    match (String.get line 0) with
+      match (String.get line 0) with
     |'A' ->
       begin
         match parse_arc line with

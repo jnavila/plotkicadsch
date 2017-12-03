@@ -5,17 +5,22 @@
  ((names        (plotgitsch plotkicadsch))
   (public_names (plotgitsch plotkicadsch))
   (package plotkicadsch)
+  (preprocess (pps (lwt.ppx)))
  (libraries
   (
    kicadsch
+   tyxml
    git-unix
    lwt
    lwt.unix
+   lwt.ppx
    sha
    str
+   base64
    )
   )
- ))
+  (flags (:standard -w -3 -safe-string))
+))
 
 (install
  ((package plotkicadsch)

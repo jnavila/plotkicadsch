@@ -1,11 +1,8 @@
-module SvgPainter = SvgPainter
 module Sigs=KicadSch_sigs
 open Sigs
 module MakeSchPainter (P: Painter): (SchPainter with type painterContext := P.t) =
 struct
   module CPainter = Kicadlib.MakePainter(P)
-
-  open KicadSch_sigs
 
   type rect = { c:coord ; dim:coord }
   type portrange = Glabel | Hlabel
@@ -91,64 +88,62 @@ struct
     | J_top | J_bottom -> Orient_V
 
   (* Parsing a sch file *)
-
+open Schparse
   let parse_F =
-    Schparse.create_parse_fun
+    create_parse_fun
     ~name:"Component F"
-    ~regexp_str:"F [\\d-]+ \"([^\"]*)\" (H|V) ([\\d-]+) ([\\d-]+) ([\\d-]+)? +(0|1)(0|1)(0|1)(0|1) (L|R|C|B|T) (L|R|C|B|T)(I|N)(B|N)"
+    ~regexp_str:"F %d \"%s@\" %[HV] %d %d %d %[01] %[LRCBT] %[CLRBTNI]"
     ~extract_fun:
-    (fun sp ->
-        let co = Coord (int_of_string sp.(3), int_of_string sp.(4)) and
-            o = orientation_of_string sp.(2) and
-            s = Size (int_of_string sp.(5))and
-            j = justify_of_string sp.(10) and
-            stl = style_of_string (sp.(12), sp.(13)) and
-            visible = (String.get sp.(9) 0 == '0') && not (String.equal "~" sp.(1)) in
-        Some (visible, sp.(1), o, co, s, j, stl)
+    (fun _ name orient posX posY size flags hjust vjustbi ->
+        let co = Coord (posX, posY) and
+            o = orientation_of_string orient and
+            s = Size size and
+            j = justify_of_string hjust and
+            stl = style_of_string (String.sub vjustbi 1 1, String.sub vjustbi 2 1) and
+            visible = (String.get flags 3 == '0') && not (String.equal "~" name) in
+        Some (visible, name, o, co, s, j, stl)
     )
 
   let parse_L =
-    Schparse.create_parse_fun
+    create_parse_fun
       ~name: "Component L"
-      ~regexp_str: "L ([^ ]+) +([^ ]+)"
+      ~regexp_str: "L %s %s"
       ~extract_fun:
-      (fun sp ->
-        Some (sp.(1), sp.(2))
+      (fun name reference ->
+        Some (name, reference)
       )
 
   let parse_P =
-    Schparse.create_parse_fun
+    create_parse_fun
       ~name: "Component P"
-      ~regexp_str: "P ([\\d-]+) ([\\d-]+)"
+      ~regexp_str: "P %d %d"
       ~extract_fun:
-      (fun sp ->
-        let x = int_of_string sp.(1) and
-            y = int_of_string sp.(2) in
+      (fun x y ->
         Some (Coord (x, y)))
 
   let parse_U =
-    Schparse.create_parse_fun
+    create_parse_fun
       ~name: "Component U"
-      ~regexp_str: "U ([\\d-]+) (\\w+) (\\w+)"
+      ~regexp_str: "U %d %s %s"
       ~extract_fun:
-      (fun sp ->
-        let u = int_of_string sp.(1) in
-        Some (u, sp.(2), sp.(3)))
+      (fun n mm timestamp ->
+        Some (n, mm, timestamp))
 
   let parse_transfo =
-    Schparse.create_parse_fun
+    let check x = (x==1) || (x==0) || (x==(-1)) in
+    create_parse_fun
       ~name: "Component transformation"
-      ~regexp_str: "	([\\d-]+) +([\\d-]+) +([\\d-]+)( +([\\d-]+))?"
+      ~regexp_str: " %d %d %d %d"
       ~extract_fun:
-      (fun sp ->
-        let a = int_of_string sp.(1) and
-            b = int_of_string sp.(2) and
-            c = int_of_string sp.(3) and
-            d = try
-                  int_of_string sp.(5)
-              with _ -> -5000 in
-        Some (a, b, c, d)
-      )
+        (fun a b c d ->
+           if (check a) && (check b) && (check c) && (check d) then
+             Some (a, b, c, d)
+           else
+             begin
+               Printf.printf "Bad transfo matrix! %d %d %d %d\n" a b c d;
+               None
+             end)
+
   let swap_justify = function
     | J_left -> J_right
     | J_center -> J_center
@@ -170,8 +165,8 @@ struct
       else
         o in
     let j' = match o' with
-      | Orient_H -> if ((a = (-1)) or (b = (-1))) then (swap_justify j) else j
-      | Orient_V -> if ((c = (1)) or (d = (-1))) then (swap_justify j) else j in
+      | Orient_H -> if ((a = (-1)) || (b = (-1))) then (swap_justify j) else j
+      | Orient_V -> if ((c = (1)) || (d = (-1))) then (swap_justify j) else j in
     P.paint_text text o' (Coord (x', y')) s j' stl context
 
   let right_arrow = "\xE2\x96\xB6"
@@ -253,12 +248,12 @@ struct
           comp, canevas)
 
   let parse_wire_wire =
-    Schparse.create_parse_fun
+    create_parse_fun
       ~name:"Wire header"
-      ~regexp_str: "(Wire|Entry) (Wire|Bus|Notes) (Line|Note)"
+      ~regexp_str: "%s %s %s"
       ~extract_fun:
-      (fun sp ->
-        match sp.(1), sp.(2), sp.(3) with
+        (fun kind width line ->
+           match kind, width, line with
         | "Wire", "Wire", "Line" -> Some Wire
         | "Wire", "Bus", "Line"  -> Some Bus
         | "Wire", "Wire", "Note" -> Some Line
@@ -267,124 +262,136 @@ struct
         | _, _, _ -> None
       )
 
-  let parse_wire_line = Schparse.create_parse_fun
+  let parse_wire_line = create_parse_fun
     ~name:"Wire"
-    ~regexp_str:"\\t([\\d-]+) +([\\d-]+) +([\\d-]+) +([\\d-]+)"
+    ~regexp_str:" %d %d %d %d"
     ~extract_fun:
-    (fun sp ->
-      let c1 = Coord (int_of_string sp.(1), int_of_string sp.(2)) and
-          c2 = Coord (int_of_string sp.(3), int_of_string sp.(4))
+    (fun x1 y1 x2 y2 ->
+      let c1 = Coord (x1, y1) and
+          c2 = Coord (x2, y2)
       in
       Some (c1, c2)
     )
 
-  let parse_noconn_line = Schparse.create_parse_fun
+  let parse_noconn_line = create_parse_fun
     ~name:"NoConn"
-    ~regexp_str:"NoConn ~ ([\\d-]+) +([\\d-]+)"
+    ~regexp_str:"NoConn ~ %d %d"
     ~extract_fun:
-    (fun sp ->
-      let x = int_of_string sp.(1) and y=int_of_string sp.(2) in
+    (fun x y ->
       Some (Coord (x,y))
     )
 
-  let parse_conn_line = Schparse.create_parse_fun
+  let parse_conn_line = create_parse_fun
     ~name:"Connection"
-    ~regexp_str:"Connection ~ ([\\d-]+) +([\\d-]+)"
+    ~regexp_str:"Connection ~ %d %d"
     ~extract_fun:
-    (fun sp ->
-      let x = int_of_string sp.(1) and y=int_of_string sp.(2) in
+    (fun x y ->
       Some (Coord (x,y))
     )
 
-  let parse_sheet_field01 = Schparse.create_parse_fun
+  let parse_sheet_field01 = create_parse_fun
     ~name:"Sheet Field 0 or 1"
-    ~regexp_str:"F(0|1) +\"([^\"]*)\" +([\\d-]+)"
-    ~extract_fun:(fun sp ->
-      let number= int_of_string sp.(1) and
-          name = sp.(2) and
-          size = int_of_string sp.(3) in
+    ~regexp_str:"F%[01] \"%s@\" %d"
+    ~extract_fun:(fun num name size ->
+      let number= int_of_string num  in
       Some (number, name, Size size))
 
   let parse_sheet_other_fields =
-    Schparse.create_parse_fun
+    create_parse_fun
       ~name: "Sheet generic field"
-      ~regexp_str: "F([\\d]+) +\"([^\"]*)\" (I|O|B|T|U) +(R|L|T|B) +([\\d-]+) +([\\d-]+) +([\\d]+)"
-      ~extract_fun:(fun sp ->
-        let name = sp.(2) in
-        let ptype = porttype_of_string sp.(3) in
-        let justif = justify_of_string sp.(4) in
-        let c = Coord ((int_of_string sp.(5)),int_of_string sp.(6)) in
-        let s = Size (int_of_string sp.(7)) in
+      ~regexp_str: "F%d \"%s@\"  %[IOBTU] %[RLTB] %d %d %d"
+      ~extract_fun:(fun _ name t j x y sz ->
+        let ptype = porttype_of_string t in
+        let justif = justify_of_string j in
+        let c = Coord (x, y) in
+        let s = Size sz in
         Some (name, ptype, justif, c, s)
       )
 
   let parse_sheet_field =
-    Schparse.create_parse_fun
+    create_parse_fun
       ~name: "detect sheet field"
-      ~regexp_str:"F([\\d]+)"
-      ~extract_fun:(fun sp ->
-        Some(int_of_string sp.(1))
+      ~regexp_str:"F%d"
+      ~extract_fun:(fun num ->
+        Some num
       )
 
-  let parse_sheet_rect = Schparse.create_parse_fun
+  let parse_sheet_rect = create_parse_fun
     ~name:"Sheet Rect"
-    ~regexp_str:"S +([\\d-]+) +([\\d-]+) +([\\d-]+) +([\\d-]+)"
-    ~extract_fun:(fun sp ->
-      let c = Coord (int_of_string sp.(1), int_of_string sp.(2)) and
-          dim = Coord (int_of_string sp.(3), int_of_string sp.(4))
-      in
+    ~regexp_str:"S %d %d %d %d"
+    ~extract_fun:(fun x1 y1 x2 y2 ->
+      let c = Coord (x1, y1) and
+          dim = Coord (x2, y2) in
       Some {c;dim}
     )
 
-  let parse_text_line = Schparse.create_parse_fun
+  let parse_text_line = create_parse_fun
     ~name:"Text header"
-    ~regexp_str: "Text (GLabel|HLabel|Label|Notes) +([\\d-]+) +([\\d-]+) +([\\d-]+) +([\\d-]+) +(~|UnSpc|3State|Output|Input|BiDi)"
-    ~extract_fun: (fun sp ->
-      let c = Coord (int_of_string sp.(2), int_of_string sp.(3)) and
-          j = justify_of_string sp.(4) and
-          size = Size (int_of_string sp.(5)) in
+    ~regexp_str: "Text %s %d %d %s %d %s"
+    ~extract_fun: (fun ltype x y j s lorient ->
+      let c = Coord (x, y) and
+          j = justify_of_string j and
+          size = Size s in
       let labeltype, orient =
-        match sp.(1) with
-        | "GLabel" -> PortLabel (Glabel, porttype_of_string sp.(6)), swap_justify j
-        | "HLabel" -> PortLabel (Hlabel, porttype_of_string sp.(6)), swap_justify j
+        match ltype with
+        | "GLabel" -> PortLabel (Glabel, porttype_of_string lorient), swap_justify j
+        | "HLabel" -> PortLabel (Hlabel, porttype_of_string lorient), swap_justify j
         | "Label" -> TextLabel WireLabel, j
         | "Notes" -> TextLabel TextNote, j
         | _ -> TextLabel TextNote, j in
       Some {c; size; orient; labeltype})
 
   let parse_descr_header =
-    Schparse.create_parse_fun
+    create_parse_fun
       ~name: "Descr header"
-      ~regexp_str: "Descr ([^ ]+) +(\\d+) +(\\d+)"
-      ~extract_fun: (fun sp ->
-        let x = int_of_string sp.(2) in
-        let y = int_of_string sp.(3) in
-        Some (sp.(1), Coord (x,y))
+      ~regexp_str: "$Descr %s %d %d"
+      ~extract_fun: (fun format x y ->
+        Some (format, Coord (x,y))
       )
 
   let parse_descr_body =
-    Schparse.create_parse_fun
+    create_parse_fun
       ~name: "Description line"
-      ~regexp_str: "([^ ]+) \"?([^\"]*)\"?"
-      ~extract_fun: (fun sp ->
-        Some (sp.(1), sp.(2))
+      ~regexp_str: "%s %s"
+      ~extract_fun: (fun field value ->
+          if String.get value 0 == '"' then
+            let new_val= String.sub value 1 (String.length value - 2) in
+            Some (field, new_val)
+          else
+            Some (field, value)
       )
 
   let parse_bm_pos =
-    Schparse.create_parse_fun
+    create_parse_fun
       ~name: "Bitmap Pos"
-      ~regexp_str: "Pos ([\\d-]+) ([\\d-]+)"
-      ~extract_fun: (fun sp ->
-        Some (Coord (int_of_string sp.(1), int_of_string sp.(2))))
+      ~regexp_str: "Pos %d %d"
+      ~extract_fun: (fun x y ->
+        Some (Coord (x, y)))
 
   let parse_bm_scale =
-    Schparse.create_parse_fun
+    create_parse_fun
       ~name: "Bitmap Scale"
-      ~regexp_str: "Scale ([\\d-.]+)"
-      ~extract_fun: (fun sp ->
-        Some (float_of_string sp.(1)))
+      ~regexp_str: "Scale %f"
+      ~extract_fun: (fun sc ->
+        Some (sc))
 
   (* Printing things *)
+
+
+  let split_lines line =
+    let len = String.length line in
+    let rec  split lstart lend (acc: string list) =
+      if lend < (len - 1) then
+        begin
+          if (String.get line lend == '\\') && (String.get line (lend+1) == 'n') then
+            split (lend+2) (lend+2) ((String.sub line lstart (lend - lstart))::acc)
+          else
+            split lstart (lend+1) acc
+        end
+      else
+        (String.sub line lstart (len-lstart))::acc
+    in
+    split 0 0 []
 
   let print_text_line line l c =
     match l.labeltype with
@@ -396,9 +403,8 @@ struct
       let Coord (x,y) = l.c in
       let paint_line c' (line_index,l') =
         P.paint_text ~kolor:pcolor l' (orientation_of_justify l.orient) (Coord(x, (y-line_index*s))) l.size l.orient NoStyle c' in
-      let lines = Str.split (Str.regexp "\\\\n") line in
-      let ilines = List.rev lines in
-      List.fold_left paint_line c (List.mapi (fun i l -> (i,l)) ilines)
+      let lines = split_lines line in
+      List.fold_left paint_line c (List.mapi (fun i l -> (i,l)) lines)
     end
     | PortLabel (prange, ptype) ->
        let pcolor = match prange with
@@ -542,8 +548,8 @@ struct
     match data_opt with
     | None -> failwith "not adding data to None image"
     | Some buf ->
-       Str.split (Str.regexp " +") line |>
-       List.map (fun s -> Scanf.sscanf s "%x" char_of_int ) |>
+      parse_list " %x " line |>
+       List.rev_map char_of_int |>
        List.iter (Buffer.add_char buf)
 
   let parse_bitmap_line line b =

@@ -1,9 +1,9 @@
 open Tyxml.Svg
-open KicadSch_sigs
+open Kicadsch.Sigs
 
 type content = [ `Polyline | `Text | `Svg | `Rect | `Circle |`Path | `Image ]
 type dim = int*int
-type t =  { d: dim ; c : content elt list}
+type t =  { d: dim  ; c : content elt list} [@@inline]
 
 let style_attr_of_style = function
   | Italic -> [a_font_style "italic"]

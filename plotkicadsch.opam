@@ -12,8 +12,10 @@ build: [
 depends: [
   "jbuilder" {build}
   "kicadsch"
+  "tyxml" {>= "4.0.0"}
   "lwt"
   "sha"
   "git"
   "git-unix"
+  "base64"
 ]

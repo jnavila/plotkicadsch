@@ -13,8 +13,5 @@ build-test: [["jbuilder" "runtest" "-p" name "-j" jobs]]
 depends: [
   "jbuilder" {build}
   "ounit" {test}
-  "pcre"
-  "tyxml" {>= "4.0.0"}
-  "base64"
 ]
 available: [ ocaml-version >= "4.03" ]
