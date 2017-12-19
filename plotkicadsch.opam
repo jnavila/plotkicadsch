@@ -18,4 +18,5 @@ depends: [
   "git"
   "git-unix"
   "base64"
+  "patience_diff"
 ]

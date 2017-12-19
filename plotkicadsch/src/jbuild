@@ -5,7 +5,7 @@
  ((names        (plotgitsch plotkicadsch))
   (public_names (plotgitsch plotkicadsch))
   (package plotkicadsch)
-  (preprocess (pps (lwt.ppx)))
+  (preprocess (pps (lwt.ppx ppx_hash ppx_compare ppx_sexp_conv)))
  (libraries
   (
    kicadsch
@@ -17,6 +17,10 @@
    sha
    str
    base64
+   patience_diff
+   ppx_hash
+   ppx_compare
+   ppx_sexp_conv
    )
   )
   (flags (:standard -w -3 -safe-string))
