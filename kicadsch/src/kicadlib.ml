@@ -162,7 +162,7 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
       ~processing:
         ( fun sp ->
             Printf.printf "%s\n" sp;
-              Some (parse_list ~cond:(fun s -> (String.length s) > 0) "%s" sp)
+              Some (parse_list ~cond:(fun s -> (String.length s) > 0) " %s " sp)
       )
 
   let parse_text =
