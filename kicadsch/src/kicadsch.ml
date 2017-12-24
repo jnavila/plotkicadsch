@@ -352,7 +352,7 @@ open Schparse
   let parse_descr_body =
     create_parse_fun
       ~name: "Description line"
-      ~regexp_str: "%s %s"
+      ~regexp_str: "%s %s@^"
       ~extract_fun: (fun field value ->
           if String.get value 0 == '"' then
             let new_val= String.sub value 1 (String.length value - 2) in
