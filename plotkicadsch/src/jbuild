@@ -19,6 +19,7 @@
    base64
    patience_diff
    base
+   cmdliner
   )
   )
   (flags (:standard -w -3 -safe-string))

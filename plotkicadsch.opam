@@ -20,4 +20,5 @@ depends: [
   "base64"
   "patience_diff"
   "base"
+  "cmdliner"
 ]

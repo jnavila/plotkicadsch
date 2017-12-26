@@ -6,17 +6,27 @@ module S = Kicadsch.MakeSchPainter(SvgPainter)
 open Kicadsch.Sigs
 
 module type Simple_FS = sig
+  val doc: string
   val get_content: string list -> string Lwt.t
   val list_files: (string -> bool) -> (string * string) list Lwt.t
 end
 
 exception InternalGitError of string
 
-let git_fs theref =
+let git_fs commitish =
   (module
   struct
+    let rev_parse r =
+      let open Lwt_process in
+      pread ~stderr:`Dev_null ("", [|"git" ;"rev-parse"; r ^ "^{commit}"|]) >>= (fun s ->
+          try
+            Lwt.return @@ Git_unix.Hash_IO.of_hex @@ Str.first_chars s 40
+          with
+            _ -> Lwt.fail (InternalGitError ("cannot parse rev " ^ r)))
+
+    let doc = "Git rev " ^ commitish
     let fs = FS.create ~root:(Sys.getcwd ()) ()
-    let theref = theref
+    let theref = rev_parse commitish
     let with_path path action =
       fs >>= fun t ->
       theref >>= fun h ->
@@ -46,6 +56,7 @@ let git_fs theref =
 let true_fs rootname =
   (module
   struct
+    let doc = "file system " ^ rootname
     let rootname = rootname
     let get_content filename = Lwt_io.with_file ~mode:Lwt_io.input (String.concat "/" filename) (fun x -> Lwt_io.read x)
     let hash_file filename = get_content [filename] >|= fun c ->
@@ -170,10 +181,13 @@ let draw_hunk (h: hunk) ctx =
 
 let draw_difftotal other mine out_canevas =
   let comparison = Patdiff.get_hunks ~transform ~context:5 ~mine ~other in
-  let draw_all_hunk (ctx, n) (h: hunk) =
-    (Array.fold_right (plot_elt Idem) (Array.sub mine n (h.mine_start - n - 1)) ctx|>draw_hunk h) , (h.mine_start + h.mine_size - 2) in
-  let ctx, n = List.fold_left draw_all_hunk (out_canevas, 0) comparison in
-  Array.fold_right (plot_elt Idem) (Array.sub mine n (Array.length mine - n)) ctx
+  if List.for_all Patience_diff_lib.Patience_diff.Hunk.all_same comparison then
+    None
+  else
+    let draw_all_hunk (ctx, n) (h: hunk) =
+      (Array.fold_right (plot_elt Idem) (Array.sub mine n (h.mine_start - n - 1)) ctx|>draw_hunk h) , (h.mine_start + h.mine_size - 2) in
+    let ctx, n = List.fold_left draw_all_hunk (out_canevas, 0) comparison in
+    Some (Array.fold_right (plot_elt Idem) (Array.sub mine n (Array.length mine - n)) ctx)
 
 let delete_file fnl =
   Lwt_unix.unlink fnl
@@ -182,22 +196,25 @@ let build_svg_name aprefix aschname =
   aprefix ^ (String.sub aschname 0 (String.length aschname - 4)) ^ ".svg"
 
 module type Differ =  sig
+  val doc: string
   type pctx
   module S : SchPainter with type painterContext = pctx
   val display_diff: pctx -> pctx -> string -> unit Lwt.t
 end
 
 module InternalDiff = struct
+  let doc = "Internal diff between lists of draw primitives"
   type pctx = ListPainter.listcanevas
   module S = LP
   let display_diff from_ctx to_ctx filename =
     let from_canevas = Array.of_list from_ctx in
     let to_canevas = Array.of_list to_ctx in
-    let svg_name = build_svg_name "diff_" filename in
-    let outctx = draw_difftotal from_canevas to_canevas (SvgPainter.get_context ()) in
-    Lwt_io.with_file ~mode:Lwt_io.Output svg_name (fun o -> Lwt_io.write o (SvgPainter.write outctx)) >>= fun _ ->
-    Lwt_process.exec ("", [| "chromium"; svg_name|]) >|= to_unit >>= fun _ ->
-    delete_file svg_name
+    match draw_difftotal from_canevas to_canevas (SvgPainter.get_context ()) with
+    | None -> Lwt.return ()
+    | Some outctx -> let svg_name = build_svg_name "diff_" filename in
+      (Lwt_io.with_file ~mode:Lwt_io.Output svg_name (fun o ->
+           Lwt_io.write o (SvgPainter.write outctx))) >|= to_unit (* >>= fun _ ->
+    Lwt_process.exec ("", [| "chromium"; svg_name|]) >|= to_unit >>=                                                           delete_file svg_name *)
 end
 
 module SP = struct
@@ -206,6 +223,7 @@ module SP = struct
 end
 
 module ImageDiff = struct
+  let doc = "diff using an external diff utility between images"
   type pctx = SvgPainter.t
   module S = SP
   let display_diff from_ctx to_ctx filename =
@@ -253,16 +271,45 @@ let doit from_fs to_fs differ =
   let compare_all =  file_list >>= Lwt_list.map_p compare_one >|= to_unit in
   Lwt_main.run compare_all
 
-let () =
-  match Array.length Sys.argv with
-  | 1 -> let from_ref = rev_parse "HEAD" in
-        doit (git_fs from_ref) (true_fs ".") (module ImageDiff : Differ)
-  | 2 ->
-    let from_ref = rev_parse Sys.argv.(1) in
-    doit (git_fs from_ref) ( true_fs ".") (module InternalDiff: Differ)
-  | 3 ->
-     let from_ref = rev_parse Sys.argv.(1) in
-     let to_ref = rev_parse Sys.argv.(2) in
-     doit (git_fs from_ref) (git_fs to_ref) (module InternalDiff: Differ)
-  | _ ->
-    Printf.printf "%s needs 0, 1 or 2 revs to compare\n" Sys.argv.(0); exit 3
+
+open Cmdliner
+
+let pp_fs out fs =
+  let module FS = (val fs:Simple_FS) in
+  Format.fprintf out "%s" FS.doc
+
+let reference =
+  let docv = "a commitish reference" in
+  Arg.(conv ~docv ((fun s -> Result.Ok (git_fs s)), pp_fs))
+
+let from_ref =
+  let doc = "reference from which the diff is performed." in
+  Arg.(value & pos 0 reference (git_fs "HEAD") & info [] ~doc)
+
+let to_ref =
+  let doc = "target reference got diff with." in
+  Arg.(value & pos 1 reference ((true_fs ".")) & info [] ~doc)
+
+let pp_differ _ _ =
+  ()
+
+let differ =
+  let docv = "diff utility used to compute the changes in schematics." in
+  Arg.(conv ~docv ((fun _ -> Result.Ok((module ImageDiff:Differ))), pp_differ))
+
+let external_diff =
+  let doc = "use an external image diff program." in
+  let docv = "EXT_DIFF" in
+  Arg.(value & opt differ (module InternalDiff:Differ) & info ["e"; "external"] ~doc ~docv)
+
+let plotgitsch_t = Term.(const doit $ from_ref $ to_ref $ external_diff)
+
+let info =
+  let doc = "Show graphically the differences between two git revisions of a kicad schematic" in
+  let man = [
+    `S Manpage.s_bugs;
+    `P "Email bug reports to https//github.com/jnavila/plotkicadsch/issues" ]
+  in
+  Term.info "plotgitsch" ~version:"%‌%VERSION%%" ~doc ~exits:Term.default_exits ~man
+
+let () = Term.exit @@ Term.eval (plotgitsch_t, info)
