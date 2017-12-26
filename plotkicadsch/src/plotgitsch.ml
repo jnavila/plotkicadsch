@@ -170,7 +170,7 @@ let draw_range ctx r = Patience_diff_lib.Patience_diff.Range.(
     | Same a -> Array.fold_right (fun (x, _) -> plot_elt Idem x) a ctx
     | Old a  ->  Array.fold_right (plot_elt Theirs) a ctx
     | New a  ->  Array.fold_right (plot_elt Ours) a ctx
-    | Replace (n,o) -> Array.fold_right (plot_elt Ours) n ctx |>
+    | Replace (o,n) -> Array.fold_right (plot_elt Ours) n ctx |>
                        Array.fold_right (plot_elt Theirs) o
     | Unified a -> Array.fold_right (plot_elt Idem) a ctx
                        )
@@ -258,7 +258,8 @@ let doit from_fs to_fs differ =
   let module F = (val from_fs: Simple_FS) in
   let module T = (val to_fs: Simple_FS) in
   let module FromP = FSPainter (D.S) (F) in
-  let module ToP = FSPainter (D.S) (F) in
+  let module ToP = FSPainter (D.S) (T) in
+  Format.printf "%s between %s and %s\n" D.doc F.doc T.doc;
   let from_list = FromP.find_schematics () in
   let to_list = ToP.find_schematics () in
   let file_list = intersect_lists from_list to_list in
