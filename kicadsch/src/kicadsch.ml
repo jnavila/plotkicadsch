@@ -533,19 +533,22 @@ open Schparse
       line
       ~onerror:(fun () -> canevas)
       ~process:(fun (field, content) ->
-        let title_text content x y s =
-          P.paint_text content Orient_H (Coord (x, y)) (Size s) J_left NoStyle canevas in
-        match field with
-        | "Sheet" -> title_text ("Page: " ^ content) x (y - 200) 50
-        | "Title" -> title_text ("Title: "^ content) x (y - 50) 100
-        | "Rev" -> title_text ("Rev: "^ content) (x + 3200) (y - 50) 100
-        | "Date" -> title_text ("Date: " ^ content) (x + 500) (y -200) 50
-        | "Comp"  -> title_text (content) (x + 1000) (y -200) 50
-        | "Comment1"  -> title_text (content) (x) (y - 400) 50
-        | "Comment2"  -> title_text (content) (x + 2000) (y - 400) 50
-        | "Comment3"  -> title_text (content) (x) (y - 300) 50
-        | "Comment4"  -> title_text (content) (x + 2000) (y - 300) 50
-        | _ -> canevas)
+          if String.length content > 0 then
+            let title_text content x y s =
+              P.paint_text content Orient_H (Coord (x, y)) (Size s) J_left NoStyle canevas in
+            match field with
+            | "Sheet" -> title_text ("Page: " ^ content) x (y - 200) 50
+            | "Title" -> title_text ("Title: "^ content) x (y - 50) 100
+            | "Rev" -> title_text ("Rev: "^ content) (x + 3200) (y - 50) 100
+            | "Date" -> title_text ("Date: " ^ content) (x + 500) (y -200) 50
+            | "Comp"  -> title_text (content) (x + 1000) (y -200) 50
+            | "Comment1"  -> title_text (content) (x) (y - 400) 50
+            | "Comment2"  -> title_text (content) (x + 2000) (y - 400) 50
+            | "Comment3"  -> title_text (content) (x) (y - 300) 50
+            | "Comment4"  -> title_text (content) (x + 2000) (y - 300) 50
+            | _ -> canevas
+          else
+            canevas)
 
 
   let append_bm_line data_opt line =
