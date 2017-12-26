@@ -96,8 +96,10 @@ let get_context () = {d=(0,0) ; c=[]}
 
 let set_canevas_size x y ctxt = {ctxt with d = (x,y)}
 
-let write {d= (x,y); c} =
+let write ?(op=true) {d= (x,y); c}  =
   let fx = float x in
   let fy = float y in
-  let svg_doc = svg  ~a:[a_width (fx *. 0.00254, Some `Cm); a_height (fy *. 0.00254, Some `Cm); a_viewBox (0.,0., float x, float y); a_font_family "Noto Sans"] c in
+  let o = (if op then  1.0 else 0.8) in
+  let opacity = a_style @@ Printf.sprintf "stroke-opacity:%f;fill-opacity:%f;" o o  in
+  let svg_doc = svg  ~a:[a_width (fx *. 0.00254, Some `Cm); a_height (fy *. 0.00254, Some `Cm); a_viewBox (0.,0., float x, float y); a_font_family "Noto Sans";opacity] c in
   Format.asprintf "%a" (Tyxml.Svg.pp ()) svg_doc

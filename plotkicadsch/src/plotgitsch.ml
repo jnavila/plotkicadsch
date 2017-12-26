@@ -213,7 +213,7 @@ module InternalDiff = struct
     | None -> Lwt.return ()
     | Some outctx -> let svg_name = build_svg_name "diff_" filename in
       (Lwt_io.with_file ~mode:Lwt_io.Output svg_name (fun o ->
-           Lwt_io.write o (SvgPainter.write outctx))) >|= to_unit (* >>= fun _ ->
+           Lwt_io.write o (SvgPainter.write ~op:false outctx))) >|= to_unit (* >>= fun _ ->
     Lwt_process.exec ("", [| "chromium"; svg_name|]) >|= to_unit >>=                                                           delete_file svg_name *)
 end
 
