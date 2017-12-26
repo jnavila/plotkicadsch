@@ -133,16 +133,20 @@ open Schparse
     let check x = (x==1) || (x==0) || (x==(-1)) in
     create_parse_fun
       ~name: "Component transformation"
-      ~regexp_str: " %d %d %d %d"
+      ~regexp_str: " %d %d %d %s"
       ~extract_fun:
-        (fun a b c d ->
-           if (check a) && (check b) && (check c) && (check d) then
-             Some (a, b, c, d)
+        (fun a b c ds ->
+           if String.length ds > 0 then
+             let d = int_of_string ds in
+             if (check a) && (check b) && (check c) && (check d) then
+               Some (a, b, c, d)
+             else
+               begin
+                 Printf.printf "Bad transfo matrix! %d %d %d %d\n" a b c d;
+                 None
+               end
            else
-             begin
-               Printf.printf "Bad transfo matrix! %d %d %d %d\n" a b c d;
-               None
-             end)
+             Some (a, b, c, -10000))
 
   let swap_justify = function
     | J_left -> J_right
@@ -207,7 +211,7 @@ open Schparse
            line
            ~onerror: (fun () -> comp)
            ~process: (fun (visible, text, o, co, s, j, stl) ->
-             if visible then
+             if visible && String.length text > 0  then
                {comp with fields={text; o; co; s; j; stl}::comp.fields} else comp)
     | 'U' ->
        update_comp @@
