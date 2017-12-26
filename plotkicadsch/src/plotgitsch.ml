@@ -122,14 +122,6 @@ let intersect_lists l1l l2l =
   List.filter (fun (name2, sha2) -> (List.exists (fun (name1, sha1) -> ((String.equal name1 name2) && (not(String.equal sha2 sha1)))) l1)) l2 |>
     List.map (fun (n, _) -> n))
 
-let rev_parse r =
-  let open Lwt_process in
-  pread ~stderr:`Dev_null ("", [|"git" ;"rev-parse"; r ^ "^{commit}"|]) >>= (fun s ->
-    try
-      Lwt.return @@ Git_unix.Hash_IO.of_hex @@ Str.first_chars s 40
-    with
-      _ -> Lwt.fail (InternalGitError ("cannot parse rev " ^ r)))
-
 let to_unit _ = ()
 
 module Patdiff = Patience_diff_lib.Patience_diff.Make(Base.String)
