@@ -194,20 +194,28 @@ module type Differ =  sig
   val display_diff: pctx -> pctx -> string -> unit Lwt.t
 end
 
-module InternalDiff = struct
-  let doc = "Internal diff between lists of draw primitives"
-  type pctx = ListPainter.listcanevas
-  module S = LP
-  let display_diff from_ctx to_ctx filename =
-    let from_canevas = Array.of_list from_ctx in
-    let to_canevas = Array.of_list to_ctx in
-    match draw_difftotal from_canevas to_canevas (SvgPainter.get_context ()) with
-    | None -> Lwt.return ()
-    | Some outctx -> let svg_name = build_svg_name "diff_" filename in
-      (Lwt_io.with_file ~mode:Lwt_io.Output svg_name (fun o ->
-           Lwt_io.write o (SvgPainter.write ~op:false outctx))) >|= to_unit (* >>= fun _ ->
-    Lwt_process.exec ("", [| "chromium"; svg_name|]) >|= to_unit >>=                                                           delete_file svg_name *)
-end
+let internal_diff d = (
+  module struct
+    let doc = "Internal diff between lists of draw primitives"
+    type pctx = ListPainter.listcanevas
+    module S = LP
+    let display_diff from_ctx to_ctx filename =
+      let from_canevas = Array.of_list from_ctx in
+      let to_canevas = Array.of_list to_ctx in
+      match draw_difftotal from_canevas to_canevas (SvgPainter.get_context ()) with
+      | None -> Lwt.return ()
+      | Some outctx ->
+        let svg_name = build_svg_name "diff_" filename in
+        let wait_for_1_s _ =
+          let t, u = Lwt.wait () in
+          let erase_timeout = Lwt_timeout.create 1 (fun () -> Lwt.wakeup u svg_name) in
+          Lwt_timeout.start erase_timeout;t in
+        Lwt_io.with_file ~mode:Lwt_io.Output svg_name ( fun o ->
+            Lwt_io.write o @@ SvgPainter.write ~op:false outctx) >>= fun _ ->
+        Lwt_process.exec ("", [| d; svg_name|]) >>=
+        wait_for_1_s >>=
+        delete_file
+  end :Differ)
 
 module SP = struct
   include S
@@ -288,12 +296,12 @@ let pp_differ _ _ =
 
 let differ =
   let docv = "diff utility used to compute the changes in schematics." in
-  Arg.(conv ~docv ((fun _ -> Result.Ok((module ImageDiff:Differ))), pp_differ))
+  Arg.(conv ~docv ((fun d -> Result.Ok(internal_diff d)), pp_differ))
 
 let external_diff =
   let doc = "use an external image diff program." in
   let docv = "EXT_DIFF" in
-  Arg.(value & opt differ (module InternalDiff:Differ) & info ["e"; "external"] ~doc ~docv)
+  Arg.(value & opt ~vopt:(internal_diff "chromium") differ (module ImageDiff:Differ) & info ["i"; "internal"] ~doc ~docv)
 
 let plotgitsch_t = Term.(const doit $ from_ref $ to_ref $ external_diff)
 
