@@ -119,67 +119,12 @@ end
 let intersect_lists l1l l2l =
   l1l >>= fun l1 ->
   l2l >|= fun l2 -> (
-  List.filter (fun (name2, sha2) -> (List.exists (fun (name1, sha1) -> ((String.equal name1 name2) && (not(String.equal sha2 sha1)))) l1)) l2 |>
+    List.filter (fun (name2, sha2) ->
+        (List.exists (fun (name1, sha1) ->
+             ((String.equal name1 name2) && (not(String.equal sha2 sha1)))) l1)) l2 |>
     List.map (fun (n, _) -> n))
 
 let to_unit _ = ()
-
-module Patdiff = Patience_diff_lib.Patience_diff.Make(Base.String)
-
-let transform (arg: ListPainter.t) =
-  ListPainter.(
-     match arg with
-  | Text (_, text, _o, Coord (x, y), Size s, _j, _style) -> Printf.sprintf "text %s %d %d %d" text x y s
-  | Line (_, Size s, Coord (x1, y1), Coord (x2, y2)) -> Printf.sprintf "line %d %d -> %d %d %d" x1 y1 x2 y2 s
-  | Rect (_,  Coord (x1, y1), Coord (x2, y2)) -> Printf.sprintf "rectangle %d %d -> %d %d" x1 y1 x2 y2
-  | Circle (_, Coord (x, y), radius) -> Printf.sprintf "circle %d %d %d" x y radius
-  | Arc (_ ,Coord (x1, y1), Coord (x2, y2), radius) -> Printf.sprintf "arc %d %d -> %d %d %d" x1 y1 x2 y2 radius
-  | Image (Coord (x, y), scale , _) -> Printf.sprintf "image %d %d %f" x y scale
-  | Format (Coord(x, y)) -> Printf.sprintf "format %d %d" x y
-  )
-
-type diff_style = Theirs | Ours | Idem
-
-let plot_elt style (arg: ListPainter.t) out_ctx=
-  ListPainter.(
-    let module O = SvgPainter in
-    let kolor = match style with
-      | Theirs -> Kicadsch.Sigs.Red
-      | Ours -> Kicadsch.Sigs.Green
-      | Idem -> Kicadsch.Sigs.Black in
-    match arg with
-  | Text (_, text, o, c, s, j, style) -> O.paint_text ~kolor text o c s j style out_ctx
-  | Line (_, s, from_, to_) -> O.paint_line ~kolor ~width:s from_ to_ out_ctx
-  | Rect (_,  c1, c2) -> O.paint_rect c1 c2 out_ctx
-  | Circle (_, center, radius) -> O.paint_circle center radius out_ctx
-  | Arc (_ ,start_, end_, radius) -> O.paint_arc start_ end_ radius out_ctx
-  | Image (corner, scale , data) -> O.paint_image corner scale data out_ctx
-  | Format (Coord (x, y)) -> O.set_canevas_size x y out_ctx
-  )
-
-let draw_range ctx r = Patience_diff_lib.Patience_diff.Range.(
-    match r with
-    | Same a -> Array.fold_right (fun (x, _) -> plot_elt Idem x) a ctx
-    | Old a  ->  Array.fold_right (plot_elt Theirs) a ctx
-    | New a  ->  Array.fold_right (plot_elt Ours) a ctx
-    | Replace (o,n) -> Array.fold_right (plot_elt Ours) n ctx |>
-                       Array.fold_right (plot_elt Theirs) o
-    | Unified a -> Array.fold_right (plot_elt Idem) a ctx
-                       )
-type hunk = ListPainter.t Patience_diff_lib.Patience_diff.Hunk.t
-
-let draw_hunk (h: hunk) ctx =
-  List.fold_left draw_range ctx h.ranges
-
-let draw_difftotal other mine out_canevas =
-  let comparison = Patdiff.get_hunks ~transform ~context:5 ~mine ~other in
-  if List.for_all Patience_diff_lib.Patience_diff.Hunk.all_same comparison then
-    None
-  else
-    let draw_all_hunk (ctx, n) (h: hunk) =
-      (Array.fold_right (plot_elt Idem) (Array.sub mine n (h.mine_start - n - 1)) ctx|>draw_hunk h) , (h.mine_start + h.mine_size - 2) in
-    let ctx, n = List.fold_left draw_all_hunk (out_canevas, 0) comparison in
-    Some (Array.fold_right (plot_elt Idem) (Array.sub mine n (Array.length mine - n)) ctx)
 
 let delete_file fnl =
   Lwt_unix.unlink fnl
@@ -194,11 +139,70 @@ module type Differ =  sig
   val display_diff: pctx -> pctx -> string -> unit Lwt.t
 end
 
-let internal_diff d = (
+let internal_diff (d:string) = (
   module struct
     let doc = "Internal diff between lists of draw primitives"
     type pctx = ListPainter.listcanevas
     module S = LP
+
+    module Patdiff = Patience_diff_lib.Patience_diff.Make(Base.String)
+
+    let transform (arg: ListPainter.t) =
+      ListPainter.(
+        match arg with
+        | Text (_, text, _o, Coord (x, y), Size s, _j, _style) -> Printf.sprintf "text %s %d %d %d" text x y s
+        | Line (_, Size s, Coord (x1, y1), Coord (x2, y2)) -> Printf.sprintf "line %d %d -> %d %d %d" x1 y1 x2 y2 s
+        | Rect (_,  Coord (x1, y1), Coord (x2, y2)) -> Printf.sprintf "rectangle %d %d -> %d %d" x1 y1 x2 y2
+        | Circle (_, Coord (x, y), radius) -> Printf.sprintf "circle %d %d %d" x y radius
+        | Arc (_ ,Coord (x1, y1), Coord (x2, y2), radius) -> Printf.sprintf "arc %d %d -> %d %d %d" x1 y1 x2 y2 radius
+        | Image (Coord (x, y), scale , _) -> Printf.sprintf "image %d %d %f" x y scale
+        | Format (Coord(x, y)) -> Printf.sprintf "format %d %d" x y
+      )
+
+    type diff_style = Theirs | Ours | Idem
+
+    let plot_elt style (arg: ListPainter.t) out_ctx=
+      ListPainter.(
+        let module O = SvgPainter in
+        let kolor = match style with
+          | Theirs -> Kicadsch.Sigs.Red
+          | Ours -> Kicadsch.Sigs.Green
+          | Idem -> Kicadsch.Sigs.Black in
+        match arg with
+        | Text (_, text, o, c, s, j, style) -> O.paint_text ~kolor text o c s j style out_ctx
+        | Line (_, s, from_, to_) -> O.paint_line ~kolor ~width:s from_ to_ out_ctx
+        | Rect (_,  c1, c2) -> O.paint_rect c1 c2 out_ctx
+        | Circle (_, center, radius) -> O.paint_circle center radius out_ctx
+        | Arc (_ ,start_, end_, radius) -> O.paint_arc start_ end_ radius out_ctx
+        | Image (corner, scale , data) -> O.paint_image corner scale data out_ctx
+        | Format (Coord (x, y)) -> O.set_canevas_size x y out_ctx
+      )
+
+    let draw_range ctx r = Patience_diff_lib.Patience_diff.Range.(
+        match r with
+        | Same a -> Array.fold_right (fun (x, _) -> plot_elt Idem x) a ctx
+        | Old a  ->  Array.fold_right (plot_elt Theirs) a ctx
+        | New a  ->  Array.fold_right (plot_elt Ours) a ctx
+        | Replace (o,n) -> Array.fold_right (plot_elt Ours) n ctx |>
+                           Array.fold_right (plot_elt Theirs) o
+        | Unified a -> Array.fold_right (plot_elt Idem) a ctx
+      )
+
+    type hunk = ListPainter.t Patience_diff_lib.Patience_diff.Hunk.t
+
+    let draw_hunk (h: hunk) ctx =
+      List.fold_left draw_range ctx h.ranges
+
+    let draw_difftotal other mine out_canevas =
+      let comparison = Patdiff.get_hunks ~transform ~context:5 ~mine ~other in
+      if List.for_all Patience_diff_lib.Patience_diff.Hunk.all_same comparison then
+        None
+      else
+        let draw_all_hunk (ctx, n) (h: hunk) =
+          (Array.fold_right (plot_elt Idem) (Array.sub mine n (h.mine_start - n - 1)) ctx|>draw_hunk h) , (h.mine_start + h.mine_size - 2) in
+        let ctx, n = List.fold_left draw_all_hunk (out_canevas, 0) comparison in
+        Some (Array.fold_right (plot_elt Idem) (Array.sub mine n (Array.length mine - n)) ctx)
+
     let display_diff from_ctx to_ctx filename =
       let from_canevas = Array.of_list from_ctx in
       let to_canevas = Array.of_list to_ctx in
@@ -206,15 +210,27 @@ let internal_diff d = (
       | None -> Lwt.return ()
       | Some outctx ->
         let svg_name = build_svg_name "diff_" filename in
-        let wait_for_1_s _ =
-          let t, u = Lwt.wait () in
-          let erase_timeout = Lwt_timeout.create 1 (fun () -> Lwt.wakeup u svg_name) in
-          Lwt_timeout.start erase_timeout;t in
+        let open Unix in
+        let wait_for_1_s result =  match result with
+            | WSIGNALED n -> Printf.printf "signalled with signal %d\n" n;Lwt.return svg_name
+            | WSTOPPED n -> Printf.printf "stopped with %d\n" n; Lwt.return svg_name
+            | WEXITED err ->
+              (match err with
+              | 127 -> Printf.printf "Command not found: %s\n" d; Lwt.return svg_name
+              | 0 ->
+                begin
+                  let t, u = Lwt.wait () in
+                  let erase_timeout = Lwt_timeout.create 1 (fun () -> Lwt.wakeup u svg_name) in
+                  (Lwt_timeout.start erase_timeout;t)
+                end
+              | _ -> Printf.printf "Errored with code %d\n" err; Lwt.return svg_name)
+        in
         Lwt_io.with_file ~mode:Lwt_io.Output svg_name ( fun o ->
             Lwt_io.write o @@ SvgPainter.write ~op:false outctx) >>= fun _ ->
-        Lwt_process.exec ("", [| d; svg_name|]) >>=
+        Lwt_process.exec ("", [| d; svg_name |]) >>=
         wait_for_1_s >>=
         delete_file
+
   end :Differ)
 
 module SP = struct
