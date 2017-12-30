@@ -117,6 +117,6 @@ sig
      find in [lib] the component with given [name] and plot the part
      [partnumber] at [origin] after [transfomation] into the graphical
      [context]. @return the updated graphical context *)
-  val plot_comp: t -> string -> int -> coord -> transfo -> drawContext -> drawContext
+  val plot_comp: t -> string -> int -> coord -> transfo -> drawContext -> drawContext * bool
 
 end

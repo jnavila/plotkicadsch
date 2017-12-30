@@ -28,6 +28,7 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
       names: string list;
       draw_pnum: bool;
       draw_pname: bool;
+      multi: bool;
       graph : elt list
     }
 
@@ -63,14 +64,18 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
     ~name:"component header"
     ~regexp_str:"DEF %s %s 0 %d %[YN] %[YN] %d %[FL] %[NP]"
     ~processing:
-    (fun name _ _ dpnum dpname _ _ _ ->
+    (fun name _ _ dpnum dpname unit_count _ _ ->
       let draw_pnum = (String.get dpnum 0 = 'Y') in
       let draw_pname = (String.get dpname 0 = 'Y') in
-      let nname = if String.get name 0 == '~' then
+      let nname = if String.get name 0 = '~' then
           String.sub name 1 ((String.length name) - 1)
         else
           name in
-       Some (nname, draw_pnum, draw_pname)
+      let multi = if unit_count = 1 then
+          false
+        else
+          true in
+       Some (nname, draw_pnum, draw_pname, multi)
     )
 
   (** Parsing component drawing primitives **)
@@ -235,8 +240,8 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
              if (String.length line > 3) &&
                   (String.compare (String.sub line 0 3) "DEF" = 0) then
                match parse_def line with
-               | Some (name, draw_pnum, draw_pname ) ->
-                  let new_comp = {names =[name];draw_pnum; draw_pname; graph=[]} in
+               | Some (name, draw_pnum, draw_pname, multi ) ->
+                  let new_comp = {names =[name];draw_pnum; draw_pname;multi; graph=[]} in
                    lib, (Some new_comp ), []
                | None -> failwith ("could not parse component definition " ^ line)
              else
@@ -318,5 +323,5 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
       try
         Lib.find lib comp_name
       with _ -> raise (Component_Not_Found comp_name) in
-    List.fold_left (plot_elt rot thecomp part) ctx thecomp.graph
+    (List.fold_left (plot_elt rot thecomp part) ctx thecomp.graph), thecomp.multi
 end

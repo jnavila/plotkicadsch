@@ -16,18 +16,28 @@ struct
 
   type label = { c: coord; size: size; orient: justify; labeltype: labeltype }
 
-  type field = { text: string;
-                 o: orientation;
-                 co: coord;
-                 s: size;
-                 j: justify;
-                 stl: style}
+  type field = {
+    nb : int;
+    text: string;
+    o: orientation;
+    co: coord;
+    s: size;
+    j: justify;
+    stl: style}
+
+  type single_reference =  { piece: string option; unitnr: int option }
+  type multi_reference = {m_piece : string; m_unitnr: int}
+
+  type component =
+    | NoComp
+    | Unique of single_reference
+    | Multiple of multi_reference list
 
   type componentContext = {
-      component: string option;
-      unitnr: int option;
-      origin: coord option;
-      fields: field list }
+    component: component;
+    sym: string option;
+    origin: coord option;
+    fields: field list }
 
   type bitmapContext = { pos:coord option; scale:float option; data: Buffer.t option}
 
@@ -88,20 +98,20 @@ struct
     | J_top | J_bottom -> Orient_V
 
   (* Parsing a sch file *)
-open Schparse
+  open Schparse
   let parse_F =
     create_parse_fun
     ~name:"Component F"
     ~regexp_str:"F %d \"%s@\" %[HV] %d %d %d %[01] %[LRCBT] %[CLRBTNI]"
     ~extract_fun:
-    (fun _ name orient posX posY size flags hjust vjustbi ->
+    (fun nb name orient posX posY size flags hjust vjustbi ->
         let co = Coord (posX, posY) and
             o = orientation_of_string orient and
             s = Size size and
             j = justify_of_string hjust and
             stl = style_of_string (String.sub vjustbi 1 1, String.sub vjustbi 2 1) and
             visible = (String.get flags 3 == '0') && not (String.equal "~" name) in
-        Some (visible, name, o, co, s, j, stl)
+        Some (nb,visible, name, o, co, s, j, stl)
     )
 
   let parse_L =
@@ -129,6 +139,16 @@ open Schparse
       (fun n mm timestamp ->
         Some (n, mm, timestamp))
 
+  let parse_AR =
+    create_parse_fun
+      ~name: "Component AR"
+      ~regexp_str: "AR %s %s %s"
+      ~extract_fun:
+        (fun _ ref_s part_s ->
+           let the_ref = String.sub ref_s 5 (String.length ref_s - 6) in
+           let the_part = int_of_string @@ String.sub part_s 6 (String.length part_s - 7) in
+           Some (the_ref, the_part)
+        )
   let parse_transfo =
     let check x = (x==1) || (x==0) || (x==(-1)) in
     create_parse_fun
@@ -156,7 +176,7 @@ open Schparse
     | J_top -> J_bottom
 
 
-  let draw_field (Coord (x0, y0)) ((a,b),(c,d)) context {text; o; co; s; j; stl} =
+  let draw_field (Coord (x0, y0)) ((a,b),(c,d)) is_multi refs context {nb; text; o; co; s; j; stl} =
     let Coord (x, y) = co in
     let xrel = x - x0 and yrel = y - y0 in
     let x' = (a * xrel + b * yrel) + x0 in
@@ -168,6 +188,11 @@ open Schparse
         | Orient_V -> Orient_H
       else
         o in
+    let text =
+      if (nb != 0) then
+        text
+      else
+        String.concat "/" (List.map (fun {m_unitnr; m_piece} -> if is_multi then m_piece ^ Char.escaped (char_of_int (m_unitnr + int_of_char('A') - 1)) else m_piece) refs) in
     let j' = match o' with
       | Orient_H -> if ((a = (-1)) || (b = (-1))) then (swap_justify j) else j
       | Orient_V -> if ((c = (1)) || (d = (-1))) then (swap_justify j) else j in
@@ -201,24 +226,45 @@ open Schparse
     | Orient_V -> Coord (x+l/4,y) in
     P.paint_text new_port_name orient c s j NoStyle canevas
 
-  let parse_component_line lib (line: string) (comp: componentContext) canevas =
+  let parse_component_line lib (line: string) (comp: componentContext) canevas :(componentContext*P.t) =
     let update_comp comp = comp, canevas in
     let first = String.get line 0 in
     match first with
+    | 'A' ->
+      update_comp @@
+      parse_AR
+        line
+        ~onerror: (fun () -> comp)
+        ~process:(fun (the_ref, the_unit) ->
+            if (String.get the_ref (String.length the_ref - 1)) = '?' then
+              comp
+            else
+              let new_name = {m_piece=the_ref; m_unitnr=the_unit} in
+              let component = Multiple (
+                  match comp.component with
+                  | NoComp | Unique _ -> [new_name]
+                  | Multiple l -> new_name::l) in
+              {comp with component })
+
     | 'F' ->
        update_comp @@
          parse_F
            line
            ~onerror: (fun () -> comp)
-           ~process: (fun (visible, text, o, co, s, j, stl) ->
+           ~process: (fun (nb, visible, text, o, co, s, j, stl) ->
              if visible && String.length text > 0  then
-               {comp with fields={text; o; co; s; j; stl}::comp.fields} else comp)
+               {comp with fields={nb;text; o; co; s; j; stl}::comp.fields} else comp)
     | 'U' ->
        update_comp @@
          parse_U
            line
            ~onerror: (fun () ->  comp)
-           ~process: (fun (u, _, _) -> {comp with unitnr=Some u} )
+           ~process: (fun (u, _, _) ->
+               let component = match comp.component with
+                 | NoComp -> Unique {piece=None; unitnr=Some u}
+                 | Unique r -> Unique  {r with unitnr= (Some u)}
+                 | Multiple _ -> comp.component in
+               {comp with component} )
     | 'P' ->
        update_comp @@
          parse_P
@@ -230,20 +276,41 @@ open Schparse
          parse_L
            line
            ~onerror: (fun () ->  comp)
-           ~process: ( fun (s, _) -> {comp with component=Some s})
+           ~process: ( fun (sym_s, n) ->
+               let component = match comp.component with
+                 | NoComp -> Unique {piece=Some n; unitnr=None}
+                 | Unique r -> Unique  {r with piece=(Some n)}
+                 | Multiple _ -> comp.component in
+               let sym = Some sym_s in
+               {comp with component; sym})
     | '	' ->
        parse_transfo
          line
          ~onerror: ( fun () -> comp, canevas)
          ~process: (fun (a, b, c, d) ->
            if d > -5000 then
-             let {component; unitnr; origin; fields} = comp in
-             match component, unitnr, origin with
-             | Some sym, Some unit, Some origin ->
-                let transfo = ((a, b), (c, d)) in
-                let canevas' = CPainter.plot_comp lib sym unit origin transfo canevas in
-                let draw = draw_field origin transfo in
-                comp, List.fold_left draw canevas' fields
+             let {component;origin; fields;sym} = comp in
+             match  origin, sym with
+             |  Some origin, Some sym ->
+               begin
+                 let res = match component with
+                   | Unique { unitnr= Some m_unitnr; piece = Some m_piece} ->  Some ([{m_unitnr;m_piece}], m_unitnr)
+                   | Multiple m ->
+                     (match m with
+                      | [] -> None
+                      | c::_ -> Some (m, c.m_unitnr))
+                   | Unique {unitnr = None; _}
+                   | Unique {piece = None; _}
+                   | NoComp -> None in
+                 match res with
+                 | None -> (Printf.printf "cannot plot component with missing definitions !";
+                            comp, canevas)
+                 | Some (refs, m_unitnr) ->
+                   let transfo = ((a, b), (c, d)) in
+                   let canevas', is_multi = CPainter.plot_comp lib sym m_unitnr origin transfo canevas in
+                   let draw = draw_field origin transfo is_multi refs in
+                   comp, List.fold_left draw canevas' fields
+               end
              | _ ->
                 (Printf.printf "cannot plot component with missing definitions !";
                  comp, canevas)
@@ -343,7 +410,8 @@ open Schparse
         | "Label" -> TextLabel WireLabel, j
         | "Notes" -> TextLabel TextNote, j
         | _ -> TextLabel TextNote, j in
-      Some {c; size; orient; labeltype})
+      let result: label option = Some {size; orient; labeltype; c}
+      in result)
 
   let parse_descr_header =
     create_parse_fun
@@ -486,7 +554,7 @@ open Schparse
 
   let parse_body_line (_, _,canevas) line =
     if (String.compare line "$Comp" = 0) then
-      (ComponentContext {component=None; unitnr=None; origin=None;fields= []}), canevas
+      (ComponentContext {component=NoComp; sym=None; origin=None;fields= []}), canevas
     else if (String.compare line "$Bitmap" = 0) then
       BitmapContext {pos=None;scale=None;data=None}, canevas
     else if starts_with line "$Descr" then
@@ -521,10 +589,11 @@ open Schparse
     else if (String.compare line "$Sheet" = 0) then
       SheetContext None, canevas
     else if starts_with line "Text" then
-      TextContext (parse_text_line
+      let lab : label option = (parse_text_line
                      line
                      ~onerror:(fun () -> None)
-                     ~process:(fun c -> Some c)), canevas
+                     ~process:(fun l -> Some l)) in
+      (TextContext lab), canevas
     else
       BodyContext, canevas
 
