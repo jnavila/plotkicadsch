@@ -141,7 +141,7 @@ end
 
 let internal_diff (d:string) = (
   module struct
-    let doc = "Internal diff between lists of draw primitives"
+    let doc = "internal diff and show with "^d
     type pctx = ListPainter.listcanevas
     module S = LP
 
@@ -239,7 +239,7 @@ module SP = struct
 end
 
 module ImageDiff = struct
-  let doc = "diff using an external diff utility between images"
+  let doc = "use compare (ImageMagick) between bitmaps"
   type pctx = SvgPainter.t
   module S = SP
   let display_diff from_ctx to_ctx filename =
@@ -301,25 +301,28 @@ let reference =
 
 let from_ref =
   let doc = "reference from which the diff is performed." in
-  Arg.(value & pos 0 reference (git_fs "HEAD") & info [] ~doc)
+  let docv = "FROM_REF" in
+  Arg.(value & pos 0 reference (git_fs "HEAD") & info [] ~doc ~docv)
 
 let to_ref =
-  let doc = "target reference got diff with." in
-  Arg.(value & pos 1 reference ((true_fs ".")) & info [] ~doc)
+  let doc = "target reference to diff with." in
+  let docv = "TO_REF" in
+  Arg.(value & pos 1 reference ((true_fs ".")) & info [] ~doc ~docv)
 
-let pp_differ _ _ =
-  ()
+let pp_differ out differ =
+  let module D = (val differ: Differ) in
+  Format.fprintf out "%s" D.doc
 
 let differ =
-  let docv = "diff utility used to compute the changes in schematics." in
+  let docv = "diff strategy used" in
   Arg.(conv ~docv ((fun d -> Result.Ok(internal_diff d)), pp_differ))
 
-let external_diff =
-  let doc = "use an external image diff program." in
-  let docv = "EXT_DIFF" in
+let internal_diff =
+  let doc = "use an internal diff algorithm and use the $(docv) to display the result." in
+  let docv = "BROWSER" in
   Arg.(value & opt ~vopt:(internal_diff "chromium") differ (module ImageDiff:Differ) & info ["i"; "internal"] ~doc ~docv)
 
-let plotgitsch_t = Term.(const doit $ from_ref $ to_ref $ external_diff)
+let plotgitsch_t = Term.(const doit $ from_ref $ to_ref $ internal_diff)
 
 let info =
   let doc = "Show graphically the differences between two git revisions of a kicad schematic" in
