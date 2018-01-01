@@ -82,7 +82,6 @@ let ends_with s e =
     in
     loop s e 0
 
-
 module L = Kicadsch.MakeSchPainter(ListPainter.L)
 module LP = struct
   include L
@@ -295,17 +294,23 @@ let pp_fs out fs =
   let module FS = (val fs:Simple_FS) in
   Format.fprintf out "%s" FS.doc
 
+let get_fs s =
+  if String.sub s 0 5 = "file:" then
+    true_fs (String.sub s 5 (String.length s - 5))
+  else
+    git_fs s
+
 let reference =
   let docv = "a commitish reference" in
-  Arg.(conv ~docv ((fun s -> Result.Ok (git_fs s)), pp_fs))
+  Arg.(conv ~docv ((fun s -> Result.Ok (get_fs s)), pp_fs))
 
 let from_ref =
-  let doc = "reference from which the diff is performed." in
+  let doc = "reference from which the diff is performed. If it starts with 'file:' it's a file system dir." in
   let docv = "FROM_REF" in
   Arg.(value & pos 0 reference (git_fs "HEAD") & info [] ~doc ~docv)
 
 let to_ref =
-  let doc = "target reference to diff with." in
+  let doc = "target reference to diff with. If it starts with 'file:' it's a file system dir." in
   let docv = "TO_REF" in
   Arg.(value & pos 1 reference ((true_fs ".")) & info [] ~doc ~docv)
 
