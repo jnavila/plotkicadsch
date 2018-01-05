@@ -159,14 +159,14 @@ struct
            if String.length ds > 0 then
              let d = int_of_string ds in
              if (check a) && (check b) && (check c) && (check d) then
-               Some (a, b, c, d)
+               Some (a, b, c, Some d)
              else
                begin
                  Printf.printf "Bad transfo matrix! %d %d %d %d\n" a b c d;
                  None
                end
            else
-             Some (a, b, c, -10000))
+             Some (a, b, c, None))
 
   let swap_justify = function
     | J_left -> J_right
@@ -287,36 +287,38 @@ struct
        parse_transfo
          line
          ~onerror: ( fun () -> comp, canevas)
-         ~process: (fun (a, b, c, d) ->
-           if d > -5000 then
-             let {component;origin; fields;sym} = comp in
-             match  origin, sym with
-             |  Some origin, Some sym ->
-               begin
-                 let res = match component with
-                   | Unique { unitnr= Some m_unitnr; piece = Some m_piece} ->  Some ([{m_unitnr;m_piece}], m_unitnr)
-                   | Multiple m ->
-                     (match m with
-                      | [] -> None
-                      | c::_ -> Some (m, c.m_unitnr))
-                   | Unique {unitnr = None; _}
-                   | Unique {piece = None; _}
-                   | NoComp -> None in
-                 match res with
-                 | None -> (Printf.printf "cannot plot component with missing definitions !";
-                            comp, canevas)
-                 | Some (refs, m_unitnr) ->
-                   let transfo = ((a, b), (c, d)) in
-                   let canevas', is_multi = CPainter.plot_comp lib sym m_unitnr origin transfo canevas in
-                   let draw = draw_field origin transfo is_multi refs in
-                   comp, List.fold_left draw canevas' fields
+         ~process: (fun (a, b, c, d_opt) ->
+             match d_opt with
+             | Some d -> begin
+                 let {component;origin; fields;sym} = comp in
+                 match  origin, sym with
+                 |  Some origin, Some sym ->
+                   begin
+                     let res = match component with
+                       | Unique { unitnr= Some m_unitnr; piece = Some m_piece} ->  Some ([{m_unitnr;m_piece}], m_unitnr)
+                       | Multiple m ->
+                         (match m with
+                          | [] -> None
+                          | c::_ -> Some (m, c.m_unitnr))
+                       | Unique {unitnr = None; _}
+                       | Unique {piece = None; _}
+                       | NoComp -> None in
+                     match res with
+                     | None -> (Printf.printf "cannot plot component with missing definitions !";
+                                comp, canevas)
+                     | Some (refs, m_unitnr) ->
+                       let transfo = ((a, b), (c, d)) in
+                       let canevas', is_multi = CPainter.plot_comp lib sym m_unitnr origin transfo canevas in
+                       let draw = draw_field origin transfo is_multi refs in
+                       comp, List.fold_left draw canevas' fields
+                   end
+                 | _ ->
+                   (Printf.printf "cannot plot component with missing definitions !";
+                    comp, canevas)
                end
-             | _ ->
-                (Printf.printf "cannot plot component with missing definitions !";
-                 comp, canevas)
-           else comp,canevas)
+             | None ->  comp,canevas)
     | _ -> (ignore(Printf.printf "ignored %s\n" line);
-          comp, canevas)
+            comp, canevas)
 
   let parse_wire_wire =
     create_parse_fun
