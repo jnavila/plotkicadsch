@@ -287,8 +287,12 @@ let doit from_fs to_fs differ =
     ToP.process_file to_ctx filename >>= fun to_endctx ->
     D.display_diff from_endctx to_endctx filename in
   let compare_all =  file_list >>= Lwt_list.map_p compare_one >|= to_unit in
-  Lwt_main.run compare_all
-
+  let catch_errors = Lwt.catch
+      (fun _ -> compare_all)
+      (function
+        | InternalGitError s -> Lwt_io.printf "Git Exception: %s\n" s
+        | a -> Lwt_io.printf "Exception %s\n" (Exn.to_string a)) in
+  Lwt_main.run catch_errors
 
 open Cmdliner
 
