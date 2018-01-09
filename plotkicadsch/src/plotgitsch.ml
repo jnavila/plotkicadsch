@@ -1,3 +1,4 @@
+open Core_kernel
 open Lwt.Infix
 open Git_unix
 module Search = Git.Search.Make(FS)
@@ -20,7 +21,7 @@ let git_fs commitish =
       let open Lwt_process in
       pread ~stderr:`Dev_null ("", [|"git" ;"rev-parse"; r ^ "^{commit}"|]) >>= (fun s ->
           try
-            Lwt.return @@ Git_unix.Hash_IO.of_hex @@ Str.first_chars s 40
+            Lwt.return @@ Git_unix.Hash_IO.of_hex @@ String.prefix s 40
           with
             _ -> Lwt.fail (InternalGitError ("cannot parse rev " ^ r)))
 
@@ -31,7 +32,7 @@ let git_fs commitish =
       fs >>= fun t ->
       theref >>= fun h ->
       Search.find t h (`Commit(`Path path)) >>= function
-         | None     -> Lwt.fail(InternalGitError ("path not found: /" ^ (String.concat "/" path)))
+         | None     -> Lwt.fail(InternalGitError ("path not found: /" ^ (String.concat ~sep:"/" path)))
          | Some sha ->
            FS.read t sha >>= function
            | Some a -> action a
@@ -44,8 +45,8 @@ let git_fs commitish =
     let find_file filter t =
       let open Git.Tree in
       t |>
-      List.filter (fun e -> filter e.name) |>
-      List.map (fun e -> e.name, (Git.Hash.to_hex e.node))
+      List.filter ~f:(fun e -> filter e.name) |>
+      List.map ~f:(fun e -> e.name, (Git.Hash.to_hex e.node))
 
     let list_files pattern =
       with_path [] @@ function
@@ -58,7 +59,7 @@ let true_fs rootname =
   struct
     let doc = "file system " ^ rootname
     let rootname = rootname
-    let get_content filename = Lwt_io.with_file ~mode:Lwt_io.input (String.concat "/" filename) (fun x -> Lwt_io.read x)
+    let get_content filename = Lwt_io.with_file ~mode:Lwt_io.input (String.concat ~sep:"/" filename) (fun x -> Lwt_io.read x)
     let hash_file filename = get_content [filename] >|= fun c ->
       let blob_content = (Printf.sprintf "blob %d\000" (String.length c)) ^ c in
                              filename, (Sha1.to_hex (Sha1.string blob_content))
@@ -99,18 +100,18 @@ struct
     let parse c l = S.parse_line l c in
     initctx >>= fun init ->
     F.get_content [filename] >|= fun ctt ->
-    let lines = String.split_on_char '\n' ctt in
-    let endctx = List.fold_left parse init lines in
+    let lines = String.split_on_chars ~on:['\n'] ctt in
+    let endctx = List.fold_left ~f:parse ~init lines in
     S.output_context endctx
 
   let find_libs () =
-    F.list_files (fun name -> ends_with name "-cache.lib")  >|= List.map (fun (n, _) -> n)
+    F.list_files (fun name -> ends_with name "-cache.lib")  >|= List.map ~f:(fun (n, _) -> n)
 
   let read_libs _ lib_list  =
   Lwt_list.fold_left_s (fun c l ->
       F.get_content [l] >|=
-      Str.split (Str.regexp "\n") >|=
-      List.fold_left (fun ctxt l -> S.add_lib l ctxt) c) (S.initial_context () ) lib_list
+      String.split_on_chars ~on:['\n'] >|=
+      List.fold_left ~f:(fun ctxt l -> S.add_lib l ctxt) ~init:c) (S.initial_context () ) lib_list
 
   let context_from () = find_libs () >>= read_libs (S.initial_context ())
 end
@@ -118,10 +119,10 @@ end
 let intersect_lists l1l l2l =
   l1l >>= fun l1 ->
   l2l >|= fun l2 -> (
-    List.filter (fun (name2, sha2) ->
-        (List.exists (fun (name1, sha1) ->
+    List.filter ~f:(fun (name2, sha2) ->
+        (List.exists ~f:(fun (name1, sha1) ->
              ((String.equal name1 name2) && (not(String.equal sha2 sha1)))) l1)) l2 |>
-    List.map (fun (n, _) -> n))
+    List.map ~f:(fun (n, _) -> n))
 
 let to_unit _ = ()
 
@@ -129,7 +130,7 @@ let delete_file fnl =
   Lwt_unix.unlink fnl
 
 let build_svg_name aprefix aschname =
-  aprefix ^ (String.sub aschname 0 (String.length aschname - 4)) ^ ".svg"
+  aprefix ^ (String.sub aschname ~pos:0 ~len:(String.length aschname - 4)) ^ ".svg"
 
 module type Differ =  sig
   val doc: string
@@ -144,7 +145,7 @@ let internal_diff (d:string) = (
     type pctx = ListPainter.listcanevas
     module S = LP
 
-    module Patdiff = Patience_diff_lib.Patience_diff.Make(Base.String)
+    module Patdiff = Patience_diff_lib.Patience_diff.Make(String)
 
     let transform (arg: ListPainter.t) =
       ListPainter.(
@@ -160,7 +161,7 @@ let internal_diff (d:string) = (
 
     type diff_style = Theirs | Ours | Idem
 
-    let plot_elt style (arg: ListPainter.t) out_ctx=
+    let plot_elt style  out_ctx (arg: ListPainter.t) =
       ListPainter.(
         let module O = SvgPainter in
         let kolor = match style with
@@ -179,28 +180,29 @@ let internal_diff (d:string) = (
 
     let draw_range ctx r = Patience_diff_lib.Patience_diff.Range.(
         match r with
-        | Same a -> Array.fold_right (fun (x, _) -> plot_elt Idem x) a ctx
-        | Old a  ->  Array.fold_right (plot_elt Theirs) a ctx
-        | New a  ->  Array.fold_right (plot_elt Ours) a ctx
-        | Replace (o,n) -> Array.fold_right (plot_elt Ours) n ctx |>
-                           Array.fold_right (plot_elt Theirs) o
-        | Unified a -> Array.fold_right (plot_elt Idem) a ctx
+        | Same a -> Array.fold ~f:(fun c (x, _) -> plot_elt Idem c x) a ~init:ctx
+        | Old a  ->  Array.fold ~f:(plot_elt Theirs) a ~init:ctx
+        | New a  ->  Array.fold ~f:(plot_elt Ours) a ~init:ctx
+        | Replace (o,n) -> let c' =Array.fold ~f:(plot_elt Ours) n ~init:ctx in
+                           Array.fold o ~f:(plot_elt Theirs) ~init:c'
+        | Unified a -> Array.fold ~f:(plot_elt Idem) a ~init:ctx
       )
 
     type hunk = ListPainter.t Patience_diff_lib.Patience_diff.Hunk.t
 
     let draw_hunk (h: hunk) ctx =
-      List.fold_left draw_range ctx h.ranges
+      List.fold_left ~f:draw_range ~init:ctx h.ranges
 
     let draw_difftotal other mine out_canevas =
-      let comparison = Patdiff.get_hunks ~transform ~context:5 ~mine ~other in
-      if List.for_all Patience_diff_lib.Patience_diff.Hunk.all_same comparison then
+      let comparison = Patdiff.get_hunks ~transform ~mine ~other ~context:5 ~big_enough:1 in
+      if List.for_all ~f:Patience_diff_lib.Patience_diff.Hunk.all_same comparison then
         None
       else
-        let draw_all_hunk (ctx, n) (h: hunk) =
-          (Array.fold_right (plot_elt Idem) (Array.sub mine n (h.mine_start - n - 1)) ctx|>draw_hunk h) , (h.mine_start + h.mine_size - 2) in
-        let ctx, n = List.fold_left draw_all_hunk (out_canevas, 0) comparison in
-        Some (Array.fold_right (plot_elt Idem) (Array.sub mine n (Array.length mine - n)) ctx)
+        let draw_all_hunk (ctx, n) (h: hunk)=
+          let mine_to_plot = h.mine_start - n - 1 in
+          (Array.fold ~f:(plot_elt Idem) (Array.sub mine ~pos:n ~len:mine_to_plot) ~init:ctx|>draw_hunk h) , (h.mine_start + h.mine_size - 2) in
+        let ctx, n = List.fold ~f:draw_all_hunk ~init:(out_canevas, 0) comparison in
+        Some (Array.fold ~f:(plot_elt Idem) (Array.sub mine ~pos:n ~len:(Array.length mine - n)) ~init:ctx)
 
     let display_diff from_ctx to_ctx filename =
       let from_canevas = Array.of_list from_ctx in
@@ -245,7 +247,7 @@ module ImageDiff = struct
     let from_filename = build_svg_name "from_" filename in
     let to_filename = build_svg_name "to_" filename in
     let both_files =
-      List.map (
+      List.map ~f:(
         fun (svg_name, context) -> Lwt_io.with_file ~mode:Lwt_io.Output svg_name (fun o ->
             Lwt_io.write o (SvgPainter.write context)))
         [(from_filename, from_ctx); (to_filename, to_ctx)] in
@@ -254,7 +256,7 @@ module ImageDiff = struct
       both >>= fun _ ->
        Lwt_process.exec ("", [| "git-imgdiff"; from_filename ; to_filename|]) >|= to_unit in
     Lwt.join @@
-      List.map (fun f ->
+      List.map ~f:(fun f ->
           Lwt.catch
             (fun () ->
               compare_them >>= fun () ->
@@ -295,8 +297,8 @@ let pp_fs out fs =
   Format.fprintf out "%s" FS.doc
 
 let get_fs s =
-  if String.sub s 0 5 = "file:" then
-    true_fs (String.sub s 5 (String.length s - 5))
+  if String.sub s ~pos:0 ~len:4 = "dir:" then
+    true_fs (String.sub s ~pos:4 ~len:(String.length s - 4))
   else
     git_fs s
 
@@ -305,12 +307,12 @@ let reference =
   Arg.(conv ~docv ((fun s -> Result.Ok (get_fs s)), pp_fs))
 
 let from_ref =
-  let doc = "reference from which the diff is performed. If it starts with 'file:' it's a file system dir." in
+  let doc = "reference from which the diff is performed. If it starts with 'dir:' it's a file system dir." in
   let docv = "FROM_REF" in
   Arg.(value & pos 0 reference (git_fs "HEAD") & info [] ~doc ~docv)
 
 let to_ref =
-  let doc = "target reference to diff with. If it starts with 'file:' it's a file system dir." in
+  let doc = "target reference to diff with. If it starts with 'dir:' it's a file system dir." in
   let docv = "TO_REF" in
   Arg.(value & pos 1 reference ((true_fs ".")) & info [] ~doc ~docv)
 

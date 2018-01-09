@@ -19,6 +19,6 @@ depends: [
   "git-unix"
   "base64"
   "patience_diff"
-  "base"
+  "core_kernel"
   "cmdliner"
 ]
