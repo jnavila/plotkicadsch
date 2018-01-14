@@ -276,7 +276,6 @@ let doit from_fs to_fs differ =
   let module T = (val to_fs: Simple_FS) in
   let module FromP = FSPainter (D.S) (F) in
   let module ToP = FSPainter (D.S) (T) in
-  Format.printf "%s between %s and %s\n" D.doc F.doc T.doc;
   let from_list = FromP.find_schematics () in
   let to_list = ToP.find_schematics () in
   let file_list = intersect_lists from_list to_list in
@@ -288,7 +287,8 @@ let doit from_fs to_fs differ =
     D.display_diff from_endctx to_endctx filename in
   let compare_all =  file_list >>= Lwt_list.map_p compare_one >|= to_unit in
   let catch_errors = Lwt.catch
-      (fun _ -> compare_all)
+      (fun _ ->   Lwt_io.printf "%s between %s and %s\n" D.doc F.doc T.doc >>= fun _ ->
+        compare_all)
       (function
         | InternalGitError s -> Lwt_io.printf "Git Exception: %s\n" s
         | a -> Lwt_io.printf "Exception %s\n" (Exn.to_string a)) in
