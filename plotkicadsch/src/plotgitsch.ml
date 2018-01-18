@@ -136,7 +136,7 @@ module type Differ =  sig
   val doc: string
   type pctx
   module S : SchPainter with type painterContext = pctx
-  val display_diff: pctx -> pctx -> string -> unit Lwt.t
+  val display_diff: from_ctx:pctx -> to_ctx:pctx -> string -> unit Lwt.t
 end
 
 let internal_diff (d:string) = (
@@ -193,7 +193,7 @@ let internal_diff (d:string) = (
     let draw_hunk (h: hunk) ctx =
       List.fold_left ~f:draw_range ~init:ctx h.ranges
 
-    let draw_difftotal other mine out_canevas =
+    let draw_difftotal ~other ~mine out_canevas =
       let comparison = Patdiff.get_hunks ~transform ~mine ~other ~context:5 ~big_enough:1 in
       if List.for_all ~f:Patience_diff_lib.Patience_diff.Hunk.all_same comparison then
         None
@@ -204,10 +204,10 @@ let internal_diff (d:string) = (
         let ctx, n = List.fold ~f:draw_all_hunk ~init:(out_canevas, 0) comparison in
         Some (Array.fold ~f:(plot_elt Idem) (Array.sub mine ~pos:n ~len:(Array.length mine - n)) ~init:ctx)
 
-    let display_diff from_ctx to_ctx filename =
+    let display_diff ~from_ctx ~to_ctx filename =
       let from_canevas = Array.of_list from_ctx in
       let to_canevas = Array.of_list to_ctx in
-      match draw_difftotal from_canevas to_canevas (SvgPainter.get_context ()) with
+      match draw_difftotal ~mine:from_canevas ~other:to_canevas (SvgPainter.get_context ()) with
       | None -> Lwt.return ()
       | Some outctx ->
         let svg_name = build_svg_name "diff_" filename in
@@ -243,7 +243,7 @@ module ImageDiff = struct
   let doc = "use compare (ImageMagick) between bitmaps"
   type pctx = SvgPainter.t
   module S = SP
-  let display_diff from_ctx to_ctx filename =
+  let display_diff ~from_ctx ~to_ctx filename =
     let from_filename = build_svg_name "from_" filename in
     let to_filename = build_svg_name "to_" filename in
     let both_files =
@@ -279,12 +279,12 @@ let doit from_fs to_fs differ =
   let from_list = FromP.find_schematics () in
   let to_list = ToP.find_schematics () in
   let file_list = intersect_lists from_list to_list in
-  let from_ctx = FromP.context_from () in
-  let to_ctx = ToP.context_from () in
+  let from_init_ctx = FromP.context_from () in
+  let to_init_ctx = ToP.context_from () in
   let compare_one filename =
-    FromP.process_file from_ctx filename >>= fun from_endctx ->
-    ToP.process_file to_ctx filename >>= fun to_endctx ->
-    D.display_diff from_endctx to_endctx filename in
+    FromP.process_file from_init_ctx filename >>= fun from_ctx ->
+    ToP.process_file to_init_ctx filename >>= fun to_ctx ->
+    D.display_diff ~from_ctx ~to_ctx filename in
   let compare_all =  file_list >>= Lwt_list.map_p compare_one >|= to_unit in
   let catch_errors = Lwt.catch
       (fun _ ->   Lwt_io.printf "%s between %s and %s\n" D.doc F.doc T.doc >>= fun _ ->
