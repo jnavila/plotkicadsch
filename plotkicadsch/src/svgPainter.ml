@@ -101,5 +101,5 @@ let write ?(op=true) {d= (x,y); c}  =
   let fy = float y in
   let o = (if op then  1.0 else 0.8) in
   let opacity = a_style @@ Printf.sprintf "stroke-opacity:%f;fill-opacity:%f;" o o  in
-  let svg_doc = svg  ~a:[a_width (fx *. 0.00254, Some `Cm); a_height (fy *. 0.00254, Some `Cm); a_viewBox (0.,0., float x, float y); a_font_family "Noto Sans";opacity] c in
+  let svg_doc = svg  ~a:[a_width (fx *. 0.00254, Some `Cm); a_height (fy *. 0.00254, Some `Cm); a_viewBox (0.,0., float x, float y); a_font_family "Verdana, sans-serif";opacity] c in
   Format.asprintf "%a" (Tyxml.Svg.pp ()) svg_doc
