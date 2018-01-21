@@ -2,18 +2,38 @@
 
 PlotKicadsch is a small tool to export Kicad Sch files to SVG pictures. In the future, export to other formats may be available (PDF, PNG).
 
+This package also provides the `plotgitsch` command which allows to visually compare git revisions of schematics:
+
+![Visual diff](docs/svg_diff.png)
+
+For more information type `plotgitsch --help`.
+
 ## Objectives
+
 This project is mainly an attempt at using ocaml with functional programing on a pet real-world project.
 
-The quality of the output is not a first requirement (meaning: not supposed to match Kicad one to one), but the accuracy of positioning matters. The end objective is to be able to provide a visual diff on sch files for version control.
+The quality of the output is not a first requirement (meaning: not supposed to match Kicad one to one), but the accuracy of positioning matters. 
 
 # Installation
 
-plotkicadsch can be installed with opam:
+The stable version of plotkicadsch can be installed with opam:
 
-    $ opam install plotkicadsch
+```bash
+$ opam install plotkicadsch
+```
 
-If you don't use opam consult the opam file for build instructions.
+If you don't use opam consult the .opam files for build instructions.
+
+## Master version
+
+The latest running version can also be installed from this repo by pinning the project in opam:
+
+```bash
+$ opam pin add kicadsch .
+$ opam pin add plotkicadsch .
+$ opam update
+$ opam install plotkicadsch
+```
 
 ## Contributing
 
