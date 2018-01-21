@@ -86,6 +86,15 @@ With this one, you should be able to diff your project and get a more understand
 
 The textual diffs between revisions of a schematic sheet have cleared up a bit with the filters, but most of us poor humans don't read the schematic format in the text. To put it bluntly, except when only properties of parts are changed, the text diff is totally useless. The good news is that there is a better solution: diffing visually the schematic.
 
+I developed a utility specially for this purpose: [Plotgitsch](https://github.com/jnavila/plotkicadsch). Plotgitsch can use two ways to diff the schematics:
+
+ * Generate bitmap pictures of each sheet of the schematic and use an external tool to visually diff them.
+ * Perform an internal diff on the schematics drawing primitive and provide the result as an svg to be visualized in your prefered browser.
+
+### External Image Diffing
+
+Right now, the tool is by default imagemagick's `compare`, wrapped in a custom script. This way of diffing is a sure way to indicate the visual differences between the schematics but can be difficult to read because there is no zooming capability. A script is already provided, but if you prefer to provide you own comparison program, we're going to show how it is done by default.
+
 For this feature, two components are needed:
 
  * imagemagick's `compare` utility to compare two images, wrapped into a custom script
@@ -100,16 +109,31 @@ PIPE=$(mktemp -u)
 rm $PIPE
 ```
 
-Save this file as `git-imgdiff` script, make it executable and available in your `$PATH`. You can also find it in the repo of `plotkicadsch`.
+Save this file as `git-imgdiff` script, make it executable and available in your `$PATH`.
 
 Now, `plotgitsch` can be invoked in your project's root directory in three forms:
 
- 1. `plotgitsch rev1 rev2`, with  `rev1` and `rev2` being two references to commits ( tags, branch or any commitish form). The differing schematic sheets between the two revisions will be compared.
- 2. `plotgitsch rev` performs the comparison between the working copy and the given revision. You can see quickly spot what changed since the last tagged prototype.
+ 1. `plotgitsch <rev1> <rev2>`, with  `rev1` and `rev2` being two references to commit ( tag, branch or any commitish form). The differing schematic sheets between the two revisions will be compared.
+ 2. `plotgitsch <rev>` performs the comparison between the working copy and the given revision. You can quickly spot what changed since the last tagged prototype.
  3. `plotgitsch` alone, which performs the comparison between the working copy and the HEAD. This is by far the most used one. Very helpful for checking what's changed before committing.
 
 Plotgitsch's plotting capabilities are not supposed to match those of Kicad, but to allow to quickly review the changes. The real job of comparing the two svg plots of schematic is done by the script which is quite rough, so feel free to share a better alternative for this function.
 
+### Internal Diffing
+
+This new feature orders the drawing primitives in lists and performs the diff between the two lists, showing the additions in green and the erased parts in red. The resulting picture is opened with the application specified with the `-i` option, e.g.:
+
+```bash
+ $ plotgitsch -ifirefox
+```
+
+![visual diff in the browser](svg_diff.png)
+
+This feature uses the same forms of version references, but other ones are available. For more information on advanced use of `plotgitsch`, type: 
+
+```bash
+ $ plotgitsch --help
+```
 
 ## Archiving the Project
 
