@@ -16,7 +16,7 @@ The quality of the output is not a first requirement (meaning: not supposed to m
 
 # Installation
 
-The stable version of plotkicadsch can be installed with opam:
+The stable version of plotkicadsch can be installed with [opam](http://opam.ocaml.org/):
 
 ```bash
 $ opam install plotkicadsch
