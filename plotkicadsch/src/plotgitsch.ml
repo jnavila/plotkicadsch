@@ -1,7 +1,5 @@
 open Core_kernel
 open Lwt.Infix
-open Git_unix
-module Search = Git.Search.Make(FS)
 
 module S = Kicadsch.MakeSchPainter(SvgPainter)
 open Kicadsch.Sigs
@@ -17,6 +15,8 @@ exception InternalGitError of string
 let git_fs commitish =
   (module
   struct
+    open Git_unix
+    module Search = Git.Search.Make(FS)
     let rev_parse r =
       let open Lwt_process in
       pread ~stderr:`Dev_null ("", [|"git" ;"rev-parse"; r ^ "^{commit}"|]) >>= (fun s ->
