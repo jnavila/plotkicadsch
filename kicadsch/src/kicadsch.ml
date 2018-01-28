@@ -110,7 +110,7 @@ struct
             s = Size size and
             j = justify_of_string hjust and
             stl = style_of_string (String.sub vjustbi 1 1, String.sub vjustbi 2 1) and
-            visible = (String.get flags 3 == '0') && not (String.equal "~" name) in
+            visible = (String.get flags 3 = '0') && not (String.equal "~" name) in
         Some (nb,visible, name, o, co, s, j, stl)
     )
 
@@ -150,7 +150,7 @@ struct
            Some (the_ref, the_part)
         )
   let parse_transfo =
-    let check x = (x==1) || (x==0) || (x==(-1)) in
+    let check x = (x=1) || (x=0) || (x=(-1)) in
     create_parse_fun
       ~name: "Component transformation"
       ~regexp_str: " %d %d %d %s"
@@ -428,7 +428,7 @@ struct
       ~name: "Description line"
       ~regexp_str: "%s %s@^"
       ~extract_fun: (fun field value ->
-          if String.get value 0 == '"' then
+          if String.get value 0 = '"' then
             let new_val= String.sub value 1 (String.length value - 2) in
             Some (field, new_val)
           else
@@ -457,7 +457,7 @@ struct
     let rec  split lstart lend (acc: string list) =
       if lend < (len - 1) then
         begin
-          if (String.get line lend == '\\') && (String.get line (lend+1) == 'n') then
+          if (String.get line lend = '\\') && (String.get line (lend+1) = 'n') then
             split (lend+2) (lend+2) ((String.sub line lstart (lend - lstart))::acc)
           else
             split lstart (lend+1) acc

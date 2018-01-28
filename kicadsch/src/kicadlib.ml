@@ -103,7 +103,7 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
       ~processing:
         (fun _ parts _ thickness remainder ->
            let coords = List.rev (parse_integers remainder) in
-           let finish = String.get remainder ((String.length remainder) - 1) == 'F' in
+           let finish = String.get remainder ((String.length remainder) - 1) = 'F' in
            let coord_list = make_double [] coords in
            let corner_list =
              if finish then
