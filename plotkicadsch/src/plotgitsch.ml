@@ -341,6 +341,6 @@ let info =
     `S Manpage.s_bugs;
     `P "Email bug reports to https//github.com/jnavila/plotkicadsch/issues" ]
   in
-  Term.info "plotgitsch" ~version:"%‌%VERSION%%" ~doc ~exits:Term.default_exits ~man
+  Term.info "plotgitsch" ~version:"%%VERSION%%" ~doc ~exits:Term.default_exits ~man
 
 let () = Term.exit @@ Term.eval (plotgitsch_t, info)
