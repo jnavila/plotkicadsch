@@ -27,33 +27,35 @@ let git_fs commitish =
 
     let doc = "Git rev " ^ commitish
 
-    let lroot, rel_path =
+    let git_root =
       let open Filename in
-      let rec recurse (d, b) =
+      let rec recurse (r: (string * string list) Lwt.t) =
+        r >>= fun (d, b) ->
         let new_gitdir = concat d ".git/description" in
-        try
-          let _ = Unix.stat new_gitdir in
+        try%lwt
+          let%lwt _ = Lwt_unix.stat new_gitdir in
           (* that's a git repo and d is the root *)
-          (Lwt.return d, b)
+          Lwt.return (d, b)
         with
         | Unix.Unix_error (Unix.ENOENT,_,_) ->
         let new_d = dirname d in
         if (String.equal new_d d) then
           (* we've reached the root of the FS *)
-          Lwt.fail (InternalGitError "not in a git repository"), []
+          Lwt.fail (InternalGitError "not in a git repository")
         else
           let new_b = (basename d) :: b in
-          recurse (new_d, new_b)
+          recurse (Lwt.return (new_d, new_b))
         | e -> raise e
-      in recurse (Sys.getcwd (), [])
+      in recurse @@ Lwt.return (Sys.getcwd (), [])
 
-    let fs = lroot >>= fun root -> FS.create ~root ()
+    let fs = git_root >>= fun (root, _) -> FS.create ~root ()
 
     let theref = rev_parse commitish
 
     let with_path path action =
-      fs >>= fun t ->
-      theref >>= fun h ->
+      let%lwt t = fs in
+      let%lwt h = theref in
+      let%lwt _, rel_path = git_root in
       Search.find t h (`Commit(`Path (List.concat [rel_path; path ]))) >>= function
          | None     -> Lwt.fail(InternalGitError ("path not found: /" ^ (String.concat ~sep:"/" path)))
          | Some sha ->
