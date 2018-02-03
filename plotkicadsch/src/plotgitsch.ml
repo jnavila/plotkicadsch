@@ -26,12 +26,35 @@ let git_fs commitish =
             _ -> Lwt.fail (InternalGitError ("cannot parse rev " ^ r)))
 
     let doc = "Git rev " ^ commitish
-    let fs = FS.create ~root:(Sys.getcwd ()) ()
+
+    let lroot, rel_path =
+      let open Filename in
+      let rec recurse (d, b) =
+        let new_gitdir = concat d ".git/description" in
+        try
+          let _ = Unix.stat new_gitdir in
+          (* that's a git repo and d is the root *)
+          (Lwt.return d, b)
+        with
+        | Unix.Unix_error (Unix.ENOENT,_,_) ->
+        let new_d = dirname d in
+        if (String.equal new_d d) then
+          (* we've reached the root of the FS *)
+          Lwt.fail (InternalGitError "not in a git repository"), []
+        else
+          let new_b = (basename d) :: b in
+          recurse (new_d, new_b)
+        | e -> raise e
+      in recurse (Sys.getcwd (), [])
+
+    let fs = lroot >>= fun root -> FS.create ~root ()
+
     let theref = rev_parse commitish
+
     let with_path path action =
       fs >>= fun t ->
       theref >>= fun h ->
-      Search.find t h (`Commit(`Path path)) >>= function
+      Search.find t h (`Commit(`Path (List.concat [rel_path; path ]))) >>= function
          | None     -> Lwt.fail(InternalGitError ("path not found: /" ^ (String.concat ~sep:"/" path)))
          | Some sha ->
            FS.read t sha >>= function
@@ -42,6 +65,7 @@ let git_fs commitish =
       with_path filename @@ function
       | Git.Value.Blob b -> Lwt.return (Git.Blob.to_raw b)
       | _ -> Lwt.fail(InternalGitError "not a valid path")
+
     let find_file filter t =
       let open Git.Tree in
       t |>
