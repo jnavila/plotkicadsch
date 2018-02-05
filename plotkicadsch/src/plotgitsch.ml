@@ -29,8 +29,7 @@ let git_fs commitish =
 
     let git_root =
       let open Filename in
-      let rec recurse (r: (string * string list) Lwt.t) =
-        r >>= fun (d, b) ->
+      let rec recurse (d,b)  =
         let new_gitdir = concat d ".git/description" in
         try%lwt
           let%lwt _ = Lwt_unix.stat new_gitdir in
@@ -44,9 +43,9 @@ let git_fs commitish =
           Lwt.fail (InternalGitError "not in a git repository")
         else
           let new_b = (basename d) :: b in
-          recurse (Lwt.return (new_d, new_b))
+          recurse (new_d, new_b)
         | e -> raise e
-      in recurse @@ Lwt.return (Sys.getcwd (), [])
+      in recurse @@(Sys.getcwd (), [])
 
     let fs = git_root >>= fun (root, _) -> FS.create ~root ()
 
