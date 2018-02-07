@@ -12,13 +12,16 @@ For more information type `plotgitsch --help`.
 
 This project is mainly an attempt at using ocaml with functional programing on a pet real-world project.
 
-The quality of the output is not a first requirement (meaning: not supposed to match Kicad one to one), but the accuracy of positioning matters. 
+The quality of the output is not a first requirement (meaning: not supposed to match Kicad one to one), but the accuracy of positioning matters.
 
 # Installation
 
 The stable version of plotkicadsch can be installed with [opam](http://opam.ocaml.org/):
 
 ```bash
+$ opam switch 4.06.0
+$ eval `opam config env`
+$ opam update
 $ opam install plotkicadsch
 ```
 
