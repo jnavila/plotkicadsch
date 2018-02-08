@@ -1,3 +1,5 @@
+![build result](https://travis-ci.org/jnavila/plotkicadsch.svg?branch=master)
+
 # Kicad schematic plotter
 
 PlotKicadsch is a small tool to export Kicad Sch files to SVG pictures. In the future, export to other formats may be available (PDF, PNG).
