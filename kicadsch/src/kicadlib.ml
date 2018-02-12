@@ -18,7 +18,7 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
     | Circle of int * circle
     | Pin of pin
     | Text of {c: relcoord; text: string; s: size}
-    | Arc of {s: size; radius: int; sp: relcoord; ep: relcoord}
+    | Arc of {s: size; radius: int; sp: relcoord; ep: relcoord; center: relcoord}
 
   type elt = {
       parts: int;
@@ -185,11 +185,12 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
       ~name:"Arc"
       ~regexp_str:"A %d %d %d %d %d %d %d %d %s %d %d %d %d"
       ~processing:
-      ( fun _ _ radius _ _ parts _ sz _ spx spy epx epy ->
-      let sp = RelCoord (spx, spy) in
-      let ep = RelCoord (epx, epy) in
-      let s = Size sz in
-      Some {parts; prim = Arc {sp;ep;s;radius}})
+      ( fun x y radius _ _ parts _ sz _ spx spy epx epy ->
+        let center= RelCoord (x, y) in
+        let sp = RelCoord (spx, spy) in
+        let ep = RelCoord (epx, epy) in
+        let s = Size sz in
+        Some {parts; prim = Arc {sp; ep; s; radius; center}})
 
 
   let parse_line line =
@@ -311,7 +312,7 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
       | Field -> ctx
       | Pin p -> plot_pin rotfun p comp ctx
       | Text {c; text; s} -> P.paint_text text Orient_H (rotfun c) s J_left NoStyle ctx
-      | Arc {radius; sp; ep; _} -> P.paint_arc (rotfun sp) (rotfun ep) radius ctx
+      | Arc {radius; sp; ep; center; _} -> P.paint_arc (rotfun center) (rotfun sp) (rotfun ep) radius ctx
     else
       ctx
 

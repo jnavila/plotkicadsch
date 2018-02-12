@@ -6,7 +6,7 @@ type t =
   | Line of kolor*size*coord*coord
   | Rect of kolor*coord*coord
   | Circle of kolor*coord*int
-  | Arc of kolor*coord*coord*int
+  | Arc of kolor*coord*coord*coord*int
   | Image of coord*float*image_data
   | Format of coord
 
@@ -24,8 +24,8 @@ module L =  struct
       Rect (fill, pt, dims) :: ctx
     let paint_circle ?(fill=NoColor) center radius ctx =
       Circle (fill, center, radius):: ctx
-    let paint_arc ?(fill=NoColor) pt_start pt_stop radius  ctx =
-      Arc (fill, pt_start, pt_stop, radius) :: ctx
+    let paint_arc ?(fill=NoColor) pt_center pt_start pt_stop radius  ctx =
+      Arc (fill, pt_center, pt_start, pt_stop, radius) :: ctx
     let paint_image corner scale b c =
       Image (corner, scale, b) :: c
     let get_context () = []

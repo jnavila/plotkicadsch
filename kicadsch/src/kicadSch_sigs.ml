@@ -56,10 +56,10 @@ module type Painter = sig
      modified canvas *)
   val paint_image: coord -> float -> Buffer.t -> t -> t
 
-  (** [paint_arc ?kolor start end radius canvas] paints an arc filled
-     with [kolor] between [start] and [end] of [radius] on
+  (** [paint_arc ?kolor center start end radius canvas] paints an arc filled
+     with [kolor] between [start] and [end] of [radius] around center on
      [canvas]. @return the modified canvas *)
-  val paint_arc: ?fill:kolor -> coord -> coord -> int -> t -> t
+  val paint_arc: ?fill:kolor -> coord -> coord -> coord -> int -> t -> t
 
   (** [set_canevas x y canvas] set the size of the canevas
       @return the modified canvas *)

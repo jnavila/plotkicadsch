@@ -61,9 +61,10 @@ let paint_rect ?(fill=NoColor) (Coord(x, y)) (Coord (dim_x, dim_y)) ({c;_ } as c
 let paint_circle ?(fill=NoColor) (Coord(x, y)) radius ({c; _ } as ctxt) ={ctxt with c =
   (circle ~a:[a_r (coord_of_int radius); a_cx (coord_of_int x); a_cy (coord_of_int y); a_fill (color_of_kolor fill); a_stroke_width (1., Some `Px); a_stroke (color_of_kolor Black) ] []) :: c}
 
-let paint_arc ?(fill=NoColor) (Coord(x1, y1)) (Coord (x2, y2)) radius ({c; _} as ctxt) =
+let paint_arc ?(fill=NoColor) (Coord (x, y)) (Coord(x1, y1)) (Coord (x2, y2)) radius ({c; _} as ctxt) =
   (* not sure how this thing behaves. This setup seems to work *)
-  let sweepflag = if y1>=y2 then 0 else 1 in {ctxt with c =
+  let sweepflag = if (x1-x)*(y2-y)>(x2-x)*(y1-y) then 1 else 0 in
+  {ctxt with c =
   ( path ~a:[a_d (Printf.sprintf "M%d,%d A%d,%d 0 0,%d %d,%d" x1 y1 radius radius sweepflag x2 y2); a_fill (color_of_kolor fill); a_stroke_width (1., Some`Px); a_stroke (color_of_kolor Black)] []
   ) :: c}
 
