@@ -42,7 +42,7 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
   module Lib : (Hashtbl.S with type key:=string) = Hashtbl.Make(
     struct
       type t = string
-      let equal = (=)
+      let equal = String.equal
       let get_i s n = int_of_char ( String.get s n )
       let hash s =
         let rec build_hash h i =
@@ -82,12 +82,7 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
 
   (** Parse a poly line
       P Nb parts convert thickness x0 y0 x1 y1 xi yi cc
-
-  let rec draw_lines coords ctx =
-    match coords with
-    | []  | [_]-> ctx
-    | c1::c2::tl -> draw_lines tl (P.paint_line c1 c2 ctx)
- **)
+   **)
   let rec make_double ol il =
     match il with
     | [] -> ol
