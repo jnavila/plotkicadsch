@@ -39,7 +39,7 @@ let paint_rect ?(fill=NoColor) (Coord(x, y)) (Coord (dim_x, dim_y)) c =
 let paint_circle ?(fill=NoColor) (Coord(x, y)) radius c =
   c
 
-let paint_arc ?(fill=NoColor) c1 c2 r c =
+let paint_arc ?(fill=NoColor) c1 c2 c3 r c =
   c
 
 let paint_image co s b c =
