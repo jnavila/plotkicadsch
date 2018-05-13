@@ -55,10 +55,10 @@ let git_fs commitish =
       let%lwt t = fs in
       let%lwt h = theref in
       let%lwt _, rel_path = git_root in
-      Search.find t h (`Commit(`Path (List.concat [rel_path; path ]))) >>= function
+      match%lwt Search.find t h (`Commit(`Path (List.concat [rel_path; path ]))) with
          | None     -> Lwt.fail(InternalGitError ("path not found: /" ^ (String.concat ~sep:"/" path)))
          | Some sha ->
-           FS.read t sha >>= function
+           match%lwt FS.read t sha with
            | Some a -> action a
            | None -> Lwt.fail (InternalGitError "sha not found")
 
@@ -123,7 +123,7 @@ struct
   let find_schematics () = F.list_files (fun name -> ends_with name ".sch")
   let process_file initctx filename =
     let parse c l = S.parse_line l c in
-    initctx >>= fun init ->
+    let%lwt init = initctx in
     F.get_content [filename] >|= fun ctt ->
     let lines = String.split_on_chars ~on:['\n'] ctt in
     let endctx = List.fold_left ~f:parse ~init lines in
