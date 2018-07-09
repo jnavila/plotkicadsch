@@ -6,10 +6,9 @@ bug-reports: "https://github.com/jnavila/plotkicadsch/issues"
 license: "ISC"
 dev-repo: "https://github.com/jnavila/plotkicadsch.git"
 build: [
-  [ "jbuilder" "subst" "-n" name ] {pinned}
+  [ "jbuilder" "subst" "-n" "kicadsch" ] {pinned}
   [ "jbuilder" "build" "-p" name "-j" jobs ]
 ]
-build-test: [["jbuilder" "runtest" "-p" name "-j" jobs]]
 depends: [
   "jbuilder" {build}
   "ounit" {test}

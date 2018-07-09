@@ -8,4 +8,4 @@ let publish =
   Pkg.publish ~artefacts:[`Distrib] ()
 
 let () =
-  Topkg_jbuilder.describe ~name:"plotkicadsch" ~publish ()
+  Topkg_jbuilder.describe ~name:"kicadsch" ~publish ()
