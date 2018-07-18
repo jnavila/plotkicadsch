@@ -329,6 +329,7 @@ struct
            match kind, width, line with
         | "Wire", "Wire", "Line" -> Some Wire
         | "Wire", "Bus", "Line"  -> Some Bus
+        | "Wire", "Notes", "Line" -> Some Line
         | "Wire", "Wire", "Note" -> Some Line
         | "Entry", "Wire", "Line"  -> Some WireEntry
         | "Entry", "Bus", "Line"   -> Some BusEntry
