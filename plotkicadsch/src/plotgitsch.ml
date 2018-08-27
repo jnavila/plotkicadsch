@@ -56,7 +56,7 @@ let git_fs commitish =
       let%lwt h = theref in
       let%lwt _, rel_path = git_root in
       match%lwt Search.find t h (`Commit(`Path (List.concat [rel_path; path ]))) with
-         | None     -> Lwt.fail(InternalGitError ("path not found: /" ^ (String.concat ~sep:"/" path)))
+         | None     -> Lwt.fail(InternalGitError ("path not found: /" ^ (String.concat ~sep:Filename.dir_sep path)))
          | Some sha ->
            match%lwt FS.read t sha with
            | Some a -> action a
@@ -84,14 +84,14 @@ let true_fs rootname =
   struct
     let doc = "file system " ^ rootname
     let rootname = rootname
-    let get_content filename = Lwt_io.with_file ~mode:Lwt_io.input (String.concat ~sep:"/" filename) (fun x -> Lwt_io.read x)
+    let get_content filename = Lwt_io.with_file ~mode:Lwt_io.input (String.concat ~sep:Filename.dir_sep filename) Lwt_io.read
     let hash_file filename = get_content [filename] >|= fun c ->
       let blob_content = (Printf.sprintf "blob %d\000" (String.length c)) ^ c in
                              filename, (Sha1.to_hex (Sha1.string blob_content))
     let list_files pattern =
-      let all_files  = (Lwt_unix.files_of_directory rootname) in
+      let all_files  = Lwt_unix.files_of_directory rootname in
       let matched_files = Lwt_stream.filter pattern all_files in
-      let decorated_files = Lwt_stream.map_s (fun name -> (hash_file name)) matched_files in
+      let decorated_files = Lwt_stream.map_s hash_file matched_files in
       Lwt_stream.to_list decorated_files
   end: Simple_FS)
 
