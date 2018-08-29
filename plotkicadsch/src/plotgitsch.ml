@@ -186,8 +186,8 @@ let internal_diff (d:string) = (
         | Text (_, text, _o, Coord (x, y), Size s, _j, _style) -> Printf.sprintf "text %s %d %d %d" text x y s
         | Line (_, Size s, Coord (x1, y1), Coord (x2, y2)) -> Printf.sprintf "line %d %d -> %d %d %d" x1 y1 x2 y2 s
         | Rect (_,  Coord (x1, y1), Coord (x2, y2)) -> Printf.sprintf "rectangle %d %d -> %d %d" x1 y1 x2 y2
-        | Circle (_, Coord (x, y), radius) -> Printf.sprintf "circle %d %d %d" x y radius
-        | Arc (_ , Coord (x, y), Coord (x1, y1), Coord (x2, y2), radius) -> Printf.sprintf "arc %d %d -> %d %d %d %d %d" x1 y1 x2 y2 radius x y
+        | Circle (_, _, Coord (x, y), radius) -> Printf.sprintf "circle %d %d %d" x y radius
+        | Arc (_, _ , Coord (x, y), Coord (x1, y1), Coord (x2, y2), radius) -> Printf.sprintf "arc %d %d -> %d %d %d %d %d" x1 y1 x2 y2 radius x y
         | Image (Coord (x, y), scale , _) -> Printf.sprintf "image %d %d %f" x y scale
         | Format (Coord(x, y)) -> Printf.sprintf "format %d %d" x y
       )
@@ -205,8 +205,8 @@ let internal_diff (d:string) = (
         | Text (_, text, o, c, s, j, style) -> O.paint_text ~kolor text o c s j style out_ctx
         | Line (_, s, from_, to_) -> O.paint_line ~kolor ~width:s from_ to_ out_ctx
         | Rect (_,  c1, c2) -> O.paint_rect c1 c2 out_ctx
-        | Circle (_, center, radius) -> O.paint_circle center radius out_ctx
-        | Arc (_ , center, start_, end_, radius) -> O.paint_arc center start_ end_ radius out_ctx
+        | Circle (_, _, center, radius) -> O.paint_circle ~kolor center radius out_ctx
+        | Arc (_, _ , center, start_, end_, radius) -> O.paint_arc ~kolor center start_ end_ radius out_ctx
         | Image (corner, scale , data) -> O.paint_image corner scale data out_ctx
         | Format (Coord (x, y)) -> O.set_canevas_size x y out_ctx
       )

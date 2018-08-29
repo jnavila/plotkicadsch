@@ -42,7 +42,7 @@ module type Painter = sig
      the given [kolor] and [width] between [start] and [stop] on
      [canvas]. @return the modified canvas *)
 
-  val paint_circle: ?fill: kolor -> coord -> int -> t -> t
+  val paint_circle: ?kolor: kolor -> ?fill: kolor -> coord -> int -> t -> t
   (** [paint_circle ?kolor center radius canvas] paints a circle
      filled with the given [kolor] defined by [center] and [radius] on
      [canvas]. @return the modified canvas *)
@@ -57,7 +57,7 @@ module type Painter = sig
      filled at [corner], scaled at [scale] on [canvas]. @return the
      modified canvas *)
 
-  val paint_arc: ?fill:kolor -> coord -> coord -> coord -> int -> t -> t
+  val paint_arc: ?kolor: kolor -> ?fill:kolor -> coord -> coord -> coord -> int -> t -> t
   (** [paint_arc ?kolor center start end radius canvas] paints an arc filled
      with [kolor] between [start] and [end] of [radius] around center on
      [canvas]. @return the modified canvas *)
