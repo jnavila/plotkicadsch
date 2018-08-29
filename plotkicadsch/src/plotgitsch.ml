@@ -156,8 +156,11 @@ let intersect_lists l1l l2l =
 
 let to_unit _ = ()
 
-let delete_file fnl =
-  Lwt_unix.unlink fnl
+let delete_file fnl ~keep =
+  if keep then
+    Lwt.return ()
+  else
+    Lwt_unix.unlink fnl
 
 let build_svg_name aprefix aschname =
   aprefix ^ (String.sub aschname ~pos:0 ~len:(String.length aschname - 4)) ^ ".svg"
@@ -166,7 +169,7 @@ module type Differ =  sig
   val doc: string
   type pctx
   module S : SchPainter with type painterContext = pctx
-  val display_diff: from_ctx:pctx -> to_ctx:pctx -> string -> bool Lwt.t
+  val display_diff: from_ctx:pctx -> to_ctx:pctx -> string -> keep:bool -> bool Lwt.t
 end
 
 let internal_diff (d:string) = (
@@ -234,7 +237,7 @@ let internal_diff (d:string) = (
         let ctx, n = List.fold ~f:draw_all_hunk ~init:(out_canevas, 0) comparison in
         Some (Array.fold ~f:(plot_elt Idem) (Array.sub mine ~pos:n ~len:(Array.length mine - n)) ~init:ctx)
 
-    let display_diff ~from_ctx ~to_ctx filename =
+    let display_diff ~from_ctx ~to_ctx filename ~keep =
       let from_canevas = Array.of_list from_ctx in
       let to_canevas = Array.of_list to_ctx in
       match draw_difftotal ~mine:from_canevas ~other:to_canevas (SvgPainter.get_context ()) with
@@ -259,9 +262,7 @@ let internal_diff (d:string) = (
         Lwt_io.with_file ~mode:Lwt_io.Output svg_name ( fun o ->
             Lwt_io.write o @@ SvgPainter.write ~op:false outctx) >>= fun _ ->
         Lwt_process.exec ("", [| d; svg_name |]) >>=
-        wait_for_1_s >>=
-          delete_file >|= fun _ -> true
-
+        wait_for_1_s >>= delete_file ~keep >|= fun _ -> true
   end :Differ)
 
 module SP = struct
@@ -273,7 +274,7 @@ module ImageDiff = struct
   let doc = "use compare (ImageMagick) between bitmaps"
   type pctx = SvgPainter.t
   module S = SP
-  let display_diff ~from_ctx ~to_ctx filename =
+  let display_diff ~from_ctx ~to_ctx filename ~keep =
     let from_filename = build_svg_name "from_" filename in
     let to_filename = build_svg_name "to_" filename in
     let both_files =
@@ -298,10 +299,10 @@ module ImageDiff = struct
       | _ -> Lwt_io.printf "unknown error\n" >|= fun () ->  false
     in
     Lwt.join @@
-        List.map ~f:(fun f -> delete_file f) [from_filename; to_filename] >|= fun _ -> ret
+        List.map ~f:(delete_file ~keep) [from_filename; to_filename] >|= fun _ -> ret
 end
 
-let doit from_fs to_fs differ textdiff libs =
+let doit from_fs to_fs differ textdiff libs keep =
   let module D = (val differ : Differ) in
   let module F = (val from_fs: Simple_FS) in
   let module T = (val to_fs: Simple_FS) in
@@ -320,7 +321,7 @@ let doit from_fs to_fs differ textdiff libs =
     let%lwt from_ctx = FromP.process_file from_init_ctx filename in
     let%lwt  to_ctx = ToP.process_file to_init_ctx filename in
     begin
-      match%lwt D.display_diff ~from_ctx ~to_ctx filename with
+      match%lwt D.display_diff ~from_ctx ~to_ctx filename ~keep with
     | true ->  Lwt.return ()
     | false ->
        if textdiff then
@@ -392,7 +393,12 @@ let textual_diff =
   let doc = "fall back to show a text diff if files are different but generate no visual diffs" in
   Arg.(value & flag & info ["t";"textdiff"] ~doc)
 
-let plotgitsch_t = Term.(const doit $ from_ref $ to_ref $ internal_diff $ textual_diff $ preloaded_libs)
+let keep_files =
+  let doc = "by default, the svg diff files are deleted after launching the viewer; this option lets the files in place after viewing them. " in
+  Arg.(value & flag & info ["k";"keep"] ~doc)
+
+
+let plotgitsch_t = Term.(const doit $ from_ref $ to_ref $ internal_diff $ textual_diff $ preloaded_libs $ keep_files)
 
 
 let info =
