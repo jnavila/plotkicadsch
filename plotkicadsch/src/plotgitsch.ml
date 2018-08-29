@@ -117,7 +117,7 @@ end
 module FSPainter (S: SchPainter) (F: Simple_FS) : sig
   val find_schematics: unit -> (string*string) list Lwt.t
   val process_file: S.schContext Lwt.t -> string -> S.painterContext Lwt.t
-  val context_from: unit -> S.schContext Lwt.t
+  val context_from: S.schContext Lwt.t -> S.schContext Lwt.t
 end =
 struct
   let find_schematics () = F.list_files (fun name -> ends_with name ".sch")
@@ -132,13 +132,15 @@ struct
   let find_libs () =
     F.list_files (fun name -> ends_with name "-cache.lib")  >|= List.map ~f:(fun (n, _) -> n)
 
-  let read_libs _ lib_list  =
+  let read_libs initial_ctx lib_list  =
   Lwt_list.fold_left_s (fun c l ->
       F.get_content [l] >|=
       String.split_on_chars ~on:['\n'] >|=
-      List.fold_left ~f:(fun ctxt l -> S.add_lib l ctxt) ~init:c) (S.initial_context () ) lib_list
+      List.fold_left ~f:(fun ctxt l -> S.add_lib l ctxt) ~init:c) (initial_ctx) lib_list
 
-  let context_from () = find_libs () >>= read_libs (S.initial_context ())
+  let context_from from_ctx =
+    let%lwt initial_context = from_ctx in
+    find_libs () >>= read_libs (initial_context)
 end
 
 let intersect_lists l1l l2l =
@@ -295,7 +297,8 @@ module ImageDiff = struct
         [from_filename; to_filename]
 end
 
-let doit from_fs to_fs differ =
+
+let doit from_fs to_fs differ libs =
   let module D = (val differ : Differ) in
   let module F = (val from_fs: Simple_FS) in
   let module T = (val to_fs: Simple_FS) in
@@ -304,8 +307,12 @@ let doit from_fs to_fs differ =
   let from_list = FromP.find_schematics () in
   let to_list = ToP.find_schematics () in
   let file_list = intersect_lists from_list to_list in
-  let from_init_ctx = FromP.context_from () in
-  let to_init_ctx = ToP.context_from () in
+
+  let preload_libs () =
+    Lwt_list.fold_left_s (fun c f -> Lwt_stream.fold D.S.add_lib (Lwt_io.lines_of_file f) c) (D.S.initial_context () ) libs in
+
+  let from_init_ctx = FromP.context_from @@ preload_libs () in
+  let to_init_ctx = ToP.context_from @@ preload_libs () in
   let compare_one filename =
     FromP.process_file from_init_ctx filename >>= fun from_ctx ->
     ToP.process_file to_init_ctx filename >>= fun to_ctx ->
@@ -358,7 +365,12 @@ let internal_diff =
   let docv = "BROWSER" in
   Arg.(value & opt ~vopt:(internal_diff "chromium") differ (module ImageDiff:Differ) & info ["i"; "internal"] ~doc ~docv)
 
-let plotgitsch_t = Term.(const doit $ from_ref $ to_ref $ internal_diff)
+let preloaded_libs =
+  let doc = "preload symbol library $(docv) in order to prepare the diff. This option can be used several times on command line." in
+  let docv = "LIB" in
+  Arg.(value & opt_all file [] & info ["l";"lib"] ~doc ~docv)
+
+let plotgitsch_t = Term.(const doit $ from_ref $ to_ref $ internal_diff $ preloaded_libs)
 
 let info =
   let doc = "Show graphically the differences between two git revisions of a kicad schematic" in
