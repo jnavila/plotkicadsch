@@ -4,8 +4,10 @@ open Lwt.Infix
 module S = Kicadsch.MakeSchPainter(SvgPainter)
 open Kicadsch.Sigs
 
+type fs_type = TrueFS of string | GitFS of string
 module type Simple_FS = sig
   val doc: string
+  val label: fs_type
   val get_content: string list -> string Lwt.t
   val list_files: (string -> bool) -> (string * string) list Lwt.t
 end
@@ -26,7 +28,7 @@ let git_fs commitish =
             _ -> Lwt.fail (InternalGitError ("cannot parse rev " ^ r)))
 
     let doc = "Git rev " ^ commitish
-
+    let label = GitFS commitish
     let git_root =
       let open Filename in
       let rec recurse (d,b)  =
@@ -83,6 +85,7 @@ let true_fs rootname =
   (module
   struct
     let doc = "file system " ^ rootname
+    let label = TrueFS rootname
     let rootname = rootname
     let get_content filename = Lwt_io.with_file ~mode:Lwt_io.input (String.concat ~sep:Filename.dir_sep filename) Lwt_io.read
     let hash_file filename = get_content [filename] >|= fun c ->
@@ -163,7 +166,7 @@ module type Differ =  sig
   val doc: string
   type pctx
   module S : SchPainter with type painterContext = pctx
-  val display_diff: from_ctx:pctx -> to_ctx:pctx -> string -> unit Lwt.t
+  val display_diff: from_ctx:pctx -> to_ctx:pctx -> string -> bool Lwt.t
 end
 
 let internal_diff (d:string) = (
@@ -235,7 +238,7 @@ let internal_diff (d:string) = (
       let from_canevas = Array.of_list from_ctx in
       let to_canevas = Array.of_list to_ctx in
       match draw_difftotal ~mine:from_canevas ~other:to_canevas (SvgPainter.get_context ()) with
-      | None -> Lwt.return ()
+      | None -> Lwt.return false
       | Some outctx ->
         let svg_name = build_svg_name "diff_" filename in
         let open Unix in
@@ -257,7 +260,7 @@ let internal_diff (d:string) = (
             Lwt_io.write o @@ SvgPainter.write ~op:false outctx) >>= fun _ ->
         Lwt_process.exec ("", [| d; svg_name |]) >>=
         wait_for_1_s >>=
-        delete_file
+          delete_file >|= fun _ -> true
 
   end :Differ)
 
@@ -281,24 +284,24 @@ module ImageDiff = struct
     let both = Lwt.join both_files in
     let compare_them =
       both >>= fun _ ->
-       Lwt_process.exec ("", [| "git-imgdiff"; from_filename ; to_filename|]) >|= to_unit in
+      Lwt_process.exec ("", [| "git-imgdiff"; from_filename ; to_filename|]) >|=
+        Unix.(function
+        | WEXITED ret -> if (Int.equal ret 0) then true else false
+        | WSIGNALED _ -> false
+        | WSTOPPED _ -> false)
+    in
+    let%lwt ret =
+      try%lwt
+            compare_them
+      with
+      | InternalGitError s ->Lwt_io.printf "%s\n" s >|= fun () -> false
+      | _ -> Lwt_io.printf "unknown error\n" >|= fun () ->  false
+    in
     Lwt.join @@
-      List.map ~f:(fun f ->
-          Lwt.catch
-            (fun () ->
-              compare_them >>= fun () ->
-              delete_file f)
-            (fun exc ->
-              begin
-              match exc with
-             | InternalGitError s -> Printf.printf "%s\n" s
-             | _ -> Printf.printf "unknown error\n"
-              end; delete_file f))
-        [from_filename; to_filename]
+        List.map ~f:(fun f -> delete_file f) [from_filename; to_filename] >|= fun _ -> ret
 end
 
-
-let doit from_fs to_fs differ libs =
+let doit from_fs to_fs differ textdiff libs =
   let module D = (val differ : Differ) in
   let module F = (val from_fs: Simple_FS) in
   let module T = (val to_fs: Simple_FS) in
@@ -314,9 +317,24 @@ let doit from_fs to_fs differ libs =
   let from_init_ctx = FromP.context_from @@ preload_libs () in
   let to_init_ctx = ToP.context_from @@ preload_libs () in
   let compare_one filename =
-    FromP.process_file from_init_ctx filename >>= fun from_ctx ->
-    ToP.process_file to_init_ctx filename >>= fun to_ctx ->
-    D.display_diff ~from_ctx ~to_ctx filename in
+    let%lwt from_ctx = FromP.process_file from_init_ctx filename in
+    let%lwt  to_ctx = ToP.process_file to_init_ctx filename in
+    begin
+      match%lwt D.display_diff ~from_ctx ~to_ctx filename with
+    | true ->  Lwt.return ()
+    | false ->
+       if textdiff then
+         let git_diff = [| "git"; "--no-pager"; "diff"; "--word-diff"|] in
+         let cmdline =
+           match F.label,T.label with
+           | GitFS fc, GitFS tc ->  Array.append git_diff[| fc; tc; "--"; filename |]
+           | TrueFS _, GitFS tc ->  Array.append git_diff[| tc; "--"; filename |]
+           | GitFS fc, TrueFS _ ->  Array.append git_diff[| fc; "--"; filename |]
+           | TrueFS fc, TrueFS tc ->  [| "diff"; fc^"/"^filename; tc^"/"^filename|]
+         in Lwt_process.exec ("", cmdline) >|= ignore
+       else Lwt.return ()
+    end
+  in
   let compare_all =  file_list >>= Lwt_list.map_p compare_one >|= to_unit in
   let catch_errors = Lwt.catch
       (fun _ ->   Lwt_io.printf "%s between %s and %s\n" D.doc F.doc T.doc >>= fun _ ->
@@ -370,7 +388,12 @@ let preloaded_libs =
   let docv = "LIB" in
   Arg.(value & opt_all file [] & info ["l";"lib"] ~doc ~docv)
 
-let plotgitsch_t = Term.(const doit $ from_ref $ to_ref $ internal_diff $ preloaded_libs)
+let textual_diff =
+  let doc = "fall back to show a text diff if files are different but generate no visual diffs" in
+  Arg.(value & flag & info ["t";"textdiff"] ~doc)
+
+let plotgitsch_t = Term.(const doit $ from_ref $ to_ref $ internal_diff $ textual_diff $ preloaded_libs)
+
 
 let info =
   let doc = "Show graphically the differences between two git revisions of a kicad schematic" in
