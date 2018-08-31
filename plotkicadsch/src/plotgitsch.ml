@@ -98,7 +98,7 @@ let true_fs rootname =
       Lwt_stream.to_list decorated_files
   end: Simple_FS)
 
-let ends_with s e =
+let ends_with e s =
   let ls = String.length s in
   let le = String.length e in
   if ls < le then
@@ -123,7 +123,7 @@ module FSPainter (S: SchPainter) (F: Simple_FS) : sig
   val context_from: S.schContext Lwt.t -> S.schContext Lwt.t
 end =
 struct
-  let find_schematics () = F.list_files (fun name -> ends_with name ".sch")
+  let find_schematics () = F.list_files (ends_with ".sch")
   let process_file initctx filename =
     let parse c l = S.parse_line l c in
     let%lwt init = initctx in
@@ -133,7 +133,7 @@ struct
     S.output_context endctx
 
   let find_libs () =
-    F.list_files (fun name -> ends_with name "-cache.lib")  >|= List.map ~f:(fun (n, _) -> n)
+    F.list_files (ends_with "-cache.lib")  >|= List.map ~f:(fun (n, _) -> n)
 
   let read_libs initial_ctx lib_list  =
   Lwt_list.fold_left_s (fun c l ->
