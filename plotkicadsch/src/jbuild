@@ -12,7 +12,6 @@
    git-unix
    lwt
    lwt.unix
-   lwt.ppx
    sha
    base64
    patience_diff
