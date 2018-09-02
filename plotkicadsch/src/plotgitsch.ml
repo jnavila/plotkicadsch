@@ -5,6 +5,7 @@ module S = Kicadsch.MakeSchPainter(SvgPainter)
 open Kicadsch.Sigs
 
 type fs_type = TrueFS of string | GitFS of string
+type differ = Internal of string | Image_Diff
 module type Simple_FS = sig
   val doc: string
   val label: fs_type
@@ -172,7 +173,7 @@ module type Differ =  sig
   val display_diff: from_ctx:pctx -> to_ctx:pctx -> string -> keep:bool -> bool Lwt.t
 end
 
-let internal_diff (d:string) = (
+let internal_diff (d:string) (c: SvgPainter.diff_colors option) = (
   module struct
     let doc = "internal diff and show with "^d
     type pctx = ListPainter.listcanevas
@@ -240,7 +241,7 @@ let internal_diff (d:string) = (
     let display_diff ~from_ctx ~to_ctx filename ~keep =
       let from_canevas = Array.of_list from_ctx in
       let to_canevas = Array.of_list to_ctx in
-      match draw_difftotal ~mine:from_canevas ~other:to_canevas (SvgPainter.get_context ()) with
+      match draw_difftotal ~mine:from_canevas ~other:to_canevas (SvgPainter.get_color_context c) with
       | None -> Lwt.return false
       | Some outctx ->
         let svg_name = build_svg_name "diff_" filename in
@@ -302,8 +303,11 @@ module ImageDiff = struct
         List.map ~f:(delete_file ~keep) [from_filename; to_filename] >|= fun _ -> ret
 end
 
-let doit from_fs to_fs differ textdiff libs keep =
-  let module D = (val differ : Differ) in
+let doit from_fs to_fs differ textdiff libs keep colors =
+  let module_d = match differ with
+    | Image_Diff -> (module ImageDiff: Differ)
+    | Internal s -> internal_diff s colors in
+  let module D = (val module_d: Differ) in
   let module F = (val from_fs: Simple_FS) in
   let module T = (val to_fs: Simple_FS) in
   let module FromP = FSPainter (D.S) (F) in
@@ -372,17 +376,19 @@ let to_ref =
   Arg.(value & pos 1 reference ((true_fs ".")) & info [] ~doc ~docv)
 
 let pp_differ out differ =
-  let module D = (val differ: Differ) in
-  Format.fprintf out "%s" D.doc
+  let s = match differ with
+  | Internal p -> "internal with viewer " ^ p
+  | Image_Diff -> "external" in
+  Format.fprintf out "%s" s
 
 let differ =
   let docv = "diff strategy used" in
-  Arg.(conv ~docv ((fun d -> Result.Ok(internal_diff d)), pp_differ))
+  Arg.(conv ~docv ((fun d -> Result.Ok(Internal d)), pp_differ))
 
 let internal_diff =
   let doc = "use an internal diff algorithm and use the $(docv) to display the result." in
   let docv = "BROWSER" in
-  Arg.(value & opt ~vopt:(internal_diff "chromium") differ (module ImageDiff:Differ) & info ["i"; "internal"] ~doc ~docv)
+  Arg.(value & opt ~vopt:(Internal "chromium") differ Image_Diff & info ["i"; "internal"] ~doc ~docv)
 
 let preloaded_libs =
   let doc = "preload symbol library $(docv) in order to prepare the diff. This option can be used several times on command line." in
@@ -397,8 +403,37 @@ let keep_files =
   let doc = "by default, the svg diff files are deleted after launching the viewer; this option lets the files in place after viewing them. " in
   Arg.(value & flag & info ["k";"keep"] ~doc)
 
+let pp_colors out c =
+  let open SvgPainter in
+  match c with
+  | None -> Format.fprintf out "default colors"
+  | Some {old_ver; new_ver; fg; bg} -> Format.fprintf out "%s, %s, %s, %s" old_ver new_ver fg bg
 
-let plotgitsch_t = Term.(const doit $ from_ref $ to_ref $ internal_diff $ textual_diff $ preloaded_libs $ keep_files)
+let extract_colors s =
+  let open SvgPainter in
+  let col_exp = "([0-9a-fA-F]{6})" in
+  let cols_exp = "^" ^col_exp ^ ":" ^ col_exp ^ ":" ^ col_exp ^ ":" ^ col_exp ^ "$" in
+  let col_re = Re.Posix.compile_pat cols_exp in
+  match (Re.all col_re s) with
+  | [ m ] ->
+     begin
+       match (Re.Group.all m) with
+       | [| _ ; o; n; f; b |] ->
+          let e c = "#" ^ c in
+          Result.Ok (Some {old_ver = e o; new_ver = e n; fg = e f; bg = e b})
+       | _ -> Result.Error (`Msg "wrong colors format")
+     end
+  | _ ->  Result.Error (`Msg "wrong colors format")
+
+let get_colors =
+  let docv = "scheme of colors for diffing" in
+  Arg.(conv ~docv (extract_colors, pp_colors))
+
+let colors =
+  let doc = "list of colon separated hex codes for colors of old, new, foreground, background, e.g. the default colors are FF0000:00FF00:00000:FFFFFF" in
+  Arg.(value & opt get_colors None & info ["c"; "colors"] ~doc)
+
+let plotgitsch_t = Term.(const doit $ from_ref $ to_ref $ internal_diff $ textual_diff $ preloaded_libs $ keep_files $ colors)
 
 
 let info =
