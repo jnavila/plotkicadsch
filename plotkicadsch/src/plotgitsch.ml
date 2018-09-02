@@ -21,7 +21,7 @@ let git_fs commitish =
     module Search = Git.Search.Make(FS)
     let rev_parse r =
       let open Lwt_process in
-      pread ~stderr:`Dev_null ("", [|"git" ;"rev-parse"; r ^ "^{commit}"|]) >>= (fun s ->
+      pread ~stderr:`Dev_null ("git", [|"git"; "rev-parse"; r ^ "^{commit}"|]) >>= (fun s ->
           try
             Lwt.return @@ Git_unix.Hash_IO.of_hex @@ String.prefix s 40
           with
@@ -261,7 +261,7 @@ let internal_diff (d:string) = (
         in
         Lwt_io.with_file ~mode:Lwt_io.Output svg_name ( fun o ->
             Lwt_io.write o @@ SvgPainter.write ~op:false outctx) >>= fun _ ->
-        Lwt_process.exec ("", [| d; svg_name |]) >>=
+        Lwt_process.exec (d, [| d; svg_name |]) >>=
         wait_for_1_s >>= delete_file ~keep >|= fun _ -> true
   end :Differ)
 
@@ -285,7 +285,7 @@ module ImageDiff = struct
     let both = Lwt.join both_files in
     let compare_them =
       both >>= fun _ ->
-      Lwt_process.exec ("", [| "git-imgdiff"; from_filename ; to_filename|]) >|=
+      Lwt_process.exec ("git-imgdiff", [| "git-imgdiff"; from_filename ; to_filename|]) >|=
         Unix.(function
         | WEXITED ret -> if (Int.equal ret 0) then true else false
         | WSIGNALED _ -> false
@@ -332,7 +332,7 @@ let doit from_fs to_fs differ textdiff libs keep =
            | TrueFS _, GitFS tc ->  Array.append git_diff[| tc; "--"; filename |]
            | GitFS fc, TrueFS _ ->  Array.append git_diff[| fc; "--"; filename |]
            | TrueFS fc, TrueFS tc ->  [| "diff"; fc^"/"^filename; tc^"/"^filename|]
-         in Lwt_process.exec ("", cmdline) >|= ignore
+         in Lwt_process.exec ("git", cmdline) >|= ignore
        else Lwt.return ()
     end
   in
