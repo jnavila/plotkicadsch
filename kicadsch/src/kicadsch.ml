@@ -216,7 +216,7 @@ struct
       | J_right |J_bottom -> name ^ port_char
       | J_center -> name
 
-  let draw_port ?(kolor=Black) name ptype justif (Coord (x,y)) (Size l as s) canevas =
+  let draw_port ?(kolor=`Black) name ptype justif (Coord (x,y)) (Size l as s) canevas =
     let new_port_name = decorate_port_name name ptype justif in
     let orient = orientation_of_justify justif in
     let j = justif in
@@ -472,8 +472,8 @@ struct
     match l.labeltype with
     | TextLabel t -> begin
       let pcolor = match t with
-        | TextNote ->  Green
-        | WireLabel -> Red in
+        | TextNote ->  `Green
+        | WireLabel -> `Red in
       let Size s = l.size in
       let Coord (x,y) = l.c in
       let paint_line c' (line_index,l') =
@@ -483,8 +483,8 @@ struct
     end
     | PortLabel (prange, ptype) ->
        let pcolor = match prange with
-         | Glabel -> Green
-         | Hlabel -> Red in
+         | Glabel -> `Green
+         | Hlabel -> `Red in
        let new_type = (swap_type ptype) in
        draw_port ~kolor:pcolor line new_type l.orient l.c l.size c
 
@@ -588,7 +588,7 @@ struct
                      ~onerror:(fun () -> canevas)
                      ~process:(fun (Coord (x,y)) ->
                        let delta = 10 in
-                       P.paint_circle ~fill:Black (Coord (x,y)) delta canevas)
+                       P.paint_circle ~fill:`Black (Coord (x,y)) delta canevas)
     else if (String.compare line "$Sheet" = 0) then
       SheetContext None, canevas
     else if starts_with line "Text" then
@@ -663,9 +663,9 @@ struct
                             ~onerror: (fun () -> canevas)
                             ~process: (fun (c1, c2) ->
                               let kolor, width  = match l with
-                                | Bus | BusEntry -> Blue, Size 5
-                                | Wire | WireEntry -> Brown, Size 2
-                                | Line -> Black, Size 2
+                                | Bus | BusEntry -> `Blue, Size 5
+                                | Wire | WireEntry -> `Brown, Size 2
+                                | Line -> `Black, Size 2
                               in P.paint_line ~kolor ~width c1 c2 canevas))
     | SheetContext sc ->
        if (String.compare line "$EndSheet" = 0) then

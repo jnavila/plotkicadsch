@@ -17,7 +17,7 @@ type justify = J_left | J_right | J_center | J_bottom | J_top (** *)
 type style = Bold | Italic | BoldItalic | NoStyle (** *)
 (** Style of a text *)
 
-type kolor = NoColor | Black | Green | Red | Blue | Brown (** *)
+type kolor = [`NoColor | `Black | `Green | `Red | `Blue | `Brown ]
 (** Color of the text. These are the colors appearing in Kicad schematics *)
 
 type transfo = ((int * int) * (int * int))
@@ -57,7 +57,7 @@ module type Painter = sig
      filled at [corner], scaled at [scale] on [canvas]. @return the
      modified canvas *)
 
-  val paint_arc: ?kolor: kolor -> ?fill:kolor -> coord -> coord -> coord -> int -> t -> t
+  val paint_arc: ?kolor: kolor -> ?fill: kolor -> coord -> coord -> coord -> int -> t -> t
   (** [paint_arc ?kolor center start end radius canvas] paints an arc filled
      with [kolor] between [start] and [end] of [radius] around center on
      [canvas]. @return the modified canvas *)

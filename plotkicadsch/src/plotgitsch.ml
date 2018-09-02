@@ -199,9 +199,9 @@ let internal_diff (d:string) (c: SvgPainter.diff_colors option) = (
       ListPainter.(
         let module O = SvgPainter in
         let kolor = match style with
-          | Theirs -> Kicadsch.Sigs.Red
-          | Ours -> Kicadsch.Sigs.Green
-          | Idem -> Kicadsch.Sigs.Black in
+          | Theirs -> `Old
+          | Ours -> `New
+          | Idem -> `ForeGround in
         match arg with
         | Text (_, text, o, c, s, j, style) -> O.paint_text ~kolor text o c s j style out_ctx
         | Line (_, s, from_, to_) -> O.paint_line ~kolor ~width:s from_ to_ out_ctx
