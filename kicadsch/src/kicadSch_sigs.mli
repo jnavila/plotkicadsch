@@ -47,7 +47,7 @@ module type Painter = sig
      filled with the given [kolor] defined by [center] and [radius] on
      [canvas]. @return the modified canvas *)
 
-  val paint_rect: ?fill: kolor -> coord -> coord -> t -> t
+  val paint_rect: ?kolor: kolor -> ?fill: kolor -> coord -> coord -> t -> t
   (** [paint_rect ?kolor corner1 corner2 canvas] paints a rectangle
      filled with the given [kolor] defined by [corner1] and [corner2]
      on [canvas]. @return the modified canvas *)

@@ -4,7 +4,7 @@ type image_data = Buffer.t
 type t =
   | Text of kolor*string*orientation*coord*size*justify*style
   | Line of kolor*size*coord*coord
-  | Rect of kolor*coord*coord
+  | Rect of kolor*kolor*coord*coord
   | Circle of kolor*kolor*coord*int
   | Arc of kolor*kolor*coord*coord*coord*int
   | Image of coord*float*image_data
@@ -20,8 +20,8 @@ module L =  struct
       Text (kolor, text, o, coords, s, j, stl) :: ctx
     let paint_line ?(kolor=`Black) ?(width=(Size 2)) pt_start pt_end ctx =
       Line (kolor, width, pt_start, pt_end) :: ctx
-    let paint_rect ?(fill=`NoColor) pt dims ctx =
-      Rect (fill, pt, dims) :: ctx
+    let paint_rect ?(kolor=`Black) ?(fill=`NoColor) pt dims ctx =
+      Rect (kolor, fill, pt, dims) :: ctx
     let paint_circle ?(kolor=`Black) ?(fill=`NoColor) center radius ctx =
       Circle (kolor, fill, center, radius):: ctx
     let paint_arc ?(kolor=`Black) ?(fill=`NoColor) pt_center pt_start pt_stop radius  ctx =

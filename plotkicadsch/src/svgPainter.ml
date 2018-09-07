@@ -65,8 +65,8 @@ let paint_line ?(kolor=`Black) ?(width=(Size 2)) (Coord (x1, y1)) (Coord (x2, y2
   let fwidth = (float_of_int width) *. 5. in { ctxt with c =
   (polyline ~a:([a_points [(x1_in, y1_in); (x2_in, y2_in) ]; a_stroke_width (fwidth, Some `Px); a_stroke ( color_of_kolor kolor ctxt) ]) []) :: c}
 
-let paint_rect ?(fill=`NoColor) (Coord(x, y)) (Coord (dim_x, dim_y)) ({c;_ } as ctxt) = {ctxt with c =
-  (rect ~a:[ a_x (coord_of_int x); a_y (coord_of_int y); a_width (coord_of_int dim_x); a_height (coord_of_int dim_y);a_fill (color_of_kolor fill ctxt); a_stroke_width (5., Some `Px); a_stroke (color_of_kolor `Black ctxt)] []) :: c}
+let paint_rect ?(kolor=`Black) ?(fill=`NoColor) (Coord(x, y)) (Coord (dim_x, dim_y)) ({c;_ } as ctxt) = {ctxt with c =
+  (rect ~a:[ a_x (coord_of_int x); a_y (coord_of_int y); a_width (coord_of_int dim_x); a_height (coord_of_int dim_y);a_fill (color_of_kolor fill ctxt); a_stroke_width (5., Some `Px); a_stroke (color_of_kolor kolor ctxt)] []) :: c}
 
 let paint_circle ?(kolor=`Black) ?(fill=`NoColor) (Coord(x, y)) radius ({c; _ } as ctxt) ={ctxt with c =
   (circle ~a:[a_r (coord_of_int radius); a_cx (coord_of_int x); a_cy (coord_of_int y); a_fill (color_of_kolor fill ctxt); a_stroke_width (10., Some `Px); a_stroke (color_of_kolor kolor ctxt) ] []) :: c}
@@ -116,5 +116,5 @@ let write ?(op=true) {d= (x,y); c; colors}  =
     | None -> "#FFFFFF"
     | Some {bg; _} -> bg in
   let opacity = a_style @@ Printf.sprintf "stroke-opacity:%f;fill-opacity:%f;" o o  in
-  let svg_doc = svg  ~a:[a_width (fx *. 0.00254, Some `Cm); a_height (fy *. 0.00254, Some `Cm); a_viewBox (0.,0., float x, float y); a_font_family "Verdana, sans-serif";opacity] @@ (rect ~a:[a_fill (`Color (bg, None)); a_width (coord_of_int x); a_height (coord_of_int y)] [])::c in
+  let svg_doc = svg  ~a:[a_width (fx *. 0.00254, Some `Cm); a_height (fy *. 0.00254, Some `Cm); a_viewBox (0.,0., float x, float y); a_font_family "Verdana, sans-serif";opacity] @@ (rect ~a:[a_fill (`Color (bg, None)); a_width (coord_of_int x); a_height (coord_of_int y) ; a_style  "stroke-opacity:1.0;fill-opacity:1.0;"] [])::c in
   Format.asprintf "%a" (Tyxml.Svg.pp ()) svg_doc
