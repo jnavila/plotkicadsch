@@ -331,7 +331,7 @@ let doit from_fs to_fs differ textdiff libs keep =
            | GitFS fc, GitFS tc ->  Array.append git_diff[| fc; tc; "--"; filename |]
            | TrueFS _, GitFS tc ->  Array.append git_diff[| tc; "--"; filename |]
            | GitFS fc, TrueFS _ ->  Array.append git_diff[| fc; "--"; filename |]
-           | TrueFS fc, TrueFS tc ->  [| "diff"; fc^"/"^filename; tc^"/"^filename|]
+           | TrueFS fc, TrueFS tc ->  [| "diff"; fc^Filename.dir_sep^filename; tc^Filename.dir_sep^filename|]
          in Lwt_process.exec ("git", cmdline) >|= ignore
        else Lwt.return ()
     end
