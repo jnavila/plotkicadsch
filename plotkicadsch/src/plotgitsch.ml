@@ -20,12 +20,11 @@ let git_fs commitish =
     open Git_unix
     module Search = Git.Search.Make(FS)
     let rev_parse r =
-      let open Lwt_process in
-      pread ~stderr:`Dev_null ("git", [|"git"; "rev-parse"; r ^ "^{commit}"|]) >>= (fun s ->
-          try
-            Lwt.return @@ Git_unix.Hash_IO.of_hex @@ String.prefix s 40
-          with
-            _ -> Lwt.fail (InternalGitError ("cannot parse rev " ^ r)))
+      SysAbst.pread "git" [|"rev-parse"; r ^ "^{commit}"|] >>= (fun s ->
+        try
+          Lwt.return @@ Git_unix.Hash_IO.of_hex @@ String.prefix s 40
+        with
+          _ -> Lwt.fail (InternalGitError ("cannot parse rev " ^ r)))
 
     let doc = "Git rev " ^ commitish
     let label = GitFS commitish
@@ -158,9 +157,12 @@ let to_unit _ = ()
 
 let delete_file fnl ~keep =
   if keep then
-    Lwt.return ()
+    Lwt.return_unit
   else
-    Lwt_unix.unlink fnl
+    try%lwt
+          Lwt_unix.unlink fnl
+    with
+      _ -> Lwt.return_unit
 
 let build_svg_name aprefix aschname =
   aprefix ^ (String.sub aschname ~pos:0 ~len:(String.length aschname - 4)) ^ ".svg"
@@ -261,7 +263,7 @@ let internal_diff (d:string) = (
         in
         Lwt_io.with_file ~mode:Lwt_io.Output svg_name ( fun o ->
             Lwt_io.write o @@ SvgPainter.write ~op:false outctx) >>= fun _ ->
-        Lwt_process.exec (d, [| d; svg_name |]) >>=
+        SysAbst.exec d [| svg_name |] >>=
         wait_for_1_s >>= delete_file ~keep >|= fun _ -> true
   end :Differ)
 
@@ -285,7 +287,7 @@ module ImageDiff = struct
     let both = Lwt.join both_files in
     let compare_them =
       both >>= fun _ ->
-      Lwt_process.exec ("git-imgdiff", [| "git-imgdiff"; from_filename ; to_filename|]) >|=
+      SysAbst.exec  "git-imgdiff" [|from_filename ; to_filename|] >|=
         Unix.(function
         | WEXITED ret -> if (Int.equal ret 0) then true else false
         | WSIGNALED _ -> false
@@ -325,14 +327,14 @@ let doit from_fs to_fs differ textdiff libs keep =
     | true ->  Lwt.return ()
     | false ->
        if textdiff then
-         let git_diff = [| "git"; "--no-pager"; "diff"; "--word-diff"|] in
-         let cmdline =
+         let diff_cmd = [|"--no-pager"; "diff"; "--word-diff"|] in
+         let cmd, args =
            match F.label,T.label with
-           | GitFS fc, GitFS tc ->  Array.append git_diff[| fc; tc; "--"; filename |]
-           | TrueFS _, GitFS tc ->  Array.append git_diff[| tc; "--"; filename |]
-           | GitFS fc, TrueFS _ ->  Array.append git_diff[| fc; "--"; filename |]
-           | TrueFS fc, TrueFS tc ->  [| "diff"; fc^Filename.dir_sep^filename; tc^Filename.dir_sep^filename|]
-         in Lwt_process.exec ("git", cmdline) >|= ignore
+           | GitFS fc, GitFS tc -> "git",  Array.append diff_cmd[| fc; tc; "--"; filename |]
+           | TrueFS _, GitFS tc -> "git", Array.append diff_cmd[| tc; "--"; filename |]
+           | GitFS fc, TrueFS _ -> "git", Array.append diff_cmd[| fc; "--"; filename |]
+           | TrueFS fc, TrueFS tc -> "diff", [|fc^Filename.dir_sep^filename; tc^Filename.dir_sep^filename|]
+         in SysAbst.exec cmd args >|= ignore
        else Lwt.return ()
     end
   in
