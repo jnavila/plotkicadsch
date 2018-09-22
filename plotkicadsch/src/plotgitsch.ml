@@ -155,15 +155,6 @@ let intersect_lists l1l l2l =
 
 let to_unit _ = ()
 
-let delete_file fnl ~keep =
-  if keep then
-    Lwt.return_unit
-  else
-    try%lwt
-          Lwt_unix.unlink fnl
-    with
-      _ -> Lwt.return_unit
-
 let build_svg_name aprefix aschname =
   aprefix ^ (String.sub aschname ~pos:0 ~len:(String.length aschname - 4)) ^ ".svg"
 
@@ -245,7 +236,8 @@ let internal_diff (d:string) = (
       match draw_difftotal ~mine:from_canevas ~other:to_canevas (SvgPainter.get_context ()) with
       | None -> Lwt.return false
       | Some outctx ->
-        let svg_name = build_svg_name "diff_" filename in
+         let svg_name = SysAbst.build_tmp_svg_name ~keep "diff_" filename in
+         let keep_as = if keep then Some (build_svg_name "diff_" filename) else None in
         let open Unix in
         let wait_for_1_s result =  match result with
             | WSIGNALED n -> Printf.printf "signalled with signal %d\n" n;Lwt.return svg_name
@@ -264,7 +256,7 @@ let internal_diff (d:string) = (
         Lwt_io.with_file ~mode:Lwt_io.Output svg_name ( fun o ->
             Lwt_io.write o @@ SvgPainter.write ~op:false outctx) >>= fun _ ->
         SysAbst.exec d [| svg_name |] >>=
-        wait_for_1_s >>= delete_file ~keep >|= fun _ -> true
+        wait_for_1_s >>= SysAbst.finalize_tmp_file ~keep_as >|= fun _ -> true
   end :Differ)
 
 module SP = struct
@@ -277,8 +269,8 @@ module ImageDiff = struct
   type pctx = SvgPainter.t
   module S = SP
   let display_diff ~from_ctx ~to_ctx filename ~keep =
-    let from_filename = build_svg_name "from_" filename in
-    let to_filename = build_svg_name "to_" filename in
+    let from_filename = SysAbst.build_tmp_svg_name ~keep "from_" filename in
+    let to_filename = SysAbst.build_tmp_svg_name ~keep "to_" filename in
     let both_files =
       List.map ~f:(
         fun (svg_name, context) -> Lwt_io.with_file ~mode:Lwt_io.Output svg_name (fun o ->
@@ -301,7 +293,7 @@ module ImageDiff = struct
       | _ -> Lwt_io.printf "unknown error\n" >|= fun () ->  false
     in
     Lwt.join @@
-        List.map ~f:(delete_file ~keep) [from_filename; to_filename] >|= fun _ -> ret
+        List.map ~f:(SysAbst.finalize_tmp_file ~keep_as:None) [from_filename; to_filename] >|= fun _ -> ret
 end
 
 let doit from_fs to_fs differ textdiff libs keep =

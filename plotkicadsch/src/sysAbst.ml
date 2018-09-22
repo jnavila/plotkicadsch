@@ -1,3 +1,4 @@
+open Core_kernel
 type os =
   | MacOS
   | Linux
@@ -38,10 +39,29 @@ let windows_quote s =
 let exec c a =
   match detect_os () with
   | MacOS | Linux -> Lwt_process.exec (c, Array.append [|c|]a)
-  | Cygwin | Windows -> launch_on_windows @@ Array.fold_left (fun f g -> f ^ " " ^ (windows_quote g)) c a
+  | Cygwin | Windows -> launch_on_windows @@ Array.fold ~f:(fun f g -> f ^ " " ^ (windows_quote g)) ~init:c a
 
 let pread c a =
   match detect_os () with
   | MacOS | Linux -> Lwt_process.pread ~stderr:`Dev_null (c, (Array.append [|c|] a))
   | Cygwin | Windows ->
-     Lwt.return @@ cmd_output (Array.fold_left (fun f g -> f ^ " " ^ (windows_quote g)) c a)
+     Lwt.return @@ cmd_output (Array.fold ~f:(fun f g -> f ^ " " ^ (windows_quote g)) ~init:c a)
+
+let build_tmp_svg_name ~keep aprefix aschname =
+  let root_prefix = aprefix ^ (String.sub aschname ~pos:0 ~len:(String.length aschname - 4)) in
+  match detect_os () with
+  | MacOS | Linux ->
+     Filename.temp_file root_prefix "svg"
+  | Cygwin | Windows ->
+     if keep then root_prefix ^ "svg" else Filename.temp_file root_prefix "svg"
+
+let finalize_tmp_file fnl ~keep_as =
+  match detect_os () with
+  | MacOS | Linux ->
+     (try%lwt
+           match keep_as with
+           | None -> Lwt_unix.unlink fnl
+           | Some target -> Lwt_unix.rename fnl target
+     with _ -> Lwt.return_unit)
+  | Cygwin | Windows ->
+     Lwt.return_unit
