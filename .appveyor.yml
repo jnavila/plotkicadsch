@@ -20,3 +20,13 @@ build_script:
 artifacts:
   - name: Binaries
     path: 'opam\*\bin\plot*'
+
+deploy:
+  provider: GitHub
+  auth_token:
+    secure: c4q0Y7feAIuCOOJebzyrIGMQ/9CPTpzZKyyJHvqrZCiQOr9UBVYQXbuTmStkYsdn
+  artifact: /plot.*\.exe/
+  draft: false
+  prerelease: false
+  on:
+    appveyor_repo_tag: true
