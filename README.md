@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/jnavila/plotkicadsch.svg?branch=master)](https://travis-ci.org/jnavila/plotkicadsch)
+[![Build Status](https://travis-ci.org/jnavila/plotkicadsch.svg?branch=master)](https://travis-ci.org/jnavila/plotkicadsch)[![Build status](https://ci.appveyor.com/api/projects/status/558xcmkgx220sqjv?svg=true)](https://ci.appveyor.com/project/jnavila/plotkicadsch)
 
 # Kicad schematic plotter
 
