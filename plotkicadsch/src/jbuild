@@ -4,7 +4,7 @@
  ((names        (plotgitsch plotkicadsch))
   (public_names (plotgitsch plotkicadsch))
   (package plotkicadsch)
-  (preprocess (pps (lwt.ppx)))
+  (preprocess (pps (lwt_ppx)))
  (libraries
   (
    kicadsch
