@@ -65,3 +65,9 @@ let finalize_tmp_file fnl ~keep_as =
      with _ -> Lwt.return_unit)
   | Cygwin | Windows ->
      Lwt.return_unit
+
+let default_opener () =
+  match detect_os () with
+  | Linux -> "xdg-open"
+  | MacOS -> "open"
+  | Cygwin | Windows -> "" (* we already use "start" in exec *)

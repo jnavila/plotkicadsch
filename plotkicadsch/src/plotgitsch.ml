@@ -382,7 +382,7 @@ let differ =
 let internal_diff =
   let doc = "use an internal diff algorithm and use the $(docv) to display the result." in
   let docv = "BROWSER" in
-  Arg.(value & opt ~vopt:(Internal "chromium") differ Image_Diff & info ["i"; "internal"] ~doc ~docv)
+  Arg.(value & opt ~vopt:(Internal (SysAbst.default_opener ())) differ Image_Diff & info ["i"; "internal"] ~doc ~docv)
 
 let preloaded_libs =
   let doc = "preload symbol library $(docv) in order to prepare the diff. This option can be used several times on command line." in
@@ -401,7 +401,7 @@ let pp_colors out c =
   let open SvgPainter in
   match c with
   | None -> Format.fprintf out "default colors"
-  | Some {old_ver; new_ver; fg; bg} -> Format.fprintf out "%s, %s, %s, %s" old_ver new_ver fg bg
+  | Some {old_ver; new_ver; fg; bg} -> Format.fprintf out "%s:%s:%s:%s" old_ver new_ver fg bg
 
 let extract_colors s =
   let open SvgPainter in
@@ -424,8 +424,9 @@ let get_colors =
   Arg.(conv ~docv (extract_colors, pp_colors))
 
 let colors =
-  let doc = "list of colon separated hex codes for colors of old, new, foreground, background, e.g. the default colors are FF0000:00FF00:00000:FFFFFF" in
-  Arg.(value & opt get_colors None & info ["c"; "colors"] ~doc)
+  let doc = "list of colon separated hex RGB codes for colors used for diffing e.g. the default colors are FF0000:00FF00:00000:FFFFFF" in
+  let docv = "old:new:foreground:background" in
+  Arg.(value & opt get_colors None & info ["c"; "colors"] ~doc ~docv)
 
 let plotgitsch_t = Term.(const doit $ from_ref $ to_ref $ internal_diff $ textual_diff $ preloaded_libs $ keep_files $ colors)
 
