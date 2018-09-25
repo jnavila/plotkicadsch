@@ -51,9 +51,9 @@ let build_tmp_svg_name ~keep aprefix aschname =
   let root_prefix = aprefix ^ (String.sub aschname ~pos:0 ~len:(String.length aschname - 4)) in
   match detect_os () with
   | MacOS | Linux ->
-     Filename.temp_file root_prefix "svg"
+     Filename.temp_file root_prefix ".svg"
   | Cygwin | Windows ->
-     if keep then root_prefix ^ "svg" else Filename.temp_file root_prefix "svg"
+     if keep then root_prefix ^ ".svg" else Filename.temp_file root_prefix ".svg"
 
 let finalize_tmp_file fnl ~keep_as =
   match detect_os () with
