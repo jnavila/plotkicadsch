@@ -1,19 +1,19 @@
 .PHONY: build clean test install uninstall distrib publish release
 
 build:
-	jbuilder build --dev
+	dune build
 
 clean:
-	jbuilder clean
+	dune clean
 
 test:
-	jbuilder runtest --dev
+	dune runtest
 
 install:
-	jbuilder install
+	dune install
 
 uninstall:
-	jbuilder uninstall
+	dune uninstall
 
 distrib:
 	[ -x $$(opam config var root)/plugins/opam-publish/repos/plotkicadsch ] || \

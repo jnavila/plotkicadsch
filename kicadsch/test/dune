@@ -1,0 +1,8 @@
+(tests
+ (names        test)
+ (libraries
+  oUnit
+  kicadsch
+  )
+ (flags (:standard -w -27 ))
+ )

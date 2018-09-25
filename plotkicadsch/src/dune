@@ -1,0 +1,25 @@
+(executables
+ (names        plotgitsch plotkicadsch)
+ (public_names plotgitsch plotkicadsch)
+ (package plotkicadsch)
+ (preprocess (pps lwt_ppx))
+ (libraries
+   kicadsch
+   tyxml
+   git-unix
+   lwt
+   lwt.unix
+   sha
+   base64
+   patience_diff
+   core_kernel
+   cmdliner
+   )
+  (flags (:standard -w -3 -safe-string))
+)
+
+(install
+ (package plotkicadsch)
+ (section bin)
+ (files git-imgdiff)
+  )

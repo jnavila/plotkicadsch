@@ -3,14 +3,16 @@ maintainer: "Jean-Noel Avila <jn.avila@free.fr>"
 author: "Jean-Noel Avila <jn.avila@free.fr>"
 homepage: "https://jnavila.github.io/plotkicadsch/"
 bug-reports: "https://github.com/jnavila/plotkicadsch/issues"
+doc: "https://jnavila.github.io/plotkicadsch/index"
 license: "ISC"
 dev-repo: "https://github.com/jnavila/plotkicadsch.git"
 build: [
-  [ "jbuilder" "subst" "-n" "kicadsch" ] {pinned}
-  [ "jbuilder" "build" "-p" name "-j" jobs ]
+  [ "dune" "subst" "-n" "kicadsch" ] {pinned}
+  [ "dune" "build" "-p" name "-j" jobs ]
 ]
 depends: [
-  "jbuilder" {build}
+  "dune" {build}
+  "dune-release" {build}
   "kicadsch" {= "0.3.0"}
   "tyxml" {>= "4.0.0"}
   "lwt"

@@ -1,16 +1,21 @@
-opam-version: "1.2"
+opam-version: "2.0"
 maintainer: "Jean-Noel Avila <jn.avila@free.fr>"
 author: "Jean-Noel Avila <jn.avila@free.fr>"
 homepage: "https://jnavila.github.io/plotkicadsch/"
+doc: "https://jnavila.github.io/plotkicadsch/index"
 bug-reports: "https://github.com/jnavila/plotkicadsch/issues"
 license: "ISC"
 dev-repo: "https://github.com/jnavila/plotkicadsch.git"
 build: [
-  [ "jbuilder" "subst" "-n" "kicadsch" ] {pinned}
-  [ "jbuilder" "build" "-p" name "-j" jobs ]
+  [ "dune" "subst" "-n" "kicadsch" ] {pinned}
+  [ "dune" "build" "-p" name "-j" jobs ]
+]
+build-test: [
+  ["dune" "runtest" "-p" name "-j" jobs]
 ]
 depends: [
-  "jbuilder" {build}
+  "dune" {build}
+  "dune-release" {build}
   "ounit" {test}
 ]
-available: [ ocaml-version >= "4.03" ]
+available: [ ocaml-version >= "4.05" ]

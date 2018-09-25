@@ -1,0 +1,7 @@
+(library
+   (name kicadsch)
+   (public_name kicadsch)
+   (modules_without_implementation kicadSch_sigs)
+   (synopsis "Library to plotting KiCAD schematics")
+   (flags (:standard -safe-string))
+  )
