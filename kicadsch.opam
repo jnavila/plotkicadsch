@@ -7,7 +7,7 @@ bug-reports: "https://github.com/jnavila/plotkicadsch/issues"
 license: "ISC"
 dev-repo: "https://github.com/jnavila/plotkicadsch.git"
 build: [
-  [ "dune" "subst" "-n" "kicadsch" ] {pinned}
+  [ "dune" "subst" ] {pinned}
   [ "dune" "build" "-p" name "-j" jobs ]
 ]
 build-test: [
