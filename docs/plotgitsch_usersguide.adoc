@@ -1,0 +1,100 @@
+= Plotgitsch User's Guide
+Jean-Noël Avila <jn.avila@free.fr>
+:toc:
+:icons: font
+
+== Introduction
+
+Plotgitsch is a utility command coming from the plotkicadsch package. It's core feature is the ability to generate visual diff between two versions of a Kicad schematic managed in a Git project.
+
+Provided your Kicad project is versioned with Git, this feature is useful in several cases, among which:
+
+* to check the changes you just introduced before committing
+* to visualize a changeset
+* to review the changes introduced between two revisions of a schematic
+* to send the difference of schematic to the person in charge of routing
+
+To walk you through some of these use cases, we are going to use a fake repository of a board and show how to use the commands.
+
+NOTE: If you want to apply the same recipes to your own project, don't forget to follow the advices listed in index.html[Massaging your git or kicad].
+
+== Set Up
+
+In order to play with plotgitsch, let's prepare a sandbox project and see what can be done.
+
+[source, shell]
+----
+$ git clone https://github.com/jnavila/git_kicad_example.git
+$ cd git_kicad_example
+$ patch -p1 change.diff
+----
+
+Now, we have a project with a schematic with changes in the working copy. This project has a pretty strange history that will help us exercise the features of `plotgitsch`.
+
+As you can already see, the schematic project isn't located at the root of the git working copy. To be able to perform operations through `plotgitsch` the current directory must be the kicad project, wherever it is in your git working copy.
+
+[source, shell]
+----
+$ cd example
+$ ls
+// TODO lister les fichiers présents
+----
+
+Now, we can invoke `plotgitsch` in our kicad project. Remember that if you don't remember the available options to invoke it, the `--help` option brings up the manual page with all needed details.
+
+== Internal Diff
+
+Although `plotgitsch` is invoked by default to run an external image diff tool, we will focus on using the internal diff feature by using the `-i` feature. This feature tries to compute the visual differences between internal list of drawing primitives (lines, texts, arcs…) of the schematics drawings and keeps the difference at the level of https://en.wikipedia.org/wiki/Vector_graphics[vector graphics], which allows any zooming level.
+
+In order to visualize the vector output of the difference, you'll need an application able to display SVG pictures. Your default web browser should be able to handle these files. Let's try for instance with firefox:
+
+[source, shell]
+----
+$ plotgitsch -ifirefox
+----
+
+This should display:
+
+////
+TODO: afficher l'image du projet
+////
+
+This is the display of the changes that were introduced between your present working copy and the latest revision checked in git, just like `git diff` would display the textual differences introduced in your working copy.
+
+== Specifying Revisions to compare
+
+
+`plotgitsch` handles revision specifiers just like git (behind the scene, it uses git). Please have a look at https://git-scm.com/docs/gitrevisions[git revisions] for all the kinds of commit references.
+
+Revisions to be compared can be specified in three forms: with two, one or no revisions.
+
+ 1. `plotgitsch <rev1> <rev2>`, with  `rev1` and `rev2` being two references to commit (tag, branch or any commitish form). The differing schematic sheets between the two revisions will be compared.
+ 2. `plotgitsch <rev>` performs the comparison between the working copy and the given revision. You can quickly spot what changed since the last tagged prototype.
+ 3. `plotgitsch` alone, which performs the comparison between the working copy and the HEAD. This is by far the most used one. Very helpful for checking what's changed before committing.
+
+
+
+using git like commands
+
+-i feature
+Rule of not upsetting the schematic. example : delete a component et place the same component at the same place.
+
+
+
+-l feature library
+
+-t feature text diff
+
+-k feature keep
+
+////
+projet :
+avec sous répertoire
+premier commit à vide
+second commit sans le cache lib , première version du schéma (penser à modifier la distance de pins
+troisième commit avec cache, annoncer nouveaux composants, déplacer des composants
+quatrième commit avec cache correction, ajout d'une nouvelle feuille.
+5eme commit modifier les champs internes => visu des diffs réels
+
+un patch à appliquer sur le projet pour avoir une version de travail différente.
+////
