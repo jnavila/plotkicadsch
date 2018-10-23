@@ -24,9 +24,9 @@ In order to play with plotgitsch, let's prepare a sandbox project and see what c
 
 [source, shell]
 ----
-$ git clone https://github.com/jnavila/git_kicad_example.git
-$ cd git_kicad_example
-$ patch -p1 change.diff
+$ git clone https://github.com/jnavila/kicad_playground.git
+$ cd kicad_playground
+$ patch -p1 changes.diff
 ----
 
 Now, we have a project with a schematic with changes in the working copy. This project has a pretty strange history that will help us exercise the features of `plotgitsch`.
@@ -35,16 +35,20 @@ As you can already see, the schematic project isn't located at the root of the g
 
 [source, shell]
 ----
-$ cd example
-$ ls
-// TODO lister les fichiers présents
+$ cd schematic
+$ ls -1
+kicad_playground-cache.lib
+kicad_playground.kicad_pcb
+kicad_playground.pro
+kicad_playground.sch
+LEDs.sch
 ----
 
-Now, we can invoke `plotgitsch` in our kicad project. Remember that if you don't remember the available options to invoke it, the `--help` option brings up the manual page with all needed details.
+This is a checkout of what is usually followed under git in kicad projects. For more information, refer to link:index.html[how to set up your git repository].
 
 == Internal Diff
 
-Although `plotgitsch` is invoked by default to run an external image diff tool, we will focus on using the internal diff feature by using the `-i` feature. This feature tries to compute the visual differences between internal list of drawing primitives (lines, texts, arcs…) of the schematics drawings and keeps the difference at the level of https://en.wikipedia.org/wiki/Vector_graphics[vector graphics], which allows any zooming level.
+Although `plotgitsch` is invoked by default to run an external image diff tool, we will focus on using the internal diff feature by using the `-i` option. This feature tries to compute the visual differences between internal list of drawing primitives (lines, texts, arcs…) of the schematics drawings and keeps the difference at the level of https://en.wikipedia.org/wiki/Vector_graphics[vector graphics], which allows any zooming level.
 
 In order to visualize the vector output of the difference, you'll need an application able to display SVG pictures. Your default web browser should be able to handle these files. Let's try for instance with firefox:
 
@@ -54,47 +58,80 @@ $ plotgitsch -ifirefox
 ----
 
 This should display:
+image::working_copy_diff.png[]
 
-////
-TODO: afficher l'image du projet
-////
+ It seems the last change to the working copy was the addition of a screw terminal block.
 
-This is the display of the changes that were introduced between your present working copy and the latest revision checked in git, just like `git diff` would display the textual differences introduced in your working copy.
+This is the display of the changes that were introduced in your present working copy with respect to the latest revision checked in git, just like `git diff` would display the textual differences introduced in your working copy. Of course, instead of firefox, you can specify the tool of your choice to handle de svg output file.
 
 == Specifying Revisions to compare
 
+For the simplicity of this guide, all the revisions of the playground repo have been tagged so to have them easily typed in.
 
 `plotgitsch` handles revision specifiers just like git (behind the scene, it uses git). Please have a look at https://git-scm.com/docs/gitrevisions[git revisions] for all the kinds of commit references.
 
 Revisions to be compared can be specified in three forms: with two, one or no revisions.
 
- 1. `plotgitsch <rev1> <rev2>`, with  `rev1` and `rev2` being two references to commit (tag, branch or any commitish form). The differing schematic sheets between the two revisions will be compared.
+ 1. `plotgitsch` alone, which performs the comparison between the working copy and the HEAD (the tip of the branch you have checked out). This is by far the most used one. Very helpful for checking what's changed before committing.
  2. `plotgitsch <rev>` performs the comparison between the working copy and the given revision. You can quickly spot what changed since the last tagged prototype.
- 3. `plotgitsch` alone, which performs the comparison between the working copy and the HEAD. This is by far the most used one. Very helpful for checking what's changed before committing.
+ 3. `plotgitsch <rev1> <rev2>`, with `rev1` and `rev2` being two references to commits (tag, branch or any commitish form). The changes in  schematic sheets from `rev1` to `rev2` are displayed.
 
+For instance, let's check the changes between two tagged revisions:
 
+[source, shell]
+----
+$ plotgitsch -ifirefox v0.0.3 v0.0.4
+----
 
-using git like commands
+image::LED_swap.png[]
 
--i feature
-Rule of not upsetting the schematic. example : delete a component et place the same component at the same place.
+== Changing Colors
 
+By default, the background is white, the unmodified part of the drawing is in black, the added parts are in green and the removed ones are in red. These colors can be changed with the `-c` option. Say we'd rather have the background in black (RGB hex code 000000), the unchanged parts in white (RGB hex: FFFFFF), the added lines in clear blue (RGB hex: 008FFF) and keep the removed in red (RGB hex: FF0000), we need to issue the following command:
 
+[source, shell]
+----
+$ plotkicadsch -ifirefox -c FF0000:008FFF:FFFFFF:000000v0.0.2 v0.0.3 v0.0.4
+----
 
--l feature library
+image::LED_swap_blackgb.png[]
 
--t feature text diff
+== Keeping Diff Pictures
 
--k feature keep
+You may have noticed while performing the previous commands that the corresponding files are opened in your web browser but do not clutter your working directory. This is because these files are generated in the `temp` directory.
 
-////
-projet :
-avec sous répertoire
-premier commit à vide
-second commit sans le cache lib , première version du schéma (penser à modifier la distance de pins
-troisième commit avec cache, annoncer nouveaux composants, déplacer des composants
-quatrième commit avec cache correction, ajout d'une nouvelle feuille.
-5eme commit modifier les champs internes => visu des diffs réels
+If you need the files, as documentation for instance, you can specify the `-k` option (`--keep` in long format) to force the generation in the working directory and disable deletion after use.
 
-un patch à appliquer sur le projet pour avoir une version de travail différente.
-////
+== Preloading libraries
+
+The project was not correctly checked in during the first revisions, namely, the cache library was not checked in:
+
+[source, shell]
+----
+$ plotgitsch -ifirefox v0.0.2 v0.0.3
+
+internal diff and show with firefox between Git rev v0.0.2 and Git rev v0.0.3
+Exception ("Kicadsch__Kicadlib.MakePainter(P).Component_Not_Found(\"Timer:LM555\")")
+----
+
+This message indicates that in one of the revisions, the definition of a component is missing. The definitions are provided in libraries which must be checked in. To circumvent this forgotten step, `plotgitsch` can let you specify a path in your filesystem to one or several libraries to preload with the option `-l` or `--lib=`. If we are lucky, we can assume that the cache lib present in our working copy contains the required components in their correct version:
+
+[source, shell]
+----
+$ plotgitsch -ifirefox plotgitsch -ifirefox -lkicad_playground-cache.lib v0.0.2 v0.0.3
+----
+
+This works quite well. However, you can still notice that some changes appear at the shape of the LED may have changed in the cache, because the wires around it show changes. We are quite lucky that the shape of more complex components haven't changed (for instance a mapping on a microcontroller).
+
+== Other Options
+
+There are a few last options:
+
+`-t`, `--textdiff`::
+  In case the sch files are different but do not yield graphical differences, instruct `plotgitsch` to dump a text diff of the files.
+
+`--version`::
+  Show the version string.
+
+`--help`::
+  Show a very helpful manual page.
