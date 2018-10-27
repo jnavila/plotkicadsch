@@ -3,3 +3,5 @@ _build/
 *.native
 configure
 setup.*
+.merlin
+*.pdf
