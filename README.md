@@ -18,6 +18,8 @@ The quality of the output is not a first requirement (meaning: not supposed to m
 
 # Installation
 
+# Stable version from OPAM
+
 The stable version of plotkicadsch can be installed with [opam](http://opam.ocaml.org/):
 
 ```bash
@@ -29,6 +31,16 @@ $ opam install plotkicadsch
 
 If you don't use opam consult the .opam files for build instructions.
 
+## Windows
+
+For Windows users, there is an [experimental opam repository](https://fdopen.github.io/opam-repository-mingw/) which works pretty well.
+
+Alternatively, you can simply grab precompiled binaries at
+
+https://github.com/jnavila/plotkicadsch/releases
+
+If you have installed git for windows, chances are that you have installed the bash environment, so  drop the binaries in `C:\Program Files\Git\mingw64\bin`(Administrator rights required). They should be accessible on your bash command line and work just like under Linux/OSX.
+
 ## Master version
 
 The latest running version can also be installed from this repo by pinning the project in opam:
@@ -39,6 +51,12 @@ $ opam pin add plotkicadsch .
 $ opam update
 $ opam install plotkicadsch
 ```
+
+# How to
+
+## Using
+
+All the commands have a help option. For `plotgitsch`, a [small hands on guide](https://jnavila.github.io/plotkicadsch/plotgitsch_usersguide.html) is available.
 
 ## Contributing
 
