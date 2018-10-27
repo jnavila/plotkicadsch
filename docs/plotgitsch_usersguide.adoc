@@ -58,9 +58,10 @@ $ plotgitsch -ifirefox
 ----
 
 This should display:
+
 image::working_copy_diff.png[]
 
- It seems the last change to the working copy was the addition of a screw terminal block.
+It seems the last change to the working copy was the addition of a screw terminal block.
 
 This is the display of the changes that were introduced in your present working copy with respect to the latest revision checked in git, just like `git diff` would display the textual differences introduced in your working copy. Of course, instead of firefox, you can specify the tool of your choice to handle de svg output file.
 
@@ -94,7 +95,7 @@ By default, the background is white, the unmodified part of the drawing is in bl
 $ plotkicadsch -ifirefox -c FF0000:008FFF:FFFFFF:000000v0.0.2 v0.0.3 v0.0.4
 ----
 
-image::LED_swap_blackgb.png[]
+image::LED_swap_blackbg.png[]
 
 == Keeping Diff Pictures
 
@@ -118,8 +119,9 @@ This message indicates that in one of the revisions, the definition of a compone
 
 [source, shell]
 ----
-$ plotgitsch -ifirefox plotgitsch -ifirefox -lkicad_playground-cache.lib v0.0.2 v0.0.3
+$ plotgitsch -ifirefox -lkicad_playground-cache.lib v0.0.2 v0.0.3
 ----
+image::diff_with_lib.png[]
 
 This works quite well. However, you can still notice that some changes appear at the shape of the LED may have changed in the cache, because the wires around it show changes. We are quite lucky that the shape of more complex components haven't changed (for instance a mapping on a microcontroller).
 
