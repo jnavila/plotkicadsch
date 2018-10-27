@@ -1,22 +1,24 @@
-opam-version: "1.2"
+opam-version: "2.0"
 maintainer: "Jean-Noel Avila <jn.avila@free.fr>"
 author: "Jean-Noel Avila <jn.avila@free.fr>"
 homepage: "https://jnavila.github.io/plotkicadsch/"
 doc: "https://jnavila.github.io/plotkicadsch/index"
 synopsis: "Library to read and convert Kicad Sch files"
+description: """
+Library able to read Kicad libraries and sch file and
+drive a painter to paint the schematics.
+"""
 bug-reports: "https://github.com/jnavila/plotkicadsch/issues"
 license: "ISC"
-dev-repo: "https://github.com/jnavila/plotkicadsch.git"
+dev-repo: "git+https://github.com/jnavila/plotkicadsch.git"
 build: [
   [ "dune" "subst" ] {pinned}
   [ "dune" "build" "-p" name "-j" jobs ]
-]
-build-test: [
-  ["dune" "runtest" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
 ]
 depends: [
   "dune" {build}
   "dune-release" {build}
-  "ounit" {test}
+  "ounit" {with-test}
+  "ocaml" {>="4.05"}
 ]
-available: [ ocaml-version >= "4.05" ]

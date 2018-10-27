@@ -1,12 +1,17 @@
-opam-version: "1.2"
+opam-version: "2.0"
 maintainer: "Jean-Noel Avila <jn.avila@free.fr>"
 author: "Jean-Noel Avila <jn.avila@free.fr>"
 homepage: "https://jnavila.github.io/plotkicadsch/"
 bug-reports: "https://github.com/jnavila/plotkicadsch/issues"
 doc: "https://jnavila.github.io/plotkicadsch/index"
-synopsis: "Utilities to print and compare version of kicad schematics"
+synopsis: "Utilities to print and compare version of Kicad schematics"
+description: """
+Two utilities:
+ * plotkicadsch is able to plot schematic sheets to SVG files
+ * plotgitsch is able to compare git revisions of schematics
+"""
 license: "ISC"
-dev-repo: "https://github.com/jnavila/plotkicadsch.git"
+dev-repo: "git+https://github.com/jnavila/plotkicadsch.git"
 build: [
   [ "dune" "subst" ] {pinned}
   [ "dune" "build" "-p" name "-j" jobs ]
