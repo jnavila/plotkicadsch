@@ -14,7 +14,7 @@ build: [
 depends: [
   "dune" {build}
   "dune-release" {build}
-  "kicadsch" {= "0.3.0"}
+  "kicadsch" {= "0.4.0"}
   "tyxml" {>= "4.0.0"}
   "lwt"
   "lwt_ppx" {build}

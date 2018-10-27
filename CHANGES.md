@@ -1,3 +1,15 @@
+v0.4.0
+------
+
+ - add the -l option
+ - add the -c option
+ - add the -t option
+ - add the -k option
+ - enhance svg drawing
+ - add appveyor builds and Windows binaries
+ - switch to dune
+ - add a small user's guide
+
 v0.3.0
 ------
 
