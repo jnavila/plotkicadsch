@@ -1,0 +1,14 @@
+* Kicad schematic plotter
+
+PlotKicadsch is a small tool to export Kicad Sch files to SVG pictures. In the future, export to other formats may be available (PDF, PNG).
+
+** Objectives
+This project is mainly an attempt at using ocaml with functional programing on a pet real-world project.
+
+The quality of the output is not a first requirement, but the accuracy of positioning matters. The end objective is to be able to provide a visual diff on sch files for version control.
+
+** Contributing
+
+This project accepts GitHub pull requests, but as it is a self-teaching project, I would prefer to do all core stuff. If you see some parts of the code whose style is not ocamlish or not FP ready, please let me know.
+
+If this project happens to be of any use, let me know also!
