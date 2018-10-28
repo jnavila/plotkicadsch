@@ -16,7 +16,7 @@ Provided your Kicad project is versioned with Git, this feature is useful in sev
 
 To walk you through some of these use cases, we are going to use a fake repository of a board and show how to use the commands.
 
-NOTE: If you want to apply the same recipes to your own project, don't forget to follow the advices listed in index.html[Massaging your git or kicad].
+NOTE: If you want to apply the same recipes to your own project, don't forget to follow the advices listed in link:index.html[Massaging your git or kicad].
 
 == Set Up
 
@@ -92,7 +92,7 @@ By default, the background is white, the unmodified part of the drawing is in bl
 
 [source, shell]
 ----
-$ plotkicadsch -ifirefox -c FF0000:008FFF:FFFFFF:000000v0.0.2 v0.0.3 v0.0.4
+$ plotkicadsch -ifirefox -c FF0000:008FFF:FFFFFF:000000 v0.0.3 v0.0.4
 ----
 
 image::LED_swap_blackbg.png[]
