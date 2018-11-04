@@ -435,7 +435,7 @@ let info =
   let doc = "Show graphically the differences between two git revisions of a kicad schematic" in
   let man = [
     `S Manpage.s_bugs;
-    `P "Email bug reports to https//github.com/jnavila/plotkicadsch/issues" ]
+    `P "Open issues to https://github.com/jnavila/plotkicadsch/issues" ]
   in
   Term.info "plotgitsch" ~version:"%%VERSION%%" ~doc ~exits:Term.default_exits ~man
 
