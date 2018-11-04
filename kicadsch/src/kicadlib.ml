@@ -230,6 +230,9 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
     | ' ' | '$' -> {parts=(-1); prim=Field}
     | _ -> Printf.printf "throwing away line '%s'\n" line; {parts=(-1); prim=Field}
 
+  let fix_illegal_chars name =
+    String.map (function  | '/' | ':' -> '_' | c -> c) name
+
   let append_lib line (lib, comp_option, acc) =
           match comp_option with
           | None ->
@@ -247,7 +250,7 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
                lib, comp_option, acc
              else if (String.compare line "ENDDEF" = 0) then
                (let comp = {comp with graph=(List.rev acc)} in
-                List.iter (fun name -> Lib.replace lib name comp) comp.names;
+                List.iter (fun name -> Lib.replace lib (fix_illegal_chars name) comp) comp.names;
                 lib, None,[])
              else if (String.length line > 6) &&
                        (String.compare (String.sub line 0 5) "ALIAS" = 0) then
@@ -317,7 +320,7 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
     let rot = rotate rotation origin in
     let thecomp =
       try
-        Lib.find lib comp_name
+        Lib.find lib (fix_illegal_chars comp_name)
       with _ -> raise (Component_Not_Found comp_name) in
     (List.fold_left (plot_elt rot thecomp part) ctx thecomp.graph), thecomp.multi
 end
