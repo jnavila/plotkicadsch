@@ -8,13 +8,13 @@ The following points are the setup that I reached for the edition of schematics.
 
 First off, you have to know which files you need to follow in version control and which other ones you just want the version control system to ignore.
 
-Concerning libraries, Kicad is very helpful in that it maintains a cache library of all the components used in the schematics of a project. The presence of this file means that you don't need to check into version all the libraries from which you pulled the components, but that the project folder already contains all that is needed to open all the schematic sheets. The main files for a project named `myboard` that are followed are:
+Concerning libraries, Kicad is very helpful in that it maintains a cache library of all the components used in the schematics of a project. The presence of this file means that you don't need to check into version all the libraries from which you pulled the components, but that the project folder already contains all that is needed to open all the schematic sheets. The main files for a project named `myboard` that are followed under version control are:
 
  * the `.pro` file which is main project file, e.g, `myboard.pro`
  * the `.sch` files that represent the schematic sheets.
  * the `cache.lib` which is the local cache for all the components used in your schematic, e.g. `myboard-cache.lib`
  * the `cache.dcm` which is the additional cache for component informations, e.g. `myboard-cache.dcm`
- * optionally, the `rescue.lib` which is a cache file of components which have been changed in the global libraries since the components was used in the schematics. This file is here to record the components that you didn't want to "upgrade" to the new global version. 
+ * the `rescue.lib`, e.g. `myboard-rescue.lib`, if present, which is a cache file of components which have been changed in the global libraries since the components was used in the schematics. This file is here to record the components that you didn't want to “upgrade” to the new global version.
 
 Of course, you can choose to put other files of your project, such as datasheets, simulation files, notes, documents. Don't forget that, unlike you used to do, now the upcoming versions of your board will be tagged by your version control system, so it is no use making one directory per revision of the board.
 
