@@ -128,7 +128,7 @@ struct
     let parse c l = S.parse_line l c in
     let%lwt init = initctx in
     F.get_content [filename] >|= fun ctt ->
-    let lines = String.split_on_chars ~on:['\n'] ctt in
+    let lines = String.split_lines ctt in
     let endctx = List.fold_left ~f:parse ~init lines in
     S.output_context endctx
 
@@ -138,7 +138,7 @@ struct
   let read_libs initial_ctx lib_list  =
   Lwt_list.fold_left_s (fun c l ->
       F.get_content [l] >|=
-      String.split_on_chars ~on:['\n'] >|=
+      String.split_lines >|=
       List.fold_left ~f:(fun ctxt l -> S.add_lib l ctxt) ~init:c) (initial_ctx) lib_list
 
   let context_from from_ctx =
