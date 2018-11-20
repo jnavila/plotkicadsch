@@ -189,46 +189,49 @@ module MakePainter (P: Painter): (CompPainter with type drawContext:=P.t) = stru
 
 
   let parse_line line =
+    if (String.length line > 0) then
       match (String.get line 0) with
-    |'A' ->
-      begin
-        match parse_arc line with
-        | Some a -> a
-        | None -> failwith ("Error parsing arc " ^ line)
-      end
-    |'P' ->
-      begin
-        match parse_Poly line with
-        | Some p -> p
-        | None -> failwith ("Error parsing poly " ^ line)
-      end
-    |'S' ->
-      begin
-        match parse_rect line with
-        | Some p -> p
-        | None -> failwith ("Error parsing rectangle " ^ line)
-      end
-    |'C' ->
-      begin
-        match parse_circle line with
-        | Some c -> c
-        | None -> failwith ("Error parsing circle " ^ line)
-      end
-    |'F' -> {parts=(-1); prim=Field}
-    |'X' ->
-      begin
-        match parse_pin line with
-        |Some p -> p
-        |None -> failwith ("Error parsing pin :" ^ line)
-      end
-    |'T' ->
-      begin
-        match parse_text line with
-        |Some t -> t
-        |None -> failwith ("Error parsing pin :" ^ line)
-      end
-    | ' ' | '$' -> {parts=(-1); prim=Field}
-    | _ -> Printf.printf "throwing away line '%s'\n" line; {parts=(-1); prim=Field}
+      |'A' ->
+        begin
+          match parse_arc line with
+          | Some a -> a
+          | None -> failwith ("Error parsing arc " ^ line)
+        end
+      |'P' ->
+        begin
+          match parse_Poly line with
+          | Some p -> p
+          | None -> failwith ("Error parsing poly " ^ line)
+        end
+      |'S' ->
+        begin
+          match parse_rect line with
+          | Some p -> p
+          | None -> failwith ("Error parsing rectangle " ^ line)
+        end
+      |'C' ->
+        begin
+          match parse_circle line with
+          | Some c -> c
+          | None -> failwith ("Error parsing circle " ^ line)
+        end
+      |'F' -> {parts=(-1); prim=Field}
+      |'X' ->
+        begin
+          match parse_pin line with
+          |Some p -> p
+          |None -> failwith ("Error parsing pin :" ^ line)
+        end
+      |'T' ->
+        begin
+          match parse_text line with
+          |Some t -> t
+          |None -> failwith ("Error parsing pin :" ^ line)
+        end
+      | ' ' | '$' -> {parts=(-1); prim=Field}
+      | _ -> Printf.printf "throwing away line '%s'\n" line; {parts=(-1); prim=Field}
+    else
+      {parts=(-1); prim=Field}
 
   let fix_illegal_chars name =
     String.map (function  | '/' | ':' -> '_' | c -> c) name
