@@ -7,7 +7,7 @@ environment:
   CYG_ROOT: C:\cygwin64
   PACKAGE: plotkicadsch
   OPAM_SWITCH: 4.06.0+mingw64c
-  PINS: kicadsch:.
+  PINS: kicadsch:. plotkicadsch:.
 
 install:
   - ps: iex ((new-object net.webclient).DownloadString("https://raw.githubusercontent.com/$env:FORK_USER/ocaml-ci-scripts/$env:FORK_BRANCH/appveyor-install.ps1"))
