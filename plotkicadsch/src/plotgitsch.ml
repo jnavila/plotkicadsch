@@ -297,7 +297,8 @@ module ImageDiff = struct
         List.map ~f:(SysAbst.finalize_tmp_file ~keep_as:None) [from_filename; to_filename] >|= fun _ -> ret
 end
 
-let doit from_fs to_fs differ textdiff libs keep colors =
+let doit from_fs to_fs file_to_diff differ textdiff libs keep colors =
+
   let module_d = match differ with
     | Image_Diff -> (module ImageDiff: Differ)
     | Internal s -> internal_diff s colors in
@@ -306,10 +307,15 @@ let doit from_fs to_fs differ textdiff libs keep colors =
   let module T = (val to_fs: Simple_FS) in
   let module FromP = FSPainter (D.S) (F) in
   let module ToP = FSPainter (D.S) (T) in
-  let from_list = FromP.find_schematics () in
-  let to_list = ToP.find_schematics () in
-  let file_list = intersect_lists from_list to_list in
-
+  let file_list =
+    match file_to_diff with
+    | None -> let from_list = FromP.find_schematics () in
+      let to_list = ToP.find_schematics () in
+      intersect_lists from_list to_list
+    | Some filename ->
+      let filename_l = String.split ~on:'/' filename in
+      Lwt.return filename_l
+  in
   let preload_libs () =
     Lwt_list.fold_left_s (fun c f -> Lwt_stream.fold D.S.add_lib (Lwt_io.lines_of_file f) c) (D.S.initial_context () ) libs in
 
@@ -379,6 +385,11 @@ let differ =
   let docv = "diff strategy used" in
   Arg.(conv ~docv ((fun d -> Result.Ok(Internal d)), pp_differ))
 
+let diff_of_file =
+  let doc = "diff only selected file $(docv)." in
+  let docv = "FILENAME" in
+  Arg.(value & opt (some file) None & info ["f"; "file"] ~doc ~docv)
+
 let internal_diff =
   let doc = "use an internal diff algorithm and use the $(docv) to display the result." in
   let docv = "BROWSER" in
@@ -428,7 +439,7 @@ let colors =
   let docv = "old:new:foreground:background" in
   Arg.(value & opt get_colors None & info ["c"; "colors"] ~doc ~docv)
 
-let plotgitsch_t = Term.(const doit $ from_ref $ to_ref $ internal_diff $ textual_diff $ preloaded_libs $ keep_files $ colors)
+let plotgitsch_t = Term.(const doit $ from_ref $ to_ref $ diff_of_file $ internal_diff $ textual_diff $ preloaded_libs $ keep_files $ colors)
 
 
 let info =
