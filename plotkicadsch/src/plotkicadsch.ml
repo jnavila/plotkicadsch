@@ -2,9 +2,9 @@ open Kicadsch
 module SvgSchPainter = MakeSchPainter(SvgPainter)
 open SvgSchPainter
 
-let process_file init sch =
+let process_file init outdir sch =
   let slen = String.length sch in
-  let fileout = (String.sub sch 0 (slen - 4)) ^ ".svg" in
+  let fileout = outdir ^ "/" ^(String.sub sch 0 (slen - 4)) ^ ".svg" in
   let%lwt o = Lwt_io.open_file ~mode:Lwt_io.Output fileout in
   let%lwt i = Lwt_io.open_file ~mode:Lwt_io.Input sch in
   let%lwt endcontext = Lwt_stream.fold parse_line (Lwt_io.read_lines i) init in
@@ -19,13 +19,15 @@ let process_libs libs =
 let () =
   let files = ref [] in
   let libs = ref [] in
+  let outpath = ref "" in
   let speclist = [
       ("-l", Arg.String (fun lib -> libs := lib::!libs), "specify component library");
-      ("-f", Arg.String(fun sch -> files := sch::!files), "sch file to process")] in
+      ("-f", Arg.String(fun sch -> files := sch::!files), "sch file to process");
+      ("-o", Arg.String(fun o -> outpath := o), "full path of output directory")] in
   let usage_msg = "plotkicadsch prints Kicad sch files to svg" in
   Arg.parse speclist print_endline usage_msg;
   Lwt_main.run
     begin
       let%lwt c = process_libs !libs in
-        Lwt_list.iter_p (process_file c) !files
+        Lwt_list.iter_p (process_file c !outpath) !files
     end
