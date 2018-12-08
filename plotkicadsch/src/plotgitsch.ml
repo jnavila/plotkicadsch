@@ -22,10 +22,10 @@ let git_fs commitish =
     module Search = Git.Search.Make(FS)
     let rev_parse r =
       SysAbst.pread "git" [|"rev-parse"; r ^ "^{commit}"|] >>= (fun s ->
-        try
-          Lwt.return @@ Git_unix.Hash_IO.of_hex @@ String.prefix s 40
-        with
-          _ -> Lwt.fail (InternalGitError ("cannot parse rev " ^ r)))
+          try
+            Lwt.return @@ Git_unix.Hash_IO.of_hex @@ String.prefix s 40
+          with
+            _ -> Lwt.fail (InternalGitError ("cannot parse rev " ^ r)))
 
     let doc = "Git rev " ^ commitish
     let label = GitFS commitish
@@ -39,13 +39,13 @@ let git_fs commitish =
           Lwt.return (d, b)
         with
         | Unix.Unix_error (Unix.ENOENT,_,_) ->
-        let new_d = dirname d in
-        if (String.equal new_d d) then
-          (* we've reached the root of the FS *)
-          Lwt.fail (InternalGitError "not in a git repository")
-        else
-          let new_b = (basename d) :: b in
-          recurse (new_d, new_b)
+          let new_d = dirname d in
+          if (String.equal new_d d) then
+            (* we've reached the root of the FS *)
+            Lwt.fail (InternalGitError "not in a git repository")
+          else
+            let new_b = (basename d) :: b in
+            recurse (new_d, new_b)
         | e -> raise e
       in recurse @@(Sys.getcwd (), [])
 
@@ -58,11 +58,11 @@ let git_fs commitish =
       let%lwt h = theref in
       let%lwt _, rel_path = git_root in
       match%lwt Search.find t h (`Commit(`Path (List.concat [rel_path; path ]))) with
-         | None     -> Lwt.fail(InternalGitError ("path not found: /" ^ (String.concat ~sep:Filename.dir_sep path)))
-         | Some sha ->
-           match%lwt FS.read t sha with
-           | Some a -> action a
-           | None -> Lwt.fail (InternalGitError "sha not found")
+      | None     -> Lwt.fail(InternalGitError ("path not found: /" ^ (String.concat ~sep:Filename.dir_sep path)))
+      | Some sha ->
+        match%lwt FS.read t sha with
+        | Some a -> action a
+        | None -> Lwt.fail (InternalGitError "sha not found")
 
     let get_content filename =
       with_path filename @@ function
@@ -90,7 +90,7 @@ let true_fs rootname =
     let get_content filename = Lwt_io.with_file ~mode:Lwt_io.input (String.concat ~sep:Filename.dir_sep filename) Lwt_io.read
     let hash_file filename = get_content [filename] >|= fun c ->
       let blob_content = (Printf.sprintf "blob %d\000" (String.length c)) ^ c in
-                             filename, (Sha1.to_hex (Sha1.string blob_content))
+      filename, (Sha1.to_hex (Sha1.string blob_content))
     let list_files pattern =
       let all_files  = Lwt_unix.files_of_directory rootname in
       let matched_files = Lwt_stream.filter pattern all_files in
@@ -136,10 +136,10 @@ struct
     F.list_files (ends_with "-cache.lib")  >|= List.map ~f:(fun (n, _) -> n)
 
   let read_libs initial_ctx lib_list  =
-  Lwt_list.fold_left_s (fun c l ->
-      F.get_content [l] >|=
-      String.split_lines >|=
-      List.fold_left ~f:(fun ctxt l -> S.add_lib l ctxt) ~init:c) (initial_ctx) lib_list
+    Lwt_list.fold_left_s (fun c l ->
+        F.get_content [l] >|=
+        String.split_lines >|=
+        List.fold_left ~f:(fun ctxt l -> S.add_lib l ctxt) ~init:c) (initial_ctx) lib_list
 
   let context_from from_ctx =
     let%lwt initial_context = from_ctx in
@@ -211,7 +211,7 @@ let internal_diff (d:string) (c: SvgPainter.diff_colors option) = (
         | Old a  ->  Array.fold ~f:(plot_elt Theirs) a ~init:ctx
         | New a  ->  Array.fold ~f:(plot_elt Ours) a ~init:ctx
         | Replace (o,n) -> let c' =Array.fold ~f:(plot_elt Ours) n ~init:ctx in
-                           Array.fold o ~f:(plot_elt Theirs) ~init:c'
+          Array.fold o ~f:(plot_elt Theirs) ~init:c'
         | Unified a -> Array.fold ~f:(plot_elt Idem) a ~init:ctx
       )
 
@@ -237,22 +237,22 @@ let internal_diff (d:string) (c: SvgPainter.diff_colors option) = (
       match draw_difftotal ~mine:from_canevas ~other:to_canevas (SvgPainter.get_color_context c) with
       | None -> Lwt.return false
       | Some outctx ->
-         let svg_name = SysAbst.build_tmp_svg_name ~keep "diff_" filename in
-         let keep_as = if keep then Some (build_svg_name "diff_" filename) else None in
+        let svg_name = SysAbst.build_tmp_svg_name ~keep "diff_" filename in
+        let keep_as = if keep then Some (build_svg_name "diff_" filename) else None in
         let open Unix in
         let wait_for_1_s result =  match result with
-            | WSIGNALED n -> Printf.printf "signalled with signal %d\n" n;Lwt.return svg_name
-            | WSTOPPED n -> Printf.printf "stopped with %d\n" n; Lwt.return svg_name
-            | WEXITED err ->
-              (match err with
-              | 127 -> Printf.printf "Command not found: %s\n" d; Lwt.return svg_name
-              | 0 ->
-                begin
-                  let t, u = Lwt.wait () in
-                  let erase_timeout = Lwt_timeout.create 1 (fun () -> Lwt.wakeup u svg_name) in
-                  (Lwt_timeout.start erase_timeout;t)
-                end
-              | _ -> Printf.printf "Errored with code %d\n" err; Lwt.return svg_name)
+          | WSIGNALED n -> Printf.printf "signalled with signal %d\n" n;Lwt.return svg_name
+          | WSTOPPED n -> Printf.printf "stopped with %d\n" n; Lwt.return svg_name
+          | WEXITED err ->
+            (match err with
+             | 127 -> Printf.printf "Command not found: %s\n" d; Lwt.return svg_name
+             | 0 ->
+               begin
+                 let t, u = Lwt.wait () in
+                 let erase_timeout = Lwt_timeout.create 1 (fun () -> Lwt.wakeup u svg_name) in
+                 (Lwt_timeout.start erase_timeout;t)
+               end
+             | _ -> Printf.printf "Errored with code %d\n" err; Lwt.return svg_name)
         in
         Lwt_io.with_file ~mode:Lwt_io.Output svg_name ( fun o ->
             Lwt_io.write o @@ SvgPainter.write ~op:false outctx) >>= fun _ ->
@@ -281,20 +281,20 @@ module ImageDiff = struct
     let compare_them =
       both >>= fun _ ->
       SysAbst.exec  "git-imgdiff" [|from_filename ; to_filename|] >|=
-        Unix.(function
-        | WEXITED ret -> if (Int.equal ret 0) then true else false
-        | WSIGNALED _ -> false
-        | WSTOPPED _ -> false)
+      Unix.(function
+          | WEXITED ret -> if (Int.equal ret 0) then true else false
+          | WSIGNALED _ -> false
+          | WSTOPPED _ -> false)
     in
     let%lwt ret =
       try%lwt
-            compare_them
+        compare_them
       with
       | InternalGitError s ->Lwt_io.printf "%s\n" s >|= fun () -> false
       | _ -> Lwt_io.printf "unknown error\n" >|= fun () ->  false
     in
     Lwt.join @@
-        List.map ~f:(SysAbst.finalize_tmp_file ~keep_as:None) [from_filename; to_filename] >|= fun _ -> ret
+    List.map ~f:(SysAbst.finalize_tmp_file ~keep_as:None) [from_filename; to_filename] >|= fun _ -> ret
 end
 
 let doit from_fs to_fs file_to_diff differ textdiff libs keep colors =
@@ -326,18 +326,18 @@ let doit from_fs to_fs file_to_diff differ textdiff libs keep colors =
     let%lwt  to_ctx = ToP.process_file to_init_ctx filename in
     begin
       match%lwt D.display_diff ~from_ctx ~to_ctx filename ~keep with
-    | true ->  Lwt.return ()
-    | false ->
-       if textdiff then
-         let diff_cmd = [|"--no-pager"; "diff"; "--word-diff"|] in
-         let cmd, args =
-           match F.label,T.label with
-           | GitFS fc, GitFS tc -> "git",  Array.append diff_cmd[| fc; tc; "--"; filename |]
-           | TrueFS _, GitFS tc -> "git", Array.append diff_cmd[| tc; "--"; filename |]
-           | GitFS fc, TrueFS _ -> "git", Array.append diff_cmd[| fc; "--"; filename |]
-           | TrueFS fc, TrueFS tc -> "diff", [|fc^Filename.dir_sep^filename; tc^Filename.dir_sep^filename|]
-         in SysAbst.exec cmd args >|= ignore
-       else Lwt.return ()
+      | true ->  Lwt.return ()
+      | false ->
+        if textdiff then
+          let diff_cmd = [|"--no-pager"; "diff"; "--word-diff"|] in
+          let cmd, args =
+            match F.label,T.label with
+            | GitFS fc, GitFS tc -> "git",  Array.append diff_cmd[| fc; tc; "--"; filename |]
+            | TrueFS _, GitFS tc -> "git", Array.append diff_cmd[| tc; "--"; filename |]
+            | GitFS fc, TrueFS _ -> "git", Array.append diff_cmd[| fc; "--"; filename |]
+            | TrueFS fc, TrueFS tc -> "diff", [|fc^Filename.dir_sep^filename; tc^Filename.dir_sep^filename|]
+          in SysAbst.exec cmd args >|= ignore
+        else Lwt.return ()
     end
   in
   let compare_all =  file_list >>= Lwt_list.map_p compare_one >|= to_unit in
@@ -377,8 +377,8 @@ let to_ref =
 
 let pp_differ out differ =
   let s = match differ with
-  | Internal p -> "internal with viewer " ^ p
-  | Image_Diff -> "external" in
+    | Internal p -> "internal with viewer " ^ p
+    | Image_Diff -> "external" in
   Format.fprintf out "%s" s
 
 let differ =
@@ -421,13 +421,13 @@ let extract_colors s =
   let col_re = Re.Posix.compile_pat cols_exp in
   match (Re.all col_re s) with
   | [ m ] ->
-     begin
-       match (Re.Group.all m) with
-       | [| _ ; o; n; f; b |] ->
-          let e c = "#" ^ c in
-          Result.Ok (Some {old_ver = e o; new_ver = e n; fg = e f; bg = e b})
-       | _ -> Result.Error (`Msg "wrong colors format")
-     end
+    begin
+      match (Re.Group.all m) with
+      | [| _ ; o; n; f; b |] ->
+        let e c = "#" ^ c in
+        Result.Ok (Some {old_ver = e o; new_ver = e n; fg = e f; bg = e b})
+      | _ -> Result.Error (`Msg "wrong colors format")
+    end
   | _ ->  Result.Error (`Msg "wrong colors format")
 
 let get_colors =

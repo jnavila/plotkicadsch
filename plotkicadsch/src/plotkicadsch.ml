@@ -21,13 +21,13 @@ let () =
   let libs = ref [] in
   let outpath = ref "." in
   let speclist = [
-      ("-l", Arg.String (fun lib -> libs := lib::!libs), "specify component library");
-      ("-f", Arg.String(fun sch -> files := sch::!files), "sch file to process");
-      ("-o", Arg.String(fun o -> outpath := o), "full path of output directory")] in
+    ("-l", Arg.String (fun lib -> libs := lib::!libs), "specify component library");
+    ("-f", Arg.String(fun sch -> files := sch::!files), "sch file to process");
+    ("-o", Arg.String(fun o -> outpath := o), "full path of output directory")] in
   let usage_msg = "plotkicadsch prints Kicad sch files to svg" in
   Arg.parse speclist print_endline usage_msg;
   Lwt_main.run
     begin
       let%lwt c = process_libs !libs in
-        Lwt_list.iter_p (process_file c !outpath) !files
+      Lwt_list.iter_p (process_file c !outpath) !files
     end

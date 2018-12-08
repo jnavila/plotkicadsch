@@ -79,7 +79,7 @@ struct
 
   let style_of_string s =
     let i = String.get (fst s) 0 and
-        b = String.get (snd s) 0 in
+    b = String.get (snd s) 0 in
     match i,b with
     | 'N','B' -> Bold
     | 'I', 'N' -> Italic
@@ -101,43 +101,43 @@ struct
   open Schparse
   let parse_F =
     create_parse_fun
-    ~name:"Component F"
-    ~regexp_str:"F %d \"%s@\" %[HV] %d %d %d %[01] %[LRCBT] %[CLRBTNI]"
-    ~extract_fun:
-    (fun nb name orient posX posY size flags hjust vjustbi ->
-        let co = Coord (posX, posY) and
-            o = orientation_of_string orient and
-            s = Size size and
-            j = justify_of_string hjust and
-            stl = style_of_string (String.sub vjustbi 1 1, String.sub vjustbi 2 1) and
-            visible = (String.get flags 3 = '0') && not (String.equal "~" name) in
-        Some (nb,visible, name, o, co, s, j, stl)
-    )
+      ~name:"Component F"
+      ~regexp_str:"F %d \"%s@\" %[HV] %d %d %d %[01] %[LRCBT] %[CLRBTNI]"
+      ~extract_fun:
+        (fun nb name orient posX posY size flags hjust vjustbi ->
+           let co = Coord (posX, posY) and
+           o = orientation_of_string orient and
+           s = Size size and
+           j = justify_of_string hjust and
+           stl = style_of_string (String.sub vjustbi 1 1, String.sub vjustbi 2 1) and
+           visible = (String.get flags 3 = '0') && not (String.equal "~" name) in
+           Some (nb,visible, name, o, co, s, j, stl)
+        )
 
   let parse_L =
     create_parse_fun
       ~name: "Component L"
       ~regexp_str: "L %s %s"
       ~extract_fun:
-      (fun name reference ->
-        Some (name, reference)
-      )
+        (fun name reference ->
+           Some (name, reference)
+        )
 
   let parse_P =
     create_parse_fun
       ~name: "Component P"
       ~regexp_str: "P %d %d"
       ~extract_fun:
-      (fun x y ->
-        Some (Coord (x, y)))
+        (fun x y ->
+           Some (Coord (x, y)))
 
   let parse_U =
     create_parse_fun
       ~name: "Component U"
       ~regexp_str: "U %d %s %s"
       ~extract_fun:
-      (fun n mm timestamp ->
-        Some (n, mm, timestamp))
+        (fun n mm timestamp ->
+           Some (n, mm, timestamp))
 
   let parse_AR =
     create_parse_fun
@@ -212,9 +212,9 @@ struct
       | _, J_center -> square
     in
     match justif with
-      | J_left | J_top -> port_char ^ name
-      | J_right |J_bottom -> name ^ port_char
-      | J_center -> name
+    | J_left | J_top -> port_char ^ name
+    | J_right |J_bottom -> name ^ port_char
+    | J_center -> name
 
   let draw_port ?(kolor=`Black) name ptype justif (Coord (x,y)) (Size l as s) canevas =
     let new_port_name = decorate_port_name name ptype justif in
@@ -222,8 +222,8 @@ struct
     let j = justif in
     let _ = kolor in
     let c = match orient with
-    | Orient_H -> Coord (x,y+l/4)
-    | Orient_V -> Coord (x+l/4,y) in
+      | Orient_H -> Coord (x,y+l/4)
+      | Orient_V -> Coord (x+l/4,y) in
     P.paint_text new_port_name orient c s j NoStyle canevas
 
   let parse_component_line lib (line: string) (comp: componentContext) canevas :(componentContext*P.t) =
@@ -247,76 +247,76 @@ struct
               {comp with component })
 
     | 'F' ->
-       update_comp @@
-         parse_F
-           line
-           ~onerror: (fun () -> comp)
-           ~process: (fun (nb, visible, text, o, co, s, j, stl) ->
-             if visible && String.length text > 0  then
-               {comp with fields={nb;text; o; co; s; j; stl}::comp.fields} else comp)
+      update_comp @@
+      parse_F
+        line
+        ~onerror: (fun () -> comp)
+        ~process: (fun (nb, visible, text, o, co, s, j, stl) ->
+            if visible && String.length text > 0  then
+              {comp with fields={nb;text; o; co; s; j; stl}::comp.fields} else comp)
     | 'U' ->
-       update_comp @@
-         parse_U
-           line
-           ~onerror: (fun () ->  comp)
-           ~process: (fun (u, _, _) ->
-               let component = match comp.component with
-                 | NoComp -> Unique {piece=None; unitnr=Some u}
-                 | Unique r -> Unique  {r with unitnr= (Some u)}
-                 | Multiple _ -> comp.component in
-               {comp with component} )
+      update_comp @@
+      parse_U
+        line
+        ~onerror: (fun () ->  comp)
+        ~process: (fun (u, _, _) ->
+            let component = match comp.component with
+              | NoComp -> Unique {piece=None; unitnr=Some u}
+              | Unique r -> Unique  {r with unitnr= (Some u)}
+              | Multiple _ -> comp.component in
+            {comp with component} )
     | 'P' ->
-       update_comp @@
-         parse_P
-           line
-           ~onerror: (fun () -> comp)
-           ~process: (fun c -> {comp with origin=Some c})
+      update_comp @@
+      parse_P
+        line
+        ~onerror: (fun () -> comp)
+        ~process: (fun c -> {comp with origin=Some c})
     | 'L' ->
-       update_comp @@
-         parse_L
-           line
-           ~onerror: (fun () ->  comp)
-           ~process: ( fun (sym_s, n) ->
-               let component = match comp.component with
-                 | NoComp -> Unique {piece=Some n; unitnr=None}
-                 | Unique r -> Unique  {r with piece=(Some n)}
-                 | Multiple _ -> comp.component in
-               let sym = Some sym_s in
-               {comp with component; sym})
+      update_comp @@
+      parse_L
+        line
+        ~onerror: (fun () ->  comp)
+        ~process: ( fun (sym_s, n) ->
+            let component = match comp.component with
+              | NoComp -> Unique {piece=Some n; unitnr=None}
+              | Unique r -> Unique  {r with piece=(Some n)}
+              | Multiple _ -> comp.component in
+            let sym = Some sym_s in
+            {comp with component; sym})
     | '	' ->
-       parse_transfo
-         line
-         ~onerror: ( fun () -> comp, canevas)
-         ~process: (fun (a, b, c, d_opt) ->
-             match d_opt with
-             | Some d -> begin
-                 let {component;origin; fields;sym} = comp in
-                 match  origin, sym with
-                 |  Some origin, Some sym ->
-                   begin
-                     let res = match component with
-                       | Unique { unitnr= Some m_unitnr; piece = Some m_piece} ->  Some ([{m_unitnr;m_piece}], m_unitnr)
-                       | Multiple m ->
-                         (match m with
-                          | [] -> None
-                          | c::_ -> Some (m, c.m_unitnr))
-                       | Unique {unitnr = None; _}
-                       | Unique {piece = None; _}
-                       | NoComp -> None in
-                     match res with
-                     | None -> (Printf.printf "cannot plot component with missing definitions !";
-                                comp, canevas)
-                     | Some (refs, m_unitnr) ->
-                       let transfo = ((a, b), (c, d)) in
-                       let canevas', is_multi = CPainter.plot_comp lib sym m_unitnr origin transfo canevas in
-                       let draw = draw_field origin transfo is_multi refs in
-                       comp, List.fold_left draw canevas' fields
-                   end
-                 | _ ->
-                   (Printf.printf "cannot plot component with missing definitions !";
-                    comp, canevas)
-               end
-             | None ->  comp,canevas)
+      parse_transfo
+        line
+        ~onerror: ( fun () -> comp, canevas)
+        ~process: (fun (a, b, c, d_opt) ->
+            match d_opt with
+            | Some d -> begin
+                let {component;origin; fields;sym} = comp in
+                match  origin, sym with
+                |  Some origin, Some sym ->
+                  begin
+                    let res = match component with
+                      | Unique { unitnr= Some m_unitnr; piece = Some m_piece} ->  Some ([{m_unitnr;m_piece}], m_unitnr)
+                      | Multiple m ->
+                        (match m with
+                         | [] -> None
+                         | c::_ -> Some (m, c.m_unitnr))
+                      | Unique {unitnr = None; _}
+                      | Unique {piece = None; _}
+                      | NoComp -> None in
+                    match res with
+                    | None -> (Printf.printf "cannot plot component with missing definitions !";
+                               comp, canevas)
+                    | Some (refs, m_unitnr) ->
+                      let transfo = ((a, b), (c, d)) in
+                      let canevas', is_multi = CPainter.plot_comp lib sym m_unitnr origin transfo canevas in
+                      let draw = draw_field origin transfo is_multi refs in
+                      comp, List.fold_left draw canevas' fields
+                  end
+                | _ ->
+                  (Printf.printf "cannot plot component with missing definitions !";
+                   comp, canevas)
+              end
+            | None ->  comp,canevas)
     | _ -> (ignore(Printf.printf "ignored %s\n" line);
             comp, canevas)
 
@@ -327,102 +327,102 @@ struct
       ~extract_fun:
         (fun kind width line ->
            match kind, width, line with
-        | "Wire", "Wire", "Line" -> Some Wire
-        | "Wire", "Bus", "Line"  -> Some Bus
-        | "Wire", "Notes", "Line" -> Some Line
-        | "Wire", "Wire", "Note" -> Some Line
-        | "Entry", "Wire", "Line"  -> Some WireEntry
-        | "Entry", "Bus", "Line"   -> Some BusEntry
-        | _, _, _ -> None
-      )
+           | "Wire", "Wire", "Line" -> Some Wire
+           | "Wire", "Bus", "Line"  -> Some Bus
+           | "Wire", "Notes", "Line" -> Some Line
+           | "Wire", "Wire", "Note" -> Some Line
+           | "Entry", "Wire", "Line"  -> Some WireEntry
+           | "Entry", "Bus", "Line"   -> Some BusEntry
+           | _, _, _ -> None
+        )
 
   let parse_wire_line = create_parse_fun
-    ~name:"Wire"
-    ~regexp_str:" %d %d %d %d"
-    ~extract_fun:
-    (fun x1 y1 x2 y2 ->
-      let c1 = Coord (x1, y1) and
-          c2 = Coord (x2, y2)
-      in
-      Some (c1, c2)
-    )
+      ~name:"Wire"
+      ~regexp_str:" %d %d %d %d"
+      ~extract_fun:
+        (fun x1 y1 x2 y2 ->
+           let c1 = Coord (x1, y1) and
+           c2 = Coord (x2, y2)
+           in
+           Some (c1, c2)
+        )
 
   let parse_noconn_line = create_parse_fun
-    ~name:"NoConn"
-    ~regexp_str:"NoConn ~ %d %d"
-    ~extract_fun:
-    (fun x y ->
-      Some (Coord (x,y))
-    )
+      ~name:"NoConn"
+      ~regexp_str:"NoConn ~ %d %d"
+      ~extract_fun:
+        (fun x y ->
+           Some (Coord (x,y))
+        )
 
   let parse_conn_line = create_parse_fun
-    ~name:"Connection"
-    ~regexp_str:"Connection ~ %d %d"
-    ~extract_fun:
-    (fun x y ->
-      Some (Coord (x,y))
-    )
+      ~name:"Connection"
+      ~regexp_str:"Connection ~ %d %d"
+      ~extract_fun:
+        (fun x y ->
+           Some (Coord (x,y))
+        )
 
   let parse_sheet_field01 = create_parse_fun
-    ~name:"Sheet Field 0 or 1"
-    ~regexp_str:"F%[01] \"%s@\" %d"
-    ~extract_fun:(fun num name size ->
-      let number= int_of_string num  in
-      Some (number, name, Size size))
+      ~name:"Sheet Field 0 or 1"
+      ~regexp_str:"F%[01] \"%s@\" %d"
+      ~extract_fun:(fun num name size ->
+          let number= int_of_string num  in
+          Some (number, name, Size size))
 
   let parse_sheet_other_fields =
     create_parse_fun
       ~name: "Sheet generic field"
       ~regexp_str: "F%d \"%s@\"  %[IOBTU] %[RLTB] %d %d %d"
       ~extract_fun:(fun _ name t j x y sz ->
-        let ptype = porttype_of_string t in
-        let justif = justify_of_string j in
-        let c = Coord (x, y) in
-        let s = Size sz in
-        Some (name, ptype, justif, c, s)
-      )
+          let ptype = porttype_of_string t in
+          let justif = justify_of_string j in
+          let c = Coord (x, y) in
+          let s = Size sz in
+          Some (name, ptype, justif, c, s)
+        )
 
   let parse_sheet_field =
     create_parse_fun
       ~name: "detect sheet field"
       ~regexp_str:"F%d"
       ~extract_fun:(fun num ->
-        Some num
-      )
+          Some num
+        )
 
   let parse_sheet_rect = create_parse_fun
-    ~name:"Sheet Rect"
-    ~regexp_str:"S %d %d %d %d"
-    ~extract_fun:(fun x1 y1 x2 y2 ->
-      let c = Coord (x1, y1) and
+      ~name:"Sheet Rect"
+      ~regexp_str:"S %d %d %d %d"
+      ~extract_fun:(fun x1 y1 x2 y2 ->
+          let c = Coord (x1, y1) and
           dim = Coord (x2, y2) in
-      Some {c;dim}
-    )
+          Some {c;dim}
+        )
 
   let parse_text_line = create_parse_fun
-    ~name:"Text header"
-    ~regexp_str: "Text %s %d %d %s %d %s"
-    ~extract_fun: (fun ltype x y j s lorient ->
-      let c = Coord (x, y) and
+      ~name:"Text header"
+      ~regexp_str: "Text %s %d %d %s %d %s"
+      ~extract_fun: (fun ltype x y j s lorient ->
+          let c = Coord (x, y) and
           j = justify_of_string j and
           size = Size s in
-      let labeltype, orient =
-        match ltype with
-        | "GLabel" -> PortLabel (Glabel, porttype_of_string lorient), swap_justify j
-        | "HLabel" -> PortLabel (Hlabel, porttype_of_string lorient), swap_justify j
-        | "Label" -> TextLabel WireLabel, j
-        | "Notes" -> TextLabel TextNote, j
-        | _ -> TextLabel TextNote, j in
-      let result: label option = Some {size; orient; labeltype; c}
-      in result)
+          let labeltype, orient =
+            match ltype with
+            | "GLabel" -> PortLabel (Glabel, porttype_of_string lorient), swap_justify j
+            | "HLabel" -> PortLabel (Hlabel, porttype_of_string lorient), swap_justify j
+            | "Label" -> TextLabel WireLabel, j
+            | "Notes" -> TextLabel TextNote, j
+            | _ -> TextLabel TextNote, j in
+          let result: label option = Some {size; orient; labeltype; c}
+          in result)
 
   let parse_descr_header =
     create_parse_fun
       ~name: "Descr header"
       ~regexp_str: "$Descr %s %d %d"
       ~extract_fun: (fun format x y ->
-        Some (format, Coord (x,y))
-      )
+          Some (format, Coord (x,y))
+        )
 
   let parse_descr_body =
     create_parse_fun
@@ -434,21 +434,21 @@ struct
             Some (field, new_val)
           else
             Some (field, value)
-      )
+        )
 
   let parse_bm_pos =
     create_parse_fun
       ~name: "Bitmap Pos"
       ~regexp_str: "Pos %d %d"
       ~extract_fun: (fun x y ->
-        Some (Coord (x, y)))
+          Some (Coord (x, y)))
 
   let parse_bm_scale =
     create_parse_fun
       ~name: "Bitmap Scale"
       ~regexp_str: "Scale %f"
       ~extract_fun: (fun sc ->
-        Some (sc))
+          Some (sc))
 
   (* Printing things *)
 
@@ -471,22 +471,22 @@ struct
   let print_text_line line l c =
     match l.labeltype with
     | TextLabel t -> begin
-      let pcolor = match t with
-        | TextNote ->  `Green
-        | WireLabel -> `Red in
-      let Size s = l.size in
-      let Coord (x,y) = l.c in
-      let paint_line c' (line_index,l') =
-        P.paint_text ~kolor:pcolor l' (orientation_of_justify l.orient) (Coord(x, (y-line_index*s))) l.size l.orient NoStyle c' in
-      let lines = split_lines line in
-      List.fold_left paint_line c (List.mapi (fun i l -> (i,l)) lines)
-    end
+        let pcolor = match t with
+          | TextNote ->  `Green
+          | WireLabel -> `Red in
+        let Size s = l.size in
+        let Coord (x,y) = l.c in
+        let paint_line c' (line_index,l') =
+          P.paint_text ~kolor:pcolor l' (orientation_of_justify l.orient) (Coord(x, (y-line_index*s))) l.size l.orient NoStyle c' in
+        let lines = split_lines line in
+        List.fold_left paint_line c (List.mapi (fun i l -> (i,l)) lines)
+      end
     | PortLabel (prange, ptype) ->
-       let pcolor = match prange with
-         | Glabel -> `Green
-         | Hlabel -> `Red in
-       let new_type = (swap_type ptype) in
-       draw_port ~kolor:pcolor line new_type l.orient l.c l.size c
+      let pcolor = match prange with
+        | Glabel -> `Green
+        | Hlabel -> `Red in
+      let new_type = (swap_type ptype) in
+      draw_port ~kolor:pcolor line new_type l.orient l.c l.size c
 
   let plot_page_frame (Coord (x, y)) canevas =
     let b_width = 100 in
@@ -495,10 +495,10 @@ struct
     let bot_y = y - b_width in
     let frame_x = bot_x - f_width in
     canevas |>
-      P.paint_rect (Coord (b_width, b_width)) (Coord (x -2*b_width, y - 2*b_width)) |>
-      P.paint_rect (Coord (frame_x, bot_y - 150)) (Coord (f_width, 150)) |>
-      P.paint_rect (Coord (frame_x, bot_y - 250)) (Coord (f_width, 100)) |>
-      P.paint_rect (Coord (frame_x, bot_y - 550)) (Coord (f_width, 400))
+    P.paint_rect (Coord (b_width, b_width)) (Coord (x -2*b_width, y - 2*b_width)) |>
+    P.paint_rect (Coord (frame_x, bot_y - 150)) (Coord (f_width, 150)) |>
+    P.paint_rect (Coord (frame_x, bot_y - 250)) (Coord (f_width, 100)) |>
+    P.paint_rect (Coord (frame_x, bot_y - 550)) (Coord (f_width, 400))
 
   let plot_bitmap b context =
     match b.pos, b.scale, b.data with
@@ -510,35 +510,35 @@ struct
   let parse_sheet_line line context canevas =
     match (String.get line 0) with
     | 'F' ->
-       context,
-       (parse_sheet_field
-          line
-          ~onerror:(fun () -> canevas)
-          ~process:(fun number ->
-            if number < 2 then
-              parse_sheet_field01
-                line
-                ~onerror:(fun () -> canevas)
-                ~process:(fun (number, name, (Size size as s)) ->
-                  match context with
-                  | Some {c=Coord (x, y); dim=Coord (_, dim_y)} ->
-                     let y = if (number = 0) then y else y + dim_y + size in
-                     P.paint_text name Orient_H (Coord (x, y))  s J_left NoStyle canevas
-                  | None -> canevas)
-            else
-              parse_sheet_other_fields
-                line
-                ~onerror:(fun () -> canevas)
-                ~process:(fun (name, ptype, justif, c, s) ->
-                draw_port name ptype justif c s canevas)
-          )
-       )
-    | 'S' ->
-       parse_sheet_rect
+      context,
+      (parse_sheet_field
          line
-         ~onerror:(fun () -> context,canevas)
-         ~process:(fun ({c;dim} as range) ->
-           (Some range), (P.paint_rect c dim canevas))
+         ~onerror:(fun () -> canevas)
+         ~process:(fun number ->
+             if number < 2 then
+               parse_sheet_field01
+                 line
+                 ~onerror:(fun () -> canevas)
+                 ~process:(fun (number, name, (Size size as s)) ->
+                     match context with
+                     | Some {c=Coord (x, y); dim=Coord (_, dim_y)} ->
+                       let y = if (number = 0) then y else y + dim_y + size in
+                       P.paint_text name Orient_H (Coord (x, y))  s J_left NoStyle canevas
+                     | None -> canevas)
+             else
+               parse_sheet_other_fields
+                 line
+                 ~onerror:(fun () -> canevas)
+                 ~process:(fun (name, ptype, justif, c, s) ->
+                     draw_port name ptype justif c s canevas)
+           )
+      )
+    | 'S' ->
+      parse_sheet_rect
+        line
+        ~onerror:(fun () -> context,canevas)
+        ~process:(fun ({c;dim} as range) ->
+            (Some range), (P.paint_rect c dim canevas))
     | 'U' -> context, canevas
     | _ -> (Printf.printf "unknown sheet line (%s)" line; context,canevas)
 
@@ -562,40 +562,40 @@ struct
       BitmapContext {pos=None;scale=None;data=None}, canevas
     else if starts_with line "$Descr" then
       parse_descr_header
-                      line
-                      ~onerror: (fun () -> BodyContext, canevas)
-                      ~process: (fun (_, (Coord (x,y) as f_left)) ->
-                        DescrContext (Coord ((x - 4000), (y - 100))), (plot_page_frame f_left (P.set_canevas_size x y canevas)))
+        line
+        ~onerror: (fun () -> BodyContext, canevas)
+        ~process: (fun (_, (Coord (x,y) as f_left)) ->
+            DescrContext (Coord ((x - 4000), (y - 100))), (plot_page_frame f_left (P.set_canevas_size x y canevas)))
     else if (starts_with line "Wire") || (starts_with line "Entry") then
       (parse_wire_wire
-        line
-        ~onerror: (fun () -> BodyContext)
-        ~process: (fun lt -> WireContext lt))
-      , canevas
+         line
+         ~onerror: (fun () -> BodyContext)
+         ~process: (fun lt -> WireContext lt))
+    , canevas
     else if starts_with line "NoConn" then
       BodyContext, parse_noconn_line
-                     line
-                     ~onerror:(fun () -> canevas)
-                     ~process:(fun (Coord (x,y)) ->
-                       let delta = 20 in
-                       canevas |>
-                         P.paint_line (Coord (x - delta, y - delta)) (Coord (x + delta, y + delta)) |>
-                         P.paint_line (Coord (x - delta, y + delta)) (Coord (x + delta, y - delta)))
+        line
+        ~onerror:(fun () -> canevas)
+        ~process:(fun (Coord (x,y)) ->
+            let delta = 20 in
+            canevas |>
+            P.paint_line (Coord (x - delta, y - delta)) (Coord (x + delta, y + delta)) |>
+            P.paint_line (Coord (x - delta, y + delta)) (Coord (x + delta, y - delta)))
 
     else if starts_with line "Connection" then
       BodyContext, parse_conn_line
-                     line
-                     ~onerror:(fun () -> canevas)
-                     ~process:(fun (Coord (x,y)) ->
-                       let delta = 10 in
-                       P.paint_circle ~fill:`Black (Coord (x,y)) delta canevas)
+        line
+        ~onerror:(fun () -> canevas)
+        ~process:(fun (Coord (x,y)) ->
+            let delta = 10 in
+            P.paint_circle ~fill:`Black (Coord (x,y)) delta canevas)
     else if (String.compare line "$Sheet" = 0) then
       SheetContext None, canevas
     else if starts_with line "Text" then
       let lab : label option = (parse_text_line
-                     line
-                     ~onerror:(fun () -> None)
-                     ~process:(fun l -> Some l)) in
+                                  line
+                                  ~onerror:(fun () -> None)
+                                  ~process:(fun l -> Some l)) in
       (TextContext lab), canevas
     else
       BodyContext, canevas
@@ -628,8 +628,8 @@ struct
     | None -> failwith "not adding data to None image"
     | Some buf ->
       parse_list " %x " line |>
-       List.rev_map char_of_int |>
-       List.iter (Buffer.add_char buf)
+      List.rev_map char_of_int |>
+      List.iter (Buffer.add_char buf)
 
   let parse_bitmap_line line b =
     if starts_with line "Pos" then
@@ -644,48 +644,48 @@ struct
   let parse_line line (lib, c,canevas) =
     match c with
     | DescrContext page_size as context ->
-       if (String.compare line "$EndDescr" = 0) then
-         (lib, BodyContext, canevas)
-       else
-         lib, context, (parse_descr_line line page_size canevas)
+      if (String.compare line "$EndDescr" = 0) then
+        (lib, BodyContext, canevas)
+      else
+        lib, context, (parse_descr_line line page_size canevas)
     | ComponentContext comp ->
-       if (String.compare line "$EndComp" = 0) then
-         (lib, BodyContext, canevas)
-       else
-         let comp, canevas = parse_component_line lib line comp canevas in
-         (lib, (ComponentContext comp), canevas)
+      if (String.compare line "$EndComp" = 0) then
+        (lib, BodyContext, canevas)
+      else
+        let comp, canevas = parse_component_line lib line comp canevas in
+        (lib, (ComponentContext comp), canevas)
     | BodyContext ->
-       let c, canevas = parse_body_line (lib, c,canevas) line
-       in lib, c, canevas
+      let c, canevas = parse_body_line (lib, c,canevas) line
+      in lib, c, canevas
     | WireContext l ->
-       lib, BodyContext, (parse_wire_line
-                            line
-                            ~onerror: (fun () -> canevas)
-                            ~process: (fun (c1, c2) ->
-                              let kolor, width  = match l with
-                                | Bus | BusEntry -> `Blue, Size 5
-                                | Wire | WireEntry -> `Brown, Size 2
-                                | Line -> `Black, Size 2
-                              in P.paint_line ~kolor ~width c1 c2 canevas))
+      lib, BodyContext, (parse_wire_line
+                           line
+                           ~onerror: (fun () -> canevas)
+                           ~process: (fun (c1, c2) ->
+                               let kolor, width  = match l with
+                                 | Bus | BusEntry -> `Blue, Size 5
+                                 | Wire | WireEntry -> `Brown, Size 2
+                                 | Line -> `Black, Size 2
+                               in P.paint_line ~kolor ~width c1 c2 canevas))
     | SheetContext sc ->
-       if (String.compare line "$EndSheet" = 0) then
-         (lib, BodyContext, canevas)
-       else
-         let nsc, o = parse_sheet_line line sc canevas in
-         lib, SheetContext nsc, o
+      if (String.compare line "$EndSheet" = 0) then
+        (lib, BodyContext, canevas)
+      else
+        let nsc, o = parse_sheet_line line sc canevas in
+        lib, SheetContext nsc, o
     | TextContext sc ->
-       (match sc with
+      (match sc with
        | None -> failwith "TextContext without definition!"
        | Some v -> (lib, BodyContext, print_text_line line v canevas))
     | BitmapContext b ->
-       if (String.compare line "$EndBitmap" = 0) then
-         (lib, BodyContext, plot_bitmap b canevas)
-       else
-         let nb = parse_bitmap_line line b in
-         lib, BitmapContext nb, canevas
+      if (String.compare line "$EndBitmap" = 0) then
+        (lib, BodyContext, plot_bitmap b canevas)
+      else
+        let nb = parse_bitmap_line line b in
+        lib, BitmapContext nb, canevas
 
   let output_context (_, _, canevas):P.t =
-     canevas
+    canevas
 
   let add_lib line (lib, ctxt, canevas) =
     (CPainter.append_lib line lib) |>
