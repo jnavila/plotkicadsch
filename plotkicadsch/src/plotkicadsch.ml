@@ -2,9 +2,17 @@ open Kicadsch
 module SvgSchPainter = MakeSchPainter(SvgPainter)
 open SvgSchPainter
 
+let build_outputfilename outdir sch =
+  let open Filename in
+  let basefilename =
+    if String.equal outdir "" then
+      sch
+    else
+      concat outdir (basename sch) in
+  (remove_extension basefilename) ^ ".svg"
+
 let process_file init outdir sch =
-  let slen = String.length sch in
-  let fileout = outdir ^ "/" ^(String.sub sch 0 (slen - 4)) ^ ".svg" in
+  let fileout = build_outputfilename outdir sch in
   let%lwt o = Lwt_io.open_file ~mode:Lwt_io.Output fileout in
   let%lwt i = Lwt_io.open_file ~mode:Lwt_io.Input sch in
   let%lwt endcontext = Lwt_stream.fold parse_line (Lwt_io.read_lines i) init in
@@ -19,7 +27,7 @@ let process_libs libs =
 let () =
   let files = ref [] in
   let libs = ref [] in
-  let outpath = ref "." in
+  let outpath = ref "" in
   let speclist = [
     ("-l", Arg.String (fun lib -> libs := lib::!libs), "specify component library");
     ("-f", Arg.String(fun sch -> files := sch::!files), "sch file to process");
