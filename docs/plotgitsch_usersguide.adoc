@@ -26,7 +26,7 @@ In order to play with plotgitsch, let's prepare a sandbox project and see what c
 ----
 $ git clone https://github.com/jnavila/kicad_playground.git
 $ cd kicad_playground
-$ patch -p1 changes.diff
+$ patch -p1 -i changes.diff
 ----
 
 Now, we have a project with a schematic with changes in the working copy. This project has a pretty strange history that will help us exercise the features of `plotgitsch`.
