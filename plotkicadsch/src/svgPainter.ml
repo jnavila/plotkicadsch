@@ -10,37 +10,57 @@ type dim = int * int
 type t = {d: dim; c: content elt list; colors: diff_colors option} [@@inline]
 
 let style_attr_of_style = function
-  | Italic -> [a_font_style "italic"]
-  | Bold -> [a_font_weight "bold"]
-  | BoldItalic -> [a_font_style "italic"; a_font_weight "bold"]
-  | NoStyle -> []
+  | Italic ->
+      [a_font_style "italic"]
+  | Bold ->
+      [a_font_weight "bold"]
+  | BoldItalic ->
+      [a_font_style "italic"; a_font_weight "bold"]
+  | NoStyle ->
+      []
 
 let anchor_attr_of_justify justif =
   a_text_anchor
     ( match justif with
-    | J_left -> `Start
-    | J_center -> `Middle
-    | J_right -> `End
-    | J_bottom -> `End
-    | J_top -> `Start )
+    | J_left ->
+        `Start
+    | J_center ->
+        `Middle
+    | J_right ->
+        `End
+    | J_bottom ->
+        `End
+    | J_top ->
+        `Start )
 
 let color_of_kolor k {colors; _} =
   let new_ver, old_ver, fg =
     match colors with
-    | None -> ("#00FF00", "#FF0000", "#000000")
-    | Some {old_ver; new_ver; fg; _} -> (new_ver, old_ver, fg)
+    | None ->
+        ("#00FF00", "#FF0000", "#000000")
+    | Some {old_ver; new_ver; fg; _} ->
+        (new_ver, old_ver, fg)
   in
   let cstring =
     match k with
-    | `NoColor -> "none"
-    | `Black -> "#000000"
-    | `Red -> "#FF0000"
-    | `Green -> "#00FF00"
-    | `Blue -> "#0000CD"
-    | `Brown -> "#800000"
-    | `Old -> old_ver
-    | `New -> new_ver
-    | `ForeGround -> fg
+    | `NoColor ->
+        "none"
+    | `Black ->
+        "#000000"
+    | `Red ->
+        "#FF0000"
+    | `Green ->
+        "#00FF00"
+    | `Blue ->
+        "#0000CD"
+    | `Brown ->
+        "#800000"
+    | `Old ->
+        old_ver
+    | `New ->
+        new_ver
+    | `ForeGround ->
+        fg
   in
   `Color (cstring, None)
 
@@ -168,7 +188,8 @@ let paint_image (Coord (x, y)) scale b ({c; _} as ctxt) =
               ; a_xlink_href @@ "data:image/png;base64," ^ outstring ]
             []
           :: c }
-  | Error (`Msg err) -> raise (Base64Exception err)
+  | Error (`Msg err) ->
+      raise (Base64Exception err)
 
 let get_context () = {d= (0, 0); c= []; colors= None}
 

@@ -51,7 +51,8 @@ let git_fs commitish =
             else
               let new_b = basename d :: b in
               recurse (new_d, new_b)
-        | e -> raise e
+        | e ->
+            raise e
       in
       recurse @@ (Sys.getcwd (), [])
 
@@ -72,14 +73,18 @@ let git_fs commitish =
                ("path not found: /" ^ String.concat ~sep:Filename.dir_sep path))
       | Some sha -> (
           match%lwt FS.read t sha with
-          | Some a -> action a
-          | None -> Lwt.fail (InternalGitError "sha not found") )
+          | Some a ->
+              action a
+          | None ->
+              Lwt.fail (InternalGitError "sha not found") )
 
     let get_content filename =
       with_path filename
       @@ function
-      | Git.Value.Blob b -> Lwt.return (Git.Blob.to_raw b)
-      | _ -> Lwt.fail (InternalGitError "not a valid path")
+      | Git.Value.Blob b ->
+          Lwt.return (Git.Blob.to_raw b)
+      | _ ->
+          Lwt.fail (InternalGitError "not a valid path")
 
     let find_file filter t =
       let open Git.Tree in
@@ -90,8 +95,10 @@ let git_fs commitish =
     let list_files pattern =
       with_path []
       @@ function
-      | Git.Value.Tree t -> Lwt.return @@ find_file pattern t
-      | _ -> Lwt.fail (InternalGitError "not a tree!")
+      | Git.Value.Tree t ->
+          Lwt.return @@ find_file pattern t
+      | _ ->
+          Lwt.fail (InternalGitError "not a tree!")
   end
   : Simple_FS )
 
@@ -232,7 +239,8 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) =
             Printf.sprintf "arc %d %d -> %d %d %d %d %d" x1 y1 x2 y2 radius x y
         | Image (Coord (x, y), scale, _) ->
             Printf.sprintf "image %d %d %f" x y scale
-        | Format (Coord (x, y)) -> Printf.sprintf "format %d %d" x y)
+        | Format (Coord (x, y)) ->
+            Printf.sprintf "format %d %d" x y)
 
     type diff_style = Theirs | Ours | Idem
 
@@ -241,35 +249,43 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) =
         let module O = SvgPainter in
         let kolor =
           match style with
-          | Theirs -> `Old
-          | Ours -> `New
-          | Idem -> `ForeGround
+          | Theirs ->
+              `Old
+          | Ours ->
+              `New
+          | Idem ->
+              `ForeGround
         in
         match arg with
         | Text (_, text, o, c, s, j, style) ->
             O.paint_text ~kolor text o c s j style out_ctx
         | Line (_, s, from_, to_) ->
             O.paint_line ~kolor ~width:s from_ to_ out_ctx
-        | Rect (_, _, c1, c2) -> O.paint_rect ~kolor c1 c2 out_ctx
+        | Rect (_, _, c1, c2) ->
+            O.paint_rect ~kolor c1 c2 out_ctx
         | Circle (_, _, center, radius) ->
             O.paint_circle ~kolor center radius out_ctx
         | Arc (_, _, center, start_, end_, radius) ->
             O.paint_arc ~kolor center start_ end_ radius out_ctx
         | Image (corner, scale, data) ->
             O.paint_image corner scale data out_ctx
-        | Format (Coord (x, y)) -> O.set_canevas_size x y out_ctx)
+        | Format (Coord (x, y)) ->
+            O.set_canevas_size x y out_ctx)
 
     let draw_range ctx r =
       Patience_diff_lib.Patience_diff.Range.(
         match r with
         | Same a ->
             Array.fold ~f:(fun c (x, _) -> plot_elt Idem c x) a ~init:ctx
-        | Old a -> Array.fold ~f:(plot_elt Theirs) a ~init:ctx
-        | New a -> Array.fold ~f:(plot_elt Ours) a ~init:ctx
+        | Old a ->
+            Array.fold ~f:(plot_elt Theirs) a ~init:ctx
+        | New a ->
+            Array.fold ~f:(plot_elt Ours) a ~init:ctx
         | Replace (o, n) ->
             let c' = Array.fold ~f:(plot_elt Ours) n ~init:ctx in
             Array.fold o ~f:(plot_elt Theirs) ~init:c'
-        | Unified a -> Array.fold ~f:(plot_elt Idem) a ~init:ctx)
+        | Unified a ->
+            Array.fold ~f:(plot_elt Idem) a ~init:ctx)
 
     type hunk = ListPainter.t Patience_diff_lib.Patience_diff.Hunk.t
 
@@ -307,7 +323,8 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) =
         draw_difftotal ~mine:from_canevas ~other:to_canevas
           (SvgPainter.get_color_context c)
       with
-      | None -> Lwt.return false
+      | None ->
+          Lwt.return false
       | Some outctx ->
           let svg_name = SysAbst.build_tmp_svg_name ~keep "diff_" filename in
           let keep_as =
@@ -378,14 +395,19 @@ module ImageDiff = struct
       SysAbst.exec "git-imgdiff" [|from_filename; to_filename|]
       >|= Unix.(
             function
-            | WEXITED ret -> if Int.equal ret 0 then true else false
-            | WSIGNALED _ -> false
-            | WSTOPPED _ -> false)
+            | WEXITED ret ->
+                if Int.equal ret 0 then true else false
+            | WSIGNALED _ ->
+                false
+            | WSTOPPED _ ->
+                false)
     in
     let%lwt ret =
       try%lwt compare_them with
-      | InternalGitError s -> Lwt_io.printf "%s\n" s >|= fun () -> false
-      | _ -> Lwt_io.printf "unknown error\n" >|= fun () -> false
+      | InternalGitError s ->
+          Lwt_io.printf "%s\n" s >|= fun () -> false
+      | _ ->
+          Lwt_io.printf "unknown error\n" >|= fun () -> false
     in
     Lwt.join
     @@ List.map
@@ -397,8 +419,10 @@ end
 let doit from_fs to_fs file_to_diff differ textdiff libs keep colors =
   let module_d =
     match differ with
-    | Image_Diff -> (module ImageDiff : Differ)
-    | Internal s -> internal_diff s colors
+    | Image_Diff ->
+        (module ImageDiff : Differ)
+    | Internal s ->
+        internal_diff s colors
   in
   let module D = (val module_d : Differ) in
   let module F = (val from_fs : Simple_FS) in
@@ -426,7 +450,8 @@ let doit from_fs to_fs file_to_diff differ textdiff libs keep colors =
     let%lwt from_ctx = FromP.process_file from_init_ctx filename in
     let%lwt to_ctx = ToP.process_file to_init_ctx filename in
     match%lwt D.display_diff ~from_ctx ~to_ctx filename ~keep with
-    | true -> Lwt.return ()
+    | true ->
+        Lwt.return ()
     | false ->
         if textdiff then
           let diff_cmd = [|"--no-pager"; "diff"; "--word-diff"|] in
@@ -453,8 +478,10 @@ let doit from_fs to_fs file_to_diff differ textdiff libs keep colors =
         Lwt_io.printf "%s between %s and %s\n" D.doc F.doc T.doc
         >>= fun _ -> compare_all )
       (function
-        | InternalGitError s -> Lwt_io.printf "Git Exception: %s\n" s
-        | a -> Lwt_io.printf "Exception %s\n" (Exn.to_string a))
+        | InternalGitError s ->
+            Lwt_io.printf "Git Exception: %s\n" s
+        | a ->
+            Lwt_io.printf "Exception %s\n" (Exn.to_string a) )
   in
   Lwt_main.run catch_errors
 
@@ -492,8 +519,10 @@ let to_ref =
 let pp_differ out differ =
   let s =
     match differ with
-    | Internal p -> "internal with viewer " ^ p
-    | Image_Diff -> "external"
+    | Internal p ->
+        "internal with viewer " ^ p
+    | Image_Diff ->
+        "external"
   in
   Format.fprintf out "%s" s
 
@@ -541,7 +570,8 @@ let keep_files =
 let pp_colors out c =
   let open SvgPainter in
   match c with
-  | None -> Format.fprintf out "default colors"
+  | None ->
+      Format.fprintf out "default colors"
   | Some {old_ver; new_ver; fg; bg} ->
       Format.fprintf out "%s:%s:%s:%s" old_ver new_ver fg bg
 
@@ -558,8 +588,10 @@ let extract_colors s =
     | [|_; o; n; f; b|] ->
         let e c = "#" ^ c in
         Result.Ok (Some {old_ver= e o; new_ver= e n; fg= e f; bg= e b})
-    | _ -> Result.Error (`Msg "wrong colors format") )
-  | _ -> Result.Error (`Msg "wrong colors format")
+    | _ ->
+        Result.Error (`Msg "wrong colors format") )
+  | _ ->
+      Result.Error (`Msg "wrong colors format")
 
 let get_colors =
   let docv = "scheme of colors for diffing" in
