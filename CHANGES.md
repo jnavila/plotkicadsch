@@ -1,3 +1,12 @@
+v0.5.0
+------
+
+ - add compatibility with kicad 5.x
+ - update 'massaging' with rescue lib
+ - become independant on line endings types
+ - add an option to select output directory in plotkicadsch
+ - update lib versions
+
 v0.4.0
 ------
 
