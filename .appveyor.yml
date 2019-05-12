@@ -6,7 +6,7 @@ environment:
   FORK_BRANCH: master
   CYG_ROOT: C:\cygwin64
   PACKAGE: plotkicadsch
-  OPAM_SWITCH: 4.06.0+mingw64c
+  OPAM_SWITCH: 4.07.0+mingw64c
   PINS: kicadsch:. plotkicadsch:.
 
 install:

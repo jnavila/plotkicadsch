@@ -22,12 +22,12 @@ exception InternalGitError of string
 let git_fs commitish =
   ( module struct
     open Git_unix
-    module Search = Git.Search.Make (FS)
+    module Search = Git.Search.Make (Store)
 
     let rev_parse r =
       SysAbst.pread "git" [|"rev-parse"; r ^ "^{commit}"|]
       >>= fun s ->
-      try Lwt.return @@ Git_unix.Hash_IO.of_hex @@ String.prefix s 40
+      try Lwt.return @@ Store.Hash.of_hex @@ String.prefix s 40
       with _ -> Lwt.fail (InternalGitError ("cannot parse rev " ^ r))
 
     let doc = "Git rev " ^ commitish
@@ -56,7 +56,13 @@ let git_fs commitish =
       in
       recurse @@ (Sys.getcwd (), [])
 
-    let fs = git_root >>= fun (root, _) -> FS.create ~root ()
+    let fs =
+      let%lwt root, _ = git_root in
+      match%lwt Store.v (Fpath.v root) with
+      | Ok s ->
+          Lwt.return s
+      | Error e ->
+          Lwt.fail (InternalGitError (Fmt.strf "%a" Store.pp_error e))
 
     let theref = rev_parse commitish
 
@@ -72,30 +78,31 @@ let git_fs commitish =
             (InternalGitError
                ("path not found: /" ^ String.concat ~sep:Filename.dir_sep path))
       | Some sha -> (
-          match%lwt FS.read t sha with
-          | Some a ->
+          match%lwt Store.read t sha with
+          | Ok a ->
               action a
-          | None ->
-              Lwt.fail (InternalGitError "sha not found") )
+          | Error e ->
+              Lwt.fail (InternalGitError (Fmt.strf "%a" Store.pp_error e)) )
 
     let get_content filename =
       with_path filename
       @@ function
-      | Git.Value.Blob b ->
-          Lwt.return (Git.Blob.to_raw b)
+      | Store.Value.Blob b ->
+          Lwt.return (Store.Value.Blob.to_string b)
       | _ ->
           Lwt.fail (InternalGitError "not a valid path")
 
     let find_file filter t =
-      let open Git.Tree in
-      t
-      |> List.filter ~f:(fun e -> filter e.name)
-      |> List.map ~f:(fun e -> (e.name, Git.Hash.to_hex e.node))
+      let open Store.Value.Tree in
+      to_list t
+      |> List.filter_map ~f:(fun {name; node; _} ->
+             if filter name then Some (name, Store.Hash.to_hex node) else None
+         )
 
     let list_files pattern =
       with_path []
       @@ function
-      | Git.Value.Tree t ->
+      | Store.Value.Tree t ->
           Lwt.return @@ find_file pattern t
       | _ ->
           Lwt.fail (InternalGitError "not a tree!")
