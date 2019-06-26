@@ -1,3 +1,8 @@
+v0.5.1
+------
+
+ - fix compatibility with kicad 5.x
+
 v0.5.0
 ------
 
