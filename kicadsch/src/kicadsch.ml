@@ -139,7 +139,7 @@ module MakeSchPainter (P : Painter) :
 
   let parse_F =
     create_parse_fun ~name:"Component F"
-      ~regexp_str:"F %d \"%s@\" %[HV] %d %d %d %[01] %[LRCBT] %[CLRBTNI]"
+      ~regexp_str:"F %d %S %[HV] %d %d %d %[01] %[LRCBT] %[CLRBTNI]"
       ~extract_fun:(fun nb name orient posX posY size flags hjust vjustbi ->
         let co = Coord (posX, posY)
         and o = orientation_of_string orient
