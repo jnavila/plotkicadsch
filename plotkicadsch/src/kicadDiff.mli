@@ -1,22 +1,26 @@
-type fs_type = TrueFS of string | GitFS of string
+(**
+   schematic diffing module *)
 
+(** type of diffing. If internal, specify the application for showing SVGs **)
 type differ = Internal of string | Image_Diff
 
-module type Simple_FS = sig
-  val doc : string
+(** type of the file system for each leg of the diff *)
+type t
 
-  val label : fs_type
+(** [git_fs rev] builds a file system tree based on a git revision [rev] *)
+val git_fs: string -> t
 
-  val get_content : string list -> string Lwt.t
+(** [true_fs root] builds a fs from the file system [root] directory *)
+val true_fs: string -> t
 
-  val list_files : (string -> bool) -> (string * string) list Lwt.t
-end
+(** [doc fs] outputs the doc string of the file system [fs] *)
+val doc: t -> string
 
-val git_fs: string -> (module Simple_FS)
-
-val true_fs: string -> (module Simple_FS)
-
-val doit: (module Simple_FS) -> (module Simple_FS) ->
-  string option ->
-  differ ->
-  bool -> string list -> bool -> SvgPainter.diff_colors option -> unit
+(** [doit fs_from fs_to filename differ textdiff libs keep colors]
+    performs the diff of [filename] between [fs_from] and [fs_to]
+    using strategy [differ] and using common [libs] and [colors]
+    scheme. If [textdiff], then a text diff is shown when no visual
+    diff, if [keep] then the diff file isn't removed after *)
+val doit: t -> t -> string option ->
+  differ -> bool -> string list -> bool ->
+  SvgPainter.diff_colors option -> unit

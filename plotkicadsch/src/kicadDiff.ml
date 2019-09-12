@@ -3,23 +3,28 @@ open Lwt.Infix
 module S = Kicadsch.MakeSchPainter (SvgPainter)
 open Kicadsch.Sigs
 
-type fs_type = TrueFS of string | GitFS of string
+type t = TrueFS of string | GitFS of string
 
 type differ = Internal of string | Image_Diff
 
 module type Simple_FS = sig
-  val doc : string
 
-  val label : fs_type
+  val label : t
 
   val get_content : string list -> string Lwt.t
 
   val list_files : (string -> bool) -> (string * string) list Lwt.t
 end
 
+let doc = function
+  | TrueFS s -> "file system " ^ s
+  | GitFS s -> "Git rev " ^ s
+
 exception InternalGitError of string
 
-let git_fs commitish =
+let git_fs commitish = GitFS commitish
+
+let m_git_fs commitish =
   ( module struct
     open Git_unix
     module Search = Git.Search.Make (Store)
@@ -29,8 +34,6 @@ let git_fs commitish =
       >>= fun s ->
       try Lwt.return @@ Store.Hash.of_hex @@ String.prefix s 40
       with _ -> Lwt.fail (InternalGitError ("cannot parse rev " ^ r))
-
-    let doc = "Git rev " ^ commitish
 
     let label = GitFS commitish
 
@@ -44,15 +47,15 @@ let git_fs commitish =
           Lwt.return (d, b)
         with
         | Unix.Unix_error (Unix.ENOENT, _, _) ->
-            let new_d = dirname d in
-            if String.equal new_d d then
-              (* we've reached the root of the FS *)
-              Lwt.fail (InternalGitError "not in a git repository")
-            else
-              let new_b = basename d :: b in
-              recurse (new_d, new_b)
+          let new_d = dirname d in
+          if String.equal new_d d then
+            (* we've reached the root of the FS *)
+            Lwt.fail (InternalGitError "not in a git repository")
+          else
+            let new_b = basename d :: b in
+            recurse (new_d, new_b)
         | e ->
-            raise e
+          raise e
       in
       recurse @@ (Sys.getcwd (), [])
 
@@ -60,9 +63,9 @@ let git_fs commitish =
       let%lwt root, _ = git_root in
       match%lwt Store.v (Fpath.v root) with
       | Ok s ->
-          Lwt.return s
+        Lwt.return s
       | Error e ->
-          Lwt.fail (InternalGitError (Fmt.strf "%a" Store.pp_error e))
+        Lwt.fail (InternalGitError (Fmt.strf "%a" Store.pp_error e))
 
     let theref = rev_parse commitish
 
@@ -74,44 +77,45 @@ let git_fs commitish =
         Search.find t h (`Commit (`Path (List.concat [rel_path; path])))
       with
       | None ->
-          Lwt.fail
-            (InternalGitError
-               ("path not found: /" ^ String.concat ~sep:Filename.dir_sep path))
+        Lwt.fail
+          (InternalGitError
+             ("path not found: /" ^ String.concat ~sep:Filename.dir_sep path))
       | Some sha -> (
           match%lwt Store.read t sha with
           | Ok a ->
-              action a
+            action a
           | Error e ->
-              Lwt.fail (InternalGitError (Fmt.strf "%a" Store.pp_error e)) )
+            Lwt.fail (InternalGitError (Fmt.strf "%a" Store.pp_error e)) )
 
     let get_content filename =
       with_path filename
       @@ function
       | Store.Value.Blob b ->
-          Lwt.return (Store.Value.Blob.to_string b)
+        Lwt.return (Store.Value.Blob.to_string b)
       | _ ->
-          Lwt.fail (InternalGitError "not a valid path")
+        Lwt.fail (InternalGitError "not a valid path")
 
     let find_file filter t =
       let open Store.Value.Tree in
       to_list t
       |> List.filter_map ~f:(fun {name; node; _} ->
-             if filter name then Some (name, Store.Hash.to_hex node) else None
-         )
+          if filter name then Some (name, Store.Hash.to_hex node) else None
+        )
 
     let list_files pattern =
       with_path []
       @@ function
       | Store.Value.Tree t ->
-          Lwt.return @@ find_file pattern t
+        Lwt.return @@ find_file pattern t
       | _ ->
-          Lwt.fail (InternalGitError "not a tree!")
+        Lwt.fail (InternalGitError "not a tree!")
   end
   : Simple_FS )
 
-let true_fs rootname =
+let true_fs rootname = TrueFS rootname
+
+let m_true_fs rootname =
   ( module struct
-    let doc = "file system " ^ rootname
 
     let label = TrueFS rootname
 
@@ -135,6 +139,10 @@ let true_fs rootname =
       Lwt_stream.to_list decorated_files
   end
   : Simple_FS )
+
+let fs_mod = function
+  | GitFS r -> m_git_fs r
+  | TrueFS r -> m_true_fs r
 
 let ends_with e s =
   let ls = String.length s in
@@ -180,9 +188,9 @@ end = struct
   let read_libs initial_ctx lib_list =
     Lwt_list.fold_left_s
       (fun c l ->
-        F.get_content [l]
-        >|= String.split_lines
-        >|= List.fold_left ~f:(fun ctxt l -> S.add_lib l ctxt) ~init:c )
+         F.get_content [l]
+         >|= String.split_lines
+         >|= List.fold_left ~f:(fun ctxt l -> S.add_lib l ctxt) ~init:c )
       initial_ctx lib_list
 
   let context_from from_ctx =
@@ -197,10 +205,10 @@ let intersect_lists l1l l2l =
   >|= fun l2 ->
   List.filter
     ~f:(fun (name2, sha2) ->
-      List.exists
-        ~f:(fun (name1, sha1) ->
-          String.equal name1 name2 && not (String.equal sha2 sha1) )
-        l1 )
+        List.exists
+          ~f:(fun (name1, sha1) ->
+              String.equal name1 name2 && not (String.equal sha2 sha1) )
+          l1 )
     l2
   |> List.map ~f:(fun (n, _) -> n)
 
@@ -235,19 +243,19 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) =
       ListPainter.(
         match arg with
         | Text (_, text, _o, Coord (x, y), Size s, _j, _style) ->
-            Printf.sprintf "text %s %d %d %d" text x y s
+          Printf.sprintf "text %s %d %d %d" text x y s
         | Line (_, Size s, Coord (x1, y1), Coord (x2, y2)) ->
-            Printf.sprintf "line %d %d -> %d %d %d" x1 y1 x2 y2 s
+          Printf.sprintf "line %d %d -> %d %d %d" x1 y1 x2 y2 s
         | Rect (_, _, Coord (x1, y1), Coord (x2, y2)) ->
-            Printf.sprintf "rectangle %d %d -> %d %d" x1 y1 x2 y2
+          Printf.sprintf "rectangle %d %d -> %d %d" x1 y1 x2 y2
         | Circle (_, _, Coord (x, y), radius) ->
-            Printf.sprintf "circle %d %d %d" x y radius
+          Printf.sprintf "circle %d %d %d" x y radius
         | Arc (_, _, Coord (x, y), Coord (x1, y1), Coord (x2, y2), radius) ->
-            Printf.sprintf "arc %d %d -> %d %d %d %d %d" x1 y1 x2 y2 radius x y
+          Printf.sprintf "arc %d %d -> %d %d %d %d %d" x1 y1 x2 y2 radius x y
         | Image (Coord (x, y), scale, _) ->
-            Printf.sprintf "image %d %d %f" x y scale
+          Printf.sprintf "image %d %d %f" x y scale
         | Format (Coord (x, y)) ->
-            Printf.sprintf "format %d %d" x y)
+          Printf.sprintf "format %d %d" x y)
 
     type diff_style = Theirs | Ours | Idem
 
@@ -257,42 +265,42 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) =
         let kolor =
           match style with
           | Theirs ->
-              `Old
+            `Old
           | Ours ->
-              `New
+            `New
           | Idem ->
-              `ForeGround
+            `ForeGround
         in
         match arg with
         | Text (_, text, o, c, s, j, style) ->
-            O.paint_text ~kolor text o c s j style out_ctx
+          O.paint_text ~kolor text o c s j style out_ctx
         | Line (_, s, from_, to_) ->
-            O.paint_line ~kolor ~width:s from_ to_ out_ctx
+          O.paint_line ~kolor ~width:s from_ to_ out_ctx
         | Rect (_, _, c1, c2) ->
-            O.paint_rect ~kolor c1 c2 out_ctx
+          O.paint_rect ~kolor c1 c2 out_ctx
         | Circle (_, _, center, radius) ->
-            O.paint_circle ~kolor center radius out_ctx
+          O.paint_circle ~kolor center radius out_ctx
         | Arc (_, _, center, start_, end_, radius) ->
-            O.paint_arc ~kolor center start_ end_ radius out_ctx
+          O.paint_arc ~kolor center start_ end_ radius out_ctx
         | Image (corner, scale, data) ->
-            O.paint_image corner scale data out_ctx
+          O.paint_image corner scale data out_ctx
         | Format (Coord (x, y)) ->
-            O.set_canevas_size x y out_ctx)
+          O.set_canevas_size x y out_ctx)
 
     let draw_range ctx r =
       Patience_diff_lib.Patience_diff.Range.(
         match r with
         | Same a ->
-            Array.fold ~f:(fun c (x, _) -> plot_elt Idem c x) a ~init:ctx
+          Array.fold ~f:(fun c (x, _) -> plot_elt Idem c x) a ~init:ctx
         | Old a ->
-            Array.fold ~f:(plot_elt Theirs) a ~init:ctx
+          Array.fold ~f:(plot_elt Theirs) a ~init:ctx
         | New a ->
-            Array.fold ~f:(plot_elt Ours) a ~init:ctx
+          Array.fold ~f:(plot_elt Ours) a ~init:ctx
         | Replace (o, n) ->
-            let c' = Array.fold ~f:(plot_elt Ours) n ~init:ctx in
-            Array.fold o ~f:(plot_elt Theirs) ~init:c'
+          let c' = Array.fold ~f:(plot_elt Ours) n ~init:ctx in
+          Array.fold o ~f:(plot_elt Theirs) ~init:c'
         | Unified a ->
-            Array.fold ~f:(plot_elt Idem) a ~init:ctx)
+          Array.fold ~f:(plot_elt Idem) a ~init:ctx)
 
     type hunk = ListPainter.t Patience_diff_lib.Patience_diff.Hunk.t
 
@@ -331,44 +339,44 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) =
           (SvgPainter.get_color_context c)
       with
       | None ->
-          Lwt.return false
+        Lwt.return false
       | Some outctx ->
-          let svg_name = SysAbst.build_tmp_svg_name ~keep "diff_" filename in
-          let keep_as =
-            if keep then Some (build_svg_name "diff_" filename) else None
-          in
-          let open Unix in
-          let wait_for_1_s result =
-            match result with
-            | WSIGNALED n ->
-                Printf.printf "signalled with signal %d\n" n ;
-                Lwt.return svg_name
-            | WSTOPPED n ->
-                Printf.printf "stopped with %d\n" n ;
-                Lwt.return svg_name
-            | WEXITED err -> (
+        let svg_name = SysAbst.build_tmp_svg_name ~keep "diff_" filename in
+        let keep_as =
+          if keep then Some (build_svg_name "diff_" filename) else None
+        in
+        let open Unix in
+        let wait_for_1_s result =
+          match result with
+          | WSIGNALED n ->
+            Printf.printf "signalled with signal %d\n" n ;
+            Lwt.return svg_name
+          | WSTOPPED n ->
+            Printf.printf "stopped with %d\n" n ;
+            Lwt.return svg_name
+          | WEXITED err -> (
               match err with
               | 127 ->
-                  Printf.printf "Command not found: %s\n" d ;
-                  Lwt.return svg_name
+                Printf.printf "Command not found: %s\n" d ;
+                Lwt.return svg_name
               | 0 ->
-                  let t, u = Lwt.wait () in
-                  let erase_timeout =
-                    Lwt_timeout.create 1 (fun () -> Lwt.wakeup u svg_name)
-                  in
-                  Lwt_timeout.start erase_timeout ;
-                  t
+                let t, u = Lwt.wait () in
+                let erase_timeout =
+                  Lwt_timeout.create 1 (fun () -> Lwt.wakeup u svg_name)
+                in
+                Lwt_timeout.start erase_timeout ;
+                t
               | _ ->
-                  Printf.printf "Errored with code %d\n" err ;
-                  Lwt.return svg_name )
-          in
-          Lwt_io.with_file ~mode:Lwt_io.Output svg_name (fun o ->
-              Lwt_io.write o @@ SvgPainter.write ~op:false outctx )
-          >>= fun _ ->
-          SysAbst.exec d [|svg_name|]
-          >>= wait_for_1_s
-          >>= SysAbst.finalize_tmp_file ~keep_as
-          >|= fun _ -> true
+                Printf.printf "Errored with code %d\n" err ;
+                Lwt.return svg_name )
+        in
+        Lwt_io.with_file ~mode:Lwt_io.Output svg_name (fun o ->
+            Lwt_io.write o @@ SvgPainter.write ~op:false outctx )
+        >>= fun _ ->
+        SysAbst.exec d [|svg_name|]
+        >>= wait_for_1_s
+        >>= SysAbst.finalize_tmp_file ~keep_as
+        >|= fun _ -> true
   end
   : Differ )
 
@@ -391,8 +399,8 @@ module ImageDiff = struct
     let both_files =
       List.map
         ~f:(fun (svg_name, context) ->
-          Lwt_io.with_file ~mode:Lwt_io.Output svg_name (fun o ->
-              Lwt_io.write o (SvgPainter.write context) ) )
+            Lwt_io.with_file ~mode:Lwt_io.Output svg_name (fun o ->
+                Lwt_io.write o (SvgPainter.write context) ) )
         [(from_filename, from_ctx); (to_filename, to_ctx)]
     in
     let both = Lwt.join both_files in
@@ -401,50 +409,64 @@ module ImageDiff = struct
       >>= fun _ ->
       SysAbst.exec "git-imgdiff" [|from_filename; to_filename|]
       >|= Unix.(
-            function
-            | WEXITED ret ->
-                if Int.equal ret 0 then true else false
-            | WSIGNALED _ ->
-                false
-            | WSTOPPED _ ->
-                false)
+          function
+          | WEXITED ret ->
+            if Int.equal ret 0 then true else false
+          | WSIGNALED _ ->
+            false
+          | WSTOPPED _ ->
+            false)
     in
     let%lwt ret =
       try%lwt compare_them with
       | InternalGitError s ->
-          Lwt_io.printf "%s\n" s >|= fun () -> false
+        Lwt_io.printf "%s\n" s >|= fun () -> false
       | _ ->
-          Lwt_io.printf "unknown error\n" >|= fun () -> false
+        Lwt_io.printf "unknown error\n" >|= fun () -> false
     in
     Lwt.join
     @@ List.map
-         ~f:(SysAbst.finalize_tmp_file ~keep_as:None)
-         [from_filename; to_filename]
+      ~f:(SysAbst.finalize_tmp_file ~keep_as:None)
+      [from_filename; to_filename]
     >|= fun _ -> ret
 end
+
+let diff_cmd f t filename =
+  let diff_cmd = [|"--no-pager"; "diff"; "--word-diff"|] in
+  match (f, t) with
+  | GitFS fc, GitFS tc ->
+    ("git", Array.append diff_cmd [|fc; tc; "--"; filename|])
+  | TrueFS _, GitFS tc ->
+    ("git", Array.append diff_cmd [|tc; "--"; filename|])
+  | GitFS fc, TrueFS _ ->
+    ("git", Array.append diff_cmd [|fc; "--"; filename|])
+  | TrueFS fc, TrueFS tc ->
+    ( "diff"
+    , [| fc ^ Filename.dir_sep ^ filename
+       ; tc ^ Filename.dir_sep ^ filename |] )
 
 let doit from_fs to_fs file_to_diff differ textdiff libs keep colors =
   let module_d =
     match differ with
     | Image_Diff ->
-        (module ImageDiff : Differ)
+      (module ImageDiff : Differ)
     | Internal s ->
-        internal_diff s colors
+      internal_diff s colors
   in
   let module D = (val module_d : Differ) in
-  let module F = (val from_fs : Simple_FS) in
-  let module T = (val to_fs : Simple_FS) in
+  let module F = (val (fs_mod from_fs) : Simple_FS) in
+  let module T = (val (fs_mod to_fs) : Simple_FS) in
   let module FromP = FSPainter (D.S) (F) in
   let module ToP = FSPainter (D.S) (T) in
   let file_list =
     match file_to_diff with
     | None ->
-        let from_list = FromP.find_schematics () in
-        let to_list = ToP.find_schematics () in
-        intersect_lists from_list to_list
+      let from_list = FromP.find_schematics () in
+      let to_list = ToP.find_schematics () in
+      intersect_lists from_list to_list
     | Some filename ->
-        let filename_l = String.split ~on:'/' filename in
-        Lwt.return filename_l
+      let filename_l = String.split ~on:'/' filename in
+      Lwt.return filename_l
   in
   let preload_libs () =
     Lwt_list.fold_left_s
@@ -458,36 +480,23 @@ let doit from_fs to_fs file_to_diff differ textdiff libs keep colors =
     let%lwt to_ctx = ToP.process_file to_init_ctx filename in
     match%lwt D.display_diff ~from_ctx ~to_ctx filename ~keep with
     | true ->
-        Lwt.return ()
+      Lwt.return ()
     | false ->
-        if textdiff then
-          let diff_cmd = [|"--no-pager"; "diff"; "--word-diff"|] in
-          let cmd, args =
-            match (F.label, T.label) with
-            | GitFS fc, GitFS tc ->
-                ("git", Array.append diff_cmd [|fc; tc; "--"; filename|])
-            | TrueFS _, GitFS tc ->
-                ("git", Array.append diff_cmd [|tc; "--"; filename|])
-            | GitFS fc, TrueFS _ ->
-                ("git", Array.append diff_cmd [|fc; "--"; filename|])
-            | TrueFS fc, TrueFS tc ->
-                ( "diff"
-                , [| fc ^ Filename.dir_sep ^ filename
-                   ; tc ^ Filename.dir_sep ^ filename |] )
-          in
-          SysAbst.exec cmd args >|= ignore
-        else Lwt.return ()
+      if textdiff then
+        let cmd, args = diff_cmd F.label T.label filename in
+        SysAbst.exec cmd args >|= ignore
+      else Lwt.return ()
   in
   let compare_all = file_list >>= Lwt_list.map_p compare_one >|= to_unit in
   let catch_errors =
     Lwt.catch
       (fun _ ->
-        Lwt_io.printf "%s between %s and %s\n" D.doc F.doc T.doc
-        >>= fun _ -> compare_all )
+         Lwt_io.printf "%s between %s and %s\n" D.doc (doc from_fs) (doc to_fs)
+         >>= fun _ -> compare_all )
       (function
         | InternalGitError s ->
-            Lwt_io.printf "Git Exception: %s\n" s
+          Lwt_io.printf "Git Exception: %s\n" s
         | a ->
-            Lwt_io.printf "Exception %s\n" (Exn.to_string a) )
+          Lwt_io.printf "Exception %s\n" (Exn.to_string a) )
   in
   Lwt_main.run catch_errors

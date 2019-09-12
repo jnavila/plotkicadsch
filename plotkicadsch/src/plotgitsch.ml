@@ -4,8 +4,7 @@ open Cmdliner
 
 
 let pp_fs out fs =
-  let module FS = (val fs : Simple_FS) in
-  Format.fprintf out "%s" FS.doc
+  Format.fprintf out "%s" (doc fs)
 
 let get_fs s =
   if String.length s > 4 && String.sub s ~pos:0 ~len:4 = "dir:" then
