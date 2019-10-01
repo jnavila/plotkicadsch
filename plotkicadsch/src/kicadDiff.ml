@@ -2,147 +2,21 @@ open Core_kernel
 open Lwt.Infix
 module S = Kicadsch.MakeSchPainter (SvgPainter)
 open Kicadsch.Sigs
-
-type t = TrueFS of string | GitFS of string
-
-type differ = Internal of string | Image_Diff
-
-module type Simple_FS = sig
-
-  val label : t
-
-  val get_content : string list -> string Lwt.t
-
-  val list_files : (string -> bool) -> (string * string) list Lwt.t
-end
+include DiffFs
 
 let doc = function
   | TrueFS s -> "file system " ^ s
   | GitFS s -> "Git rev " ^ s
 
-exception InternalGitError of string
-
 let git_fs commitish = GitFS commitish
 
-let m_git_fs commitish =
-  ( module struct
-    open Git_unix
-    module Search = Git.Search.Make (Store)
-
-    let rev_parse r =
-      SysAbst.pread "git" [|"rev-parse"; r ^ "^{commit}"|]
-      >>= fun s ->
-      try Lwt.return @@ Store.Hash.of_hex @@ String.prefix s 40
-      with _ -> Lwt.fail (InternalGitError ("cannot parse rev " ^ r))
-
-    let label = GitFS commitish
-
-    let git_root =
-      let open Filename in
-      let rec recurse (d, b) =
-        let new_gitdir = concat d ".git/description" in
-        try%lwt
-          let%lwt _ = Lwt_unix.stat new_gitdir in
-          (* that's a git repo and d is the root *)
-          Lwt.return (d, b)
-        with
-        | Unix.Unix_error (Unix.ENOENT, _, _) ->
-          let new_d = dirname d in
-          if String.equal new_d d then
-            (* we've reached the root of the FS *)
-            Lwt.fail (InternalGitError "not in a git repository")
-          else
-            let new_b = basename d :: b in
-            recurse (new_d, new_b)
-        | e ->
-          raise e
-      in
-      recurse @@ (Sys.getcwd (), [])
-
-    let fs =
-      let%lwt root, _ = git_root in
-      match%lwt Store.v (Fpath.v root) with
-      | Ok s ->
-        Lwt.return s
-      | Error e ->
-        Lwt.fail (InternalGitError (Fmt.strf "%a" Store.pp_error e))
-
-    let theref = rev_parse commitish
-
-    let with_path path action =
-      let%lwt t = fs in
-      let%lwt h = theref in
-      let%lwt _, rel_path = git_root in
-      match%lwt
-        Search.find t h (`Commit (`Path (List.concat [rel_path; path])))
-      with
-      | None ->
-        Lwt.fail
-          (InternalGitError
-             ("path not found: /" ^ String.concat ~sep:Filename.dir_sep path))
-      | Some sha -> (
-          match%lwt Store.read t sha with
-          | Ok a ->
-            action a
-          | Error e ->
-            Lwt.fail (InternalGitError (Fmt.strf "%a" Store.pp_error e)) )
-
-    let get_content filename =
-      with_path filename
-      @@ function
-      | Store.Value.Blob b ->
-        Lwt.return (Store.Value.Blob.to_string b)
-      | _ ->
-        Lwt.fail (InternalGitError "not a valid path")
-
-    let find_file filter t =
-      let open Store.Value.Tree in
-      to_list t
-      |> List.filter_map ~f:(fun {name; node; _} ->
-          if filter name then Some (name, Store.Hash.to_hex node) else None
-        )
-
-    let list_files pattern =
-      with_path []
-      @@ function
-      | Store.Value.Tree t ->
-        Lwt.return @@ find_file pattern t
-      | _ ->
-        Lwt.fail (InternalGitError "not a tree!")
-  end
-  : Simple_FS )
+type differ = Internal of string | Image_Diff
 
 let true_fs rootname = TrueFS rootname
 
-let m_true_fs rootname =
-  ( module struct
-
-    let label = TrueFS rootname
-
-    let rootname = rootname
-
-    let get_content filename =
-      Lwt_io.with_file ~mode:Lwt_io.input
-        (String.concat ~sep:Filename.dir_sep filename)
-        Lwt_io.read
-
-    let hash_file filename =
-      get_content [filename]
-      >|= fun c ->
-      let blob_content = Printf.sprintf "blob %d\000" (String.length c) ^ c in
-      (filename, Sha1.to_hex (Sha1.string blob_content))
-
-    let list_files pattern =
-      let all_files = Lwt_unix.files_of_directory rootname in
-      let matched_files = Lwt_stream.filter pattern all_files in
-      let decorated_files = Lwt_stream.map_s hash_file matched_files in
-      Lwt_stream.to_list decorated_files
-  end
-  : Simple_FS )
-
 let fs_mod = function
-  | GitFS r -> m_git_fs r
-  | TrueFS r -> m_true_fs r
+  | GitFS r -> GitFs.make r
+  | TrueFS r -> TrueFs.make r
 
 let ends_with e s =
   let ls = String.length s in
@@ -419,7 +293,7 @@ module ImageDiff = struct
     in
     let%lwt ret =
       try%lwt compare_them with
-      | InternalGitError s ->
+      | GitFs.InternalGitError s ->
         Lwt_io.printf "%s\n" s >|= fun () -> false
       | _ ->
         Lwt_io.printf "unknown error\n" >|= fun () -> false
@@ -494,7 +368,7 @@ let doit from_fs to_fs file_to_diff differ textdiff libs keep colors =
          Lwt_io.printf "%s between %s and %s\n" D.doc (doc from_fs) (doc to_fs)
          >>= fun _ -> compare_all )
       (function
-        | InternalGitError s ->
+        | GitFs.InternalGitError s ->
           Lwt_io.printf "Git Exception: %s\n" s
         | a ->
           Lwt_io.printf "Exception %s\n" (Exn.to_string a) )
