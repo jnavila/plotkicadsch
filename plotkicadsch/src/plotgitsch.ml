@@ -55,10 +55,11 @@ let internal_diff =
     "use an internal diff algorithm and use the $(docv) to display the result."
   in
   let docv = "BROWSER" in
+  let env = Arg.env_var ~doc:"Default viewer for internal diff. Defining this env var forces internal diff." "PLOTGITSCH_VIEWER" in
   Arg.(
     value
     & opt ~vopt:(Internal (SysAbst.default_opener ())) differ Image_Diff
-    & info ["i"; "internal"] ~doc ~docv)
+    & info ["i"; "internal"] ~env ~doc ~docv)
 
 let preloaded_libs =
   let doc =
@@ -118,7 +119,9 @@ let colors =
      the default colors are FF0000:00FF00:00000:FFFFFF"
   in
   let docv = "old:new:foreground:background" in
-  Arg.(value & opt get_colors None & info ["c"; "colors"] ~doc ~docv)
+  let env = Arg.env_var ~doc:"Colors for plotting the diff" "PLOTGITSCH_COLORS" in
+
+  Arg.(value & opt get_colors None & info ["c"; "colors"] ~env ~doc ~docv)
 
 let plotgitsch_t =
   Term.(
