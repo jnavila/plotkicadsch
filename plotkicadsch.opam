@@ -18,7 +18,7 @@ Two utilities:
 ]
     depends: [
   "dune" {build}
-    "kicadsch" {= "0.5.1"}
+    "kicadsch" {= "0.5.2"}
     "tyxml" {>= "4.0.0"}
     "lwt"
     "lwt_ppx" {build}

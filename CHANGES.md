@@ -1,3 +1,10 @@
+v0.5.2
+------
+
+ - Manage Fields with delimited strings
+ - Use environment variables for internal differ
+ - add dependency to an implementation of digestif
+
 v0.5.1
 ------
 
