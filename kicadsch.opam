@@ -1,6 +1,6 @@
 opam-version: "2.0"
 maintainer: "Jean-Noel Avila <jn.avila@free.fr>"
-author: "Jean-Noel Avila <jn.avila@free.fr>"
+authors: "Jean-Noel Avila <jn.avila@free.fr>"
 homepage: "https://jnavila.github.io/plotkicadsch/"
 doc: "https://jnavila.github.io/plotkicadsch/index"
 synopsis: "Library to read and convert Kicad Sch files"
@@ -17,7 +17,7 @@ build: [
   ["dune" "runtest" "-p" name "-j" jobs] {with-test}
 ]
 depends: [
-  "dune" {build}
+  "dune" {>= "1.0"}
   "ounit" {with-test}
   "ocaml" {>="4.07"}
 ]
