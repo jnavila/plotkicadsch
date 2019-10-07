@@ -444,6 +444,7 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#_changing_colors">Changing Colors</a></li>
 <li><a href="#_keeping_diff_pictures">Keeping Diff Pictures</a></li>
 <li><a href="#_preloading_libraries">Preloading libraries</a></li>
+<li><a href="#_setting_default_options">Setting Default Options</a></li>
 <li><a href="#_other_options">Other Options</a></li>
 </ul>
 </div>
@@ -658,6 +659,50 @@ Exception ("Kicadsch__Kicadlib.MakePainter(P).Component_Not_Found(\"Timer:LM555\
 </div>
 </div>
 <div class="sect1">
+<h2 id="_setting_default_options">Setting Default Options</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>It&#8217;s tedious to repeat the same options on and on each time you wish to visualize a diff. One option around that is to define an alias in you preferred shell script environment. For instance, if you are using bash, you can add this line to your <code>.bashrc</code>:</p>
+</div>
+<div class="listingblock">
+<div class="title">Defining a shortcut alias in your <code>.bashrc</code></div>
+<div class="content">
+<pre class="highlight"><code class="language-shell" data-lang="shell">alias pgs='plotgitsch --internal=firefox --color=FF0000:008FFF:FFFFFF:000000'</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This lets you use the <code>pgs</code> alias to quickly check your local diffs from the last commit.</p>
+</div>
+<div class="paragraph">
+<p>Another option is to use environment variables to customize the behavior of <code>plotgitsch</code>. Two environment variables are usable:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>PLOTGITSCH_VIEWER</code></dt>
+<dd>
+<p>this variable makes <code>plotgitsch</code> use the internal differ and its value is the command of the viewer</p>
+</dd>
+<dt class="hdlist1"><code>PLOTGITSCH_COLORS</code></dt>
+<dd>
+<p>this variable is the value passed to the <code>--colors</code> option.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>Set and export these variables in your <code>.bashrc</code>, like this:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-shell" data-lang="shell">export PLOTGITSCH_VIEWER=firefox
+export PLOTGITSCH_COLORS=FF0000:008FFF:FFFFFF:000000</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This way, <code>plotgitsch</code> 's default behavior will be to use the internal diff with firefox as a viewer with customized colors.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
 <h2 id="_other_options">Other Options</h2>
 <div class="sectionbody">
 <div class="paragraph">
@@ -684,7 +729,7 @@ Exception ("Kicadsch__Kicadlib.MakePainter(P).Component_Not_Found(\"Timer:LM555\
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2019-03-07 18:00:45 CET
+Last updated 2019-10-07 15:55:39 CEST
 </div>
 </div>
 </body>

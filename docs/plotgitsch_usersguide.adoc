@@ -125,6 +125,35 @@ image::diff_with_lib.png[]
 
 This works quite well. However, you can still notice that some changes appear at the shape of the LED may have changed in the cache, because the wires around it show changes. We are quite lucky that the shape of more complex components haven't changed (for instance a mapping on a microcontroller).
 
+== Setting Default Options
+
+It's tedious to repeat the same options on and on each time you wish to visualize a diff. One option around that is to define an alias in you preferred shell script environment. For instance, if you are using bash, you can add this line to your `.bashrc`:
+
+.Defining a shortcut alias in your `.bashrc`
+[source, shell]
+----
+alias pgs='plotgitsch --internal=firefox --color=FF0000:008FFF:FFFFFF:000000'
+----
+
+This lets you use the `pgs` alias to quickly check your local diffs from the last commit.
+
+Another option is to use environment variables to customize the behavior of `plotgitsch`. Two environment variables are usable:
+
+`PLOTGITSCH_VIEWER`::
+   this variable makes `plotgitsch` use the internal differ and its value is the command of the viewer
+`PLOTGITSCH_COLORS`::
+   this variable is the value passed to the `--colors` option.
+
+Set and export these variables in your `.bashrc`, like this:
+
+[source, shell]
+----
+export PLOTGITSCH_VIEWER=firefox
+export PLOTGITSCH_COLORS=FF0000:008FFF:FFFFFF:000000
+----
+
+This way, `plotgitsch` 's default behavior will be to use the internal diff with firefox as a viewer with customized colors.
+
 == Other Options
 
 There are a few last options:
