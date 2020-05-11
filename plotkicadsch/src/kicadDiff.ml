@@ -166,9 +166,9 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) =
         match r with
         | Same a ->
           Array.fold ~f:(fun c (x, _) -> plot_elt Idem c x) a ~init:ctx
-        | Old a ->
+        | Prev a ->
           Array.fold ~f:(plot_elt Theirs) a ~init:ctx
-        | New a ->
+        | Next a ->
           Array.fold ~f:(plot_elt Ours) a ~init:ctx
         | Replace (o, n) ->
           let c' = Array.fold ~f:(plot_elt Ours) n ~init:ctx in
@@ -181,9 +181,9 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) =
     let draw_hunk (h : hunk) ctx =
       List.fold_left ~f:draw_range ~init:ctx h.ranges
 
-    let draw_difftotal ~other ~mine out_canevas =
+    let draw_difftotal ~prev ~next out_canevas =
       let comparison =
-        Patdiff.get_hunks ~transform ~mine ~other ~context:5 ~big_enough:1
+        Patdiff.get_hunks ~transform ~prev ~next ~context:5 ~big_enough:1
       in
       if
         List.for_all ~f:Patience_diff_lib.Patience_diff.Hunk.all_same
@@ -192,24 +192,24 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) =
       else
         let draw_all_hunk (ctx, n) (h : hunk) =
           ( Array.fold ~f:(plot_elt Idem)
-              (Array.sub mine ~pos:n ~len:(h.mine_start - n - 1))
+              (Array.sub prev ~pos:n ~len:(h.prev_start - n - 1))
               ~init:ctx
             |> draw_hunk h
-          , max 0 (h.mine_start + h.mine_size - 2) )
+          , max 0 (h.prev_start + h.prev_size - 2) )
         in
         let ctx, n =
           List.fold ~f:draw_all_hunk ~init:(out_canevas, 0) comparison
         in
         Some
           (Array.fold ~f:(plot_elt Idem)
-             (Array.sub mine ~pos:n ~len:(Array.length mine - n))
+             (Array.sub prev ~pos:n ~len:(Array.length prev - n))
              ~init:ctx)
 
     let display_diff ~from_ctx ~to_ctx filename ~keep =
       let from_canevas = Array.of_list from_ctx in
       let to_canevas = Array.of_list to_ctx in
       match
-        draw_difftotal ~mine:from_canevas ~other:to_canevas
+        draw_difftotal ~prev:from_canevas ~next:to_canevas
           (SvgPainter.get_color_context c)
       with
       | None ->
