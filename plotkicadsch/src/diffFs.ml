@@ -7,5 +7,5 @@ module type Simple_FS = sig
 
   val get_content : string list -> string Lwt.t
 
-  val list_files : (string -> bool) -> (string * string) list Lwt.t
+  val list_files : (string -> bool) -> (string list * string) list Lwt.t
 end

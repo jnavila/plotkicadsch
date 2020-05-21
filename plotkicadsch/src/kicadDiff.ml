@@ -39,9 +39,9 @@ module LP = struct
 end
 
 module FSPainter (S : SchPainter) (F : Simple_FS) : sig
-  val find_schematics : unit -> (string * string) list Lwt.t
+  val find_schematics : unit -> (string list * string) list Lwt.t
 
-  val process_file : S.schContext Lwt.t -> string -> S.painterContext Lwt.t
+  val process_file : S.schContext Lwt.t -> string list -> S.painterContext Lwt.t
 
   val context_from : S.schContext Lwt.t -> S.schContext Lwt.t
 end = struct
@@ -50,7 +50,7 @@ end = struct
   let process_file initctx filename =
     let parse c l = S.parse_line l c in
     let%lwt init = initctx in
-    F.get_content [filename]
+    F.get_content filename
     >|= fun ctt ->
     let lines = String.split_lines ctt in
     let endctx = List.fold_left ~f:parse ~init lines in
@@ -62,7 +62,7 @@ end = struct
   let read_libs initial_ctx lib_list =
     Lwt_list.fold_left_s
       (fun c l ->
-         F.get_content [l]
+         F.get_content l
          >|= String.split_lines
          >|= List.fold_left ~f:(fun ctxt l -> S.add_lib l ctxt) ~init:c )
       initial_ctx lib_list
@@ -81,17 +81,21 @@ let intersect_lists l1l l2l =
     ~f:(fun (name2, sha2) ->
         List.exists
           ~f:(fun (name1, sha1) ->
-              String.equal name1 name2 && not (String.equal sha2 sha1) )
+              List.equal String.equal name1 name2 && not (String.equal sha2 sha1) )
           l1 )
     l2
-  |> List.map ~f:(fun (n, _) -> n)
+  |> List.map ~f:fst
 
 let to_unit _ = ()
 
-let build_svg_name aprefix aschname =
-  aprefix
+let build_svg_name (aprefix:string) (aschpath: string list): string =
+  let rec build_string  path = function
+    | s::f::e -> build_string (String.concat ~sep:"/" [path;s]) (f::e)
+    | [] -> raise Not_found
+    | [aschname] -> path ^ "/" ^ aprefix
   ^ String.sub aschname ~pos:0 ~len:(String.length aschname - 4)
   ^ ".svg"
+  in build_string "" aschpath
 
 module type Differ = sig
   val doc : string
@@ -101,7 +105,7 @@ module type Differ = sig
   module S : SchPainter with type painterContext = pctx
 
   val display_diff :
-    from_ctx:pctx -> to_ctx:pctx -> string -> keep:bool -> bool Lwt.t
+    from_ctx:pctx -> to_ctx:pctx -> string list -> keep:bool -> bool Lwt.t
 end
 
 let internal_diff (d : string) (c : SvgPainter.diff_colors option) =
@@ -205,7 +209,7 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) =
              (Array.sub prev ~pos:n ~len:(Array.length prev - n))
              ~init:ctx)
 
-    let display_diff ~from_ctx ~to_ctx filename ~keep =
+    let display_diff ~from_ctx ~to_ctx (filename:string list) ~keep =
       let from_canevas = Array.of_list from_ctx in
       let to_canevas = Array.of_list to_ctx in
       match
@@ -340,7 +344,7 @@ let doit from_fs to_fs file_to_diff differ textdiff libs keep colors =
       intersect_lists from_list to_list
     | Some filename ->
       let filename_l = String.split ~on:'/' filename in
-      Lwt.return filename_l
+      Lwt.return [filename_l]
   in
   let preload_libs () =
     Lwt_list.fold_left_s
@@ -357,7 +361,7 @@ let doit from_fs to_fs file_to_diff differ textdiff libs keep colors =
       Lwt.return ()
     | false ->
       if textdiff then
-        let cmd, args = diff_cmd F.label T.label filename in
+        let cmd, args = diff_cmd F.label T.label @@ String.concat ~sep:"/" filename in
         SysAbst.exec cmd args >|= ignore
       else Lwt.return ()
   in
