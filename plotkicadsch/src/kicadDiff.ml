@@ -81,7 +81,7 @@ let intersect_lists l1l l2l =
     ~f:(fun (name2, sha2) ->
         List.exists
           ~f:(fun (name1, sha1) ->
-              List.equal String.equal name1 name2 && not (String.equal sha2 sha1) )
+              List.equal ~equal:String.equal name1 name2 && not (String.equal sha2 sha1) )
           l1 )
     l2
   |> List.map ~f:fst

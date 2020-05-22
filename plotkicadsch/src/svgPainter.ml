@@ -175,8 +175,7 @@ exception Base64Exception of string
 let paint_image (Coord (x, y)) scale b ({c; _} as ctxt) =
   let s = scale /. 0.3 in
   let w, h = get_png_dims b in
-  match Base64.encode (Buffer.contents b) with
-  | Ok outstring ->
+  let outstring = B64.encode (Buffer.contents b) in
       { ctxt with
         c=
           image
@@ -188,8 +187,6 @@ let paint_image (Coord (x, y)) scale b ({c; _} as ctxt) =
               ; a_xlink_href @@ "data:image/png;base64," ^ outstring ]
             []
           :: c }
-  | Error (`Msg err) ->
-      raise (Base64Exception err)
 
 let get_context () = {d= (0, 0); c= []; colors= None}
 
