@@ -16,6 +16,9 @@ let make commitish =
 
     let label = GitFS commitish
 
+    (* pair gitroot, relative_path where
+       gitroot is the root dir of the git working copy
+       relative_path is the actual path relative to gitroot*)
     let git_root =
       let open Filename in
       let rec recurse (d, b) =
@@ -74,19 +77,45 @@ let make commitish =
       | _ ->
         Lwt.fail (InternalGitError "not a valid path")
 
-    let find_file filter t =
+    let find_file_local filter t =
       let open Store.Value.Tree in
       to_list t
       |> List.filter_map ~f:(fun {name; node; _} ->
-          if filter name then Some (name, Store.Hash.to_hex node) else None
+          if filter name then Some ([name], Store.Hash.to_hex node) else None
         )
 
-    let list_files pattern =
-      with_path []
+    let find_dir_local t =
+      let file_list = Store.Value.Tree.to_list t in
+      List.filter ~f:(fun entry -> entry.perm = `Dir) file_list
+
+    let rec recurse_dir ?dirname node pattern =
+      let rename name = match dirname with
+        | Some dirname -> dirname::name
+        | None -> name in
+      let local_file_list = find_file_local pattern node in
+      let path_file_list = List.map local_file_list ~f:(fun (name, hash) -> ((rename name), hash)) in
+      let dirs = find_dir_local node in
+      let%lwt t = fs in
+      let open Store.Value.Tree in
+      let recurse_tree = fun entry ->
+          let%lwt res  = Store.read t entry.node in
+          match res with
+          |Error e -> Lwt.fail (InternalGitError (Fmt.strf "%a" Store.pp_error e))
+          |Ok Store.Value.Tree t ->(
+            let%lwt subdir = recurse_dir ~dirname:entry.name t pattern in
+            let subdir_files = List.map ~f:(fun (name, hash) -> ((rename name), hash)) subdir in
+            Lwt.return subdir_files)
+          |Ok _  -> Lwt.fail (InternalGitError ("impossible case")) in
+      let%lwt subdir_list = Lwt_list.map_s recurse_tree dirs in
+      let result = List.concat [List.concat subdir_list; path_file_list] in
+      Lwt.return result
+
+    let list_files_from path pattern =
+      with_path path
       @@ function
-      | Store.Value.Tree t ->
-        Lwt.return @@ find_file pattern t
-      | _ ->
-        Lwt.fail (InternalGitError "not a tree!")
+      | Store.Value.Tree t -> recurse_dir t pattern
+      | _ -> Lwt.fail (InternalGitError "not a tree!")
+
+    let list_files pattern =list_files_from [] pattern
   end
   : Simple_FS )

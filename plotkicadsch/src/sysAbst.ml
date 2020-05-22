@@ -62,7 +62,8 @@ let pread c a =
       @@ cmd_output
            (Array.fold ~f:(fun f g -> f ^ " " ^ windows_quote g) ~init:c a)
 
-let build_tmp_svg_name ~keep aprefix aschname =
+let build_tmp_svg_name ~keep aprefix aschpath =
+  let aschname = List.last_exn aschpath in
   let root_prefix =
     aprefix ^ String.sub aschname ~pos:0 ~len:(String.length aschname - 4)
   in
