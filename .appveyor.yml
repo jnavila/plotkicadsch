@@ -6,7 +6,7 @@ environment:
   FORK_BRANCH: master
   CYG_ROOT: C:\cygwin64
   PACKAGE: plotkicadsch
-  OPAM_SWITCH: 4.07.0+mingw64c
+  OPAM_SWITCH: 4.09.0+mingw64c
   PINS: kicadsch:. plotkicadsch:.
 
 install:
@@ -14,7 +14,9 @@ install:
 
 build_script:
   - call %CYG_ROOT%\bin\bash.exe -l %APPVEYOR_BUILD_FOLDER%\appveyor-opam.sh
-  - call %CYG_ROOT%\bin\bash.exe -l -c 'opam install plotkicadsch'
+  - call %CYG_ROOT%\bin\bash.exe -l -c 'opam pin 'opam pin add kicadsch.dev --kind=path . -n'
+  - call %CYG_ROOT%\bin\bash.exe -l -c 'opam pin 'opam pin add plotkicadsch.dev --kind=path . -n'
+  - call %CYG_ROOT%\bin\bash.exe -l -c 'opam install plotkicadsch.dev'
   - mv %CYG_ROOT%\home\appveyor\.opam %APPVEYOR_BUILD_FOLDER%\opam
 
 artifacts:
