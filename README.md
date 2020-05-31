@@ -4,7 +4,7 @@
 
 PlotKicadsch is a small tool to export Kicad Sch files to SVG pictures. In the future, export to other formats may be available (PDF, PNG).
 
-This package also provides the `plotgitsch` command which allows to visually compare git revisions of schematics:
+This package also provides the [`plotgitsch`](https://jnavila.github.io/plotkicadsch/plotgitsch_usersguide.html) command which allows to visually compare git revisions of schematics:
 
 ![Visual diff](docs/svg_diff.png)
 
@@ -20,13 +20,14 @@ The quality of the output is not a first requirement (meaning: not supposed to m
 
 # Stable version from OPAM
 
-The stable version of plotkicadsch can be installed with [opam](http://opam.ocaml.org/):
+The stable version of plotkicadsch can be installed with [opam](http://opam.ocaml.org/). Be careful to install opam v2.0 for your platform.
 
 ```bash
-$ opam switch 4.06.0
-$ eval `opam config env`
-$ opam update
-$ opam install plotkicadsch
+opam switch create 4.09.0
+opam switch 4.09.0
+eval `opam config env`
+opam update
+opam install plotkicadsch
 ```
 
 If you don't use opam consult the .opam files for build instructions.
@@ -41,15 +42,18 @@ https://github.com/jnavila/plotkicadsch/releases
 
 If you have installed git for windows, chances are that you have installed the bash environment, so  drop the binaries in `C:\Program Files\Git\mingw64\bin`(Administrator rights required). They should be accessible on your bash command line and work just like under Linux/OSX.
 
-## Master version
+# Master version
 
 The latest running version can also be installed from this repo by pinning the project in opam:
 
 ```bash
-$ opam pin add kicadsch .
-$ opam pin add plotkicadsch .
-$ opam update
-$ opam install plotkicadsch
+opam switch create 4.09.0
+opam switch 4.09.0
+eval `opam config env`
+opam pin add kicadsch .
+opam pin add plotkicadsch .
+opam update
+opam install plotkicadsch
 ```
 
 # How to
