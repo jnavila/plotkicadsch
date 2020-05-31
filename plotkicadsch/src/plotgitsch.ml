@@ -7,7 +7,7 @@ let pp_fs out fs =
   Format.fprintf out "%s" (doc fs)
 
 let get_fs s =
-  if String.length s > 4 && String.sub s ~pos:0 ~len:4 = "dir:" then
+  if String.length s > 4 && String.equal (String.sub s ~pos:0 ~len:4) "dir:" then
     true_fs (String.sub s ~pos:4 ~len:(String.length s - 4))
   else git_fs s
 

@@ -14,9 +14,7 @@ install:
 
 build_script:
   - call %CYG_ROOT%\bin\bash.exe -l %APPVEYOR_BUILD_FOLDER%\appveyor-opam.sh
-  - call %CYG_ROOT%\bin\bash.exe -l -c 'opam pin 'opam pin add kicadsch.dev --kind=path . -n'
-  - call %CYG_ROOT%\bin\bash.exe -l -c 'opam pin 'opam pin add plotkicadsch.dev --kind=path . -n'
-  - call %CYG_ROOT%\bin\bash.exe -l -c 'opam install plotkicadsch.dev'
+  - call %CYG_ROOT%\bin\bash.exe -l -c 'opam install plotkicadsch'
   - mv %CYG_ROOT%\home\appveyor\.opam %APPVEYOR_BUILD_FOLDER%\opam
 
 artifacts:

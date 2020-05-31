@@ -7,7 +7,7 @@ let make rootname =
 
     let label = TrueFS rootname
 
-    let rootname = String.lstrip ~drop:(fun c -> c = '/') rootname
+    let rootname = String.lstrip ~drop:(Char.equal '/') rootname
     let rootlength = (String.length rootname) + 1
 
     let get_content filename =

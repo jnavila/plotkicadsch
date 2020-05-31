@@ -18,18 +18,6 @@ let fs_mod = function
   | GitFS r -> GitFs.make r
   | TrueFS r -> TrueFs.make r
 
-let ends_with e s =
-  let ls = String.length s in
-  let le = String.length e in
-  if ls < le then false
-  else
-    let rec loop s e i =
-      if i = le then true
-      else if s.[ls - le + i] <> e.[i] then false
-      else loop s e (i + 1)
-    in
-    loop s e 0
-
 module L = Kicadsch.MakeSchPainter (ListPainter.L)
 
 module LP = struct
@@ -45,7 +33,7 @@ module FSPainter (S : SchPainter) (F : Simple_FS) : sig
 
   val context_from : S.schContext Lwt.t -> S.schContext Lwt.t
 end = struct
-  let find_schematics () = F.list_files (ends_with ".sch")
+  let find_schematics () = F.list_files (String.is_suffix ~suffix:".sch")
 
   let process_file initctx filename =
     let parse c l = S.parse_line l c in
@@ -57,7 +45,7 @@ end = struct
     S.output_context endctx
 
   let find_libs () =
-    F.list_files (ends_with "-cache.lib") >|= List.map ~f:(fun (n, _) -> n)
+    F.list_files (String.is_suffix ~suffix:"-cache.lib") >|= List.map ~f:fst
 
   let read_libs initial_ctx lib_list =
     Lwt_list.fold_left_s

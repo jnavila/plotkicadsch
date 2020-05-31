@@ -86,7 +86,7 @@ let make commitish =
 
     let find_dir_local t =
       let file_list = Store.Value.Tree.to_list t in
-      List.filter ~f:(fun entry -> entry.perm = `Dir) file_list
+      List.filter ~f:(fun entry -> let open Core_kernel.Poly in entry.perm = `Dir) file_list
 
     let rec recurse_dir ?dirname node pattern =
       let rename name = match dirname with

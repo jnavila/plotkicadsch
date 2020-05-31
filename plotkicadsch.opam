@@ -17,7 +17,7 @@ build: [
   [ "dune" "build" "-p" name "-j" jobs]
 ]
 depends: [
-  "ocaml" {>="4.07"}
+  "ocaml" {>="4.09"}
   "dune" {>= "1.0"}
   "kicadsch" {= version}
   "tyxml" {>= "4.0.0"}
