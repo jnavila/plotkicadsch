@@ -1,8 +1,12 @@
+v0.6.1
+------
+
+ - Switch to ocaml 4.09.0 and JaneStreet libs 0.13.x
+
 v0.6.0
 ------
 
  - Search libs and schs recursively from working directory (fixes #33)
-
 
 v0.5.2
 ------
