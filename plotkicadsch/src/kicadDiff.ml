@@ -76,15 +76,6 @@ let intersect_lists l1l l2l =
 
 let to_unit _ = ()
 
-let build_svg_name (aprefix:string) (aschpath: string list): string =
-  let rec build_string  path = function
-    | s::f::e -> build_string (String.concat ~sep:"/" [path;s]) (f::e)
-    | [] -> raise Not_found
-    | [aschname] -> path ^ "/" ^ aprefix
-  ^ String.sub aschname ~pos:0 ~len:(String.length aschname - 4)
-  ^ ".svg"
-  in build_string "" aschpath
-
 module type Differ = sig
   val doc : string
 
@@ -208,9 +199,6 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) =
         Lwt.return false
       | Some outctx ->
         let svg_name = SysAbst.build_tmp_svg_name ~keep "diff_" filename in
-        let keep_as =
-          if keep then Some (build_svg_name "diff_" filename) else None
-        in
         let open Unix in
         let wait_for_1_s result =
           match result with
@@ -241,7 +229,7 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) =
         >>= fun _ ->
         SysAbst.exec d [|svg_name|]
         >>= wait_for_1_s
-        >>= SysAbst.finalize_tmp_file ~keep_as
+        >>= SysAbst.finalize_tmp_file ~keep
         >|= fun _ -> true
   end
   : Differ )
@@ -292,7 +280,7 @@ module ImageDiff = struct
     in
     Lwt.join
     @@ List.map
-      ~f:(SysAbst.finalize_tmp_file ~keep_as:None)
+      ~f:(SysAbst.finalize_tmp_file ~keep)
       [from_filename; to_filename]
     >|= fun _ -> ret
 end

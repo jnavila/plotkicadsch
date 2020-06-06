@@ -67,22 +67,17 @@ let build_tmp_svg_name ~keep aprefix aschpath =
   let root_prefix =
     aprefix ^ String.sub aschname ~pos:0 ~len:(String.length aschname - 4)
   in
-  match detect_os () with
-  | MacOS | Linux ->
-      Stdlib.Filename.temp_file root_prefix ".svg"
-  | Cygwin | Windows ->
-      if keep then root_prefix ^ ".svg"
-      else Stdlib.Filename.temp_file root_prefix ".svg"
+  if keep then root_prefix ^ ".svg"
+  else Stdlib.Filename.temp_file root_prefix ".svg"
 
-let finalize_tmp_file fnl ~keep_as =
+let finalize_tmp_file fnl ~keep =
   match detect_os () with
   | MacOS | Linux -> (
       try%lwt
-        match keep_as with
-        | None ->
-            Lwt_unix.unlink fnl
-        | Some target ->
-            Lwt_unix.rename fnl target
+        if not keep then
+          Lwt_unix.unlink fnl
+        else
+          Lwt.return_unit
       with _ -> Lwt.return_unit )
   | Cygwin | Windows ->
       Lwt.return_unit
