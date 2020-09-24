@@ -97,67 +97,67 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) =
     module Patdiff = Patience_diff_lib.Patience_diff.Make (String)
 
     let transform (arg : ListPainter.t) =
-      ListPainter.(
-        match arg with
-        | Text (_, text, _o, Coord (x, y), Size s, _j, _style) ->
-          Printf.sprintf "text %s %d %d %d" text x y s
-        | Line (_, Size s, Coord (x1, y1), Coord (x2, y2)) ->
-          Printf.sprintf "line %d %d -> %d %d %d" x1 y1 x2 y2 s
-        | Rect (_, _, Coord (x1, y1), Coord (x2, y2)) ->
-          Printf.sprintf "rectangle %d %d -> %d %d" x1 y1 x2 y2
-        | Circle (_, _, Coord (x, y), radius) ->
-          Printf.sprintf "circle %d %d %d" x y radius
-        | Arc (_, _, Coord (x, y), Coord (x1, y1), Coord (x2, y2), radius) ->
-          Printf.sprintf "arc %d %d -> %d %d %d %d %d" x1 y1 x2 y2 radius x y
-        | Image (Coord (x, y), scale, _) ->
-          Printf.sprintf "image %d %d %f" x y scale
-        | Format (Coord (x, y)) ->
-          Printf.sprintf "format %d %d" x y)
+      let open ListPainter in
+      match arg with
+      | Text (_, text, _o, Coord (x, y), Size s, _j, _style) ->
+        Printf.sprintf "text %s %d %d %d" text x y s
+      | Line (_, Size s, Coord (x1, y1), Coord (x2, y2)) ->
+        Printf.sprintf "line %d %d -> %d %d %d" x1 y1 x2 y2 s
+      | Rect (_, _, Coord (x1, y1), Coord (x2, y2)) ->
+        Printf.sprintf "rectangle %d %d -> %d %d" x1 y1 x2 y2
+      | Circle (_, _, Coord (x, y), radius) ->
+        Printf.sprintf "circle %d %d %d" x y radius
+      | Arc (_, _, Coord (x, y), Coord (x1, y1), Coord (x2, y2), radius) ->
+        Printf.sprintf "arc %d %d -> %d %d %d %d %d" x1 y1 x2 y2 radius x y
+      | Image (Coord (x, y), scale, _) ->
+        Printf.sprintf "image %d %d %f" x y scale
+      | Format (Coord (x, y)) ->
+        Printf.sprintf "format %d %d" x y
 
     type diff_style = Theirs | Ours | Idem
 
     let plot_elt style out_ctx (arg : ListPainter.t) =
-      ListPainter.(
-        let module O = SvgPainter in
-        let kolor =
-          match style with
-          | Theirs ->
-            `Old
-          | Ours ->
-            `New
-          | Idem ->
-            `ForeGround
-        in
-        match arg with
-        | Text (_, text, o, c, s, j, style) ->
-          O.paint_text ~kolor text o c s j style out_ctx
-        | Line (_, s, from_, to_) ->
-          O.paint_line ~kolor ~width:s from_ to_ out_ctx
-        | Rect (_, _, c1, c2) ->
-          O.paint_rect ~kolor c1 c2 out_ctx
-        | Circle (_, _, center, radius) ->
-          O.paint_circle ~kolor center radius out_ctx
-        | Arc (_, _, center, start_, end_, radius) ->
-          O.paint_arc ~kolor center start_ end_ radius out_ctx
-        | Image (corner, scale, data) ->
-          O.paint_image corner scale data out_ctx
-        | Format (Coord (x, y)) ->
-          O.set_canevas_size x y out_ctx)
+      let open ListPainter in
+      let module O = SvgPainter in
+      let kolor =
+        match style with
+        | Theirs ->
+          `Old
+        | Ours ->
+          `New
+        | Idem ->
+          `ForeGround
+      in
+      match arg with
+      | Text (_, text, o, c, s, j, style) ->
+        O.paint_text ~kolor text o c s j style out_ctx
+      | Line (_, s, from_, to_) ->
+        O.paint_line ~kolor ~width:s from_ to_ out_ctx
+      | Rect (_, _, c1, c2) ->
+        O.paint_rect ~kolor c1 c2 out_ctx
+      | Circle (_, _, center, radius) ->
+        O.paint_circle ~kolor center radius out_ctx
+      | Arc (_, _, center, start_, end_, radius) ->
+        O.paint_arc ~kolor center start_ end_ radius out_ctx
+      | Image (corner, scale, data) ->
+        O.paint_image corner scale data out_ctx
+      | Format (Coord (x, y)) ->
+        O.set_canevas_size x y out_ctx
 
     let draw_range ctx r =
-      Patience_diff_lib.Patience_diff.Range.(
-        match r with
-        | Same a ->
-          Array.fold ~f:(fun c (x, _) -> plot_elt Idem c x) a ~init:ctx
-        | Prev a ->
-          Array.fold ~f:(plot_elt Theirs) a ~init:ctx
-        | Next a ->
-          Array.fold ~f:(plot_elt Ours) a ~init:ctx
-        | Replace (o, n) ->
-          let c' = Array.fold ~f:(plot_elt Ours) n ~init:ctx in
-          Array.fold o ~f:(plot_elt Theirs) ~init:c'
-        | Unified a ->
-          Array.fold ~f:(plot_elt Idem) a ~init:ctx)
+      let open Patience_diff_lib.Patience_diff.Range in
+      match r with
+      | Same a ->
+        Array.fold ~f:(fun c (x, _) -> plot_elt Idem c x) a ~init:ctx
+      | Prev a ->
+        Array.fold ~f:(plot_elt Theirs) a ~init:ctx
+      | Next a ->
+        Array.fold ~f:(plot_elt Ours) a ~init:ctx
+      | Replace (o, n) ->
+        let c' = Array.fold ~f:(plot_elt Ours) n ~init:ctx in
+        Array.fold o ~f:(plot_elt Theirs) ~init:c'
+      | Unified a ->
+        Array.fold ~f:(plot_elt Idem) a ~init:ctx
 
     type hunk = ListPainter.t Patience_diff_lib.Patience_diff.Hunk.t
 
@@ -262,14 +262,14 @@ module ImageDiff = struct
       both
       >>= fun _ ->
       SysAbst.exec "git-imgdiff" [|from_filename; to_filename|]
-      >|= Unix.(
-          function
-          | WEXITED ret ->
-            if Int.equal ret 0 then true else false
-          | WSIGNALED _ ->
-            false
-          | WSTOPPED _ ->
-            false)
+      >|= let open Unix in
+      function
+      | WEXITED ret ->
+        if Int.equal ret 0 then true else false
+      | WSIGNALED _ ->
+        false
+      | WSTOPPED _ ->
+        false
     in
     let%lwt ret =
       try%lwt compare_them with

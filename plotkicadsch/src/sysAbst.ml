@@ -39,11 +39,11 @@ let detect_os () : os =
         failwith "unknown operating system"
 
 let windows_quote s =
-  Re.(
-    replace
-      (Posix.compile_pat {|\^|&|\||\(|<|>|})
-      ~f:(fun ss -> "^" ^ Group.get ss 0)
-      s)
+  let open Re in
+  replace
+    (Posix.compile_pat {|\^|&|\||\(|<|>|})
+    ~f:(fun ss -> "^" ^ Group.get ss 0)
+    s
 
 let exec c a =
   match detect_os () with
