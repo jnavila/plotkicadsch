@@ -8,7 +8,8 @@ The following points are the setup that I reached for the edition of schematics.
 
 First off, you have to know which files you need to follow in version control and which other ones you just want the version control system to ignore.
 
-Concerning libraries, Kicad is very helpful in that it maintains a cache library of all the components used in the schematics of a project. The presence of this file means that you don't need to check into version all the libraries from which you pulled the components, but that the project folder already contains all that is needed to open all the schematic sheets. The main files for a project named `myboard` that are followed under version control are:
+
+Concerning libraries of components, Kicad is well-behaved in that it maintains a cache library of all the components presently used in the schematics of a project. The presence of this file means that you don't need to check into version all the libraries from which you pulled the components, but that the project folder already contains all that is needed to open all the schematic sheets. The main files for a project named `myboard` that are followed under version control are:
 
  * the `.pro` file which is main project file, e.g, `myboard.pro`
  * the `.sch` files that represent the schematic sheets.
@@ -33,7 +34,7 @@ I usually add these lines to my `.gitignore`
 
 ## Cleaning and Smudging
 
-Kicad generally has a nice behavior with respect to version controlling, such as taking care to not upset the structure of a schematic file when a small change is introduced. This lands very well in the version control world because when reviewing the changes between two versions, the changes are limited to some small chunks of the files. Nevertheless, some other behaviors are really annoying for version control. One of these behaviors is the fact of changing the content of the files for administrative purpose, without any causal or visual relationship with user's actions.
+Kicad generally has a nice behavior with respect to version controlling, such as taking care to not upset the structure of a schematic file when a small change is introduced. This lands very well in the version control world because when reviewing the changes between two versions, the changes are limited to some small chunks of the files. Nevertheless, some other behaviors are annoying for version control. One of these behaviors is the act of changing the content of the files for administrative purpose, without any causal or visual relationship with user's actions.
 
 Fortunately, to solve this issue, there is a very handy feature of git that allows to filter the content of the files when they are about to be commited and changed back if needed when they are checked out. This feature is called cleaning (when checking in)/smudging (when checking out). Using this feature, we can force the content of certain parts of the files to remain the same in version control, even when these parts are changing in the working copy.
 
