@@ -18,7 +18,7 @@ let fs_mod = function
   | GitFS r -> GitFs.make r
   | TrueFS r -> TrueFs.make r
 
-module L = Kicadsch.MakeSchPainter (ListPainter.L)
+module L = Kicadsch.MakeSchPainter(ListPainter.L)
 
 module LP = struct
   include L
@@ -164,24 +164,108 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) =
     let draw_hunk (h : hunk) ctx =
       List.fold_left ~f:draw_range ~init:ctx h.ranges
 
+    let elt_rect elt =
+      let open ListPainter in
+      let module BB = BoundingBox in
+      match elt with
+      | Text (_, text, _, c, s, _, _) ->
+        (* TODO: take into account alignment and orientation *)
+        let len = String.length text in
+        let Size sz = s in
+        let Coord (x,y) = c in
+        BB.create_from_rect (Coord (x,y)) (Coord (sz*len,sz))
+      | Line (_, _, f, t) ->
+        BB.create_from_limits f t
+      | Rect (_,  _, c1, c2) ->
+        BB.create_from_rect c1 c2
+      | Circle (_, _, center, radius) ->
+        let Coord(x,y) = center in
+        BB.create_from_limits (Coord(x-radius, y-radius)) (Coord(x+radius,y+radius))
+      | Arc (_ , _, center, _, _, radius) ->
+        (* TODO: take into count partial angle *)
+        let Coord(x,y) = center in
+        BB.create_from_limits (Coord(x-radius, y-radius)) (Coord(x+radius,y+radius))
+      | Image (corner, _, data) ->
+        let w,h = SvgPainter.get_png_dims data in
+        BB.create_from_rect corner (Coord(w, h))
+      | Format _ -> BB.create ()
+
+    let range_rectangle rect r =
+      let open Patience_diff_lib.Patience_diff.Range in
+      let wrap r s =
+        BoundingBox.add_rect r (elt_rect s) in
+      match r with
+        | Same _ -> rect
+        | Prev a  ->  Array.fold ~f:wrap a ~init:rect
+        | Next a  ->  Array.fold ~f:wrap a ~init:rect
+        | Replace (o,n) -> let r1 = Array.fold ~f:wrap ~init:rect o in
+                          Array.fold ~f:wrap n ~init:r1
+        | Unified _ -> rect
+
+    let hunk_rectangle (h:hunk) =
+      List.fold_left ~f:range_rectangle h.ranges ~init:(BoundingBox.create ())
+(*
+    let draw_hunk_rectangle h ctx =
+      let reformated_rect = BoundingBox.reformat ~min_size:20 ~extend:50 ( hunk_rectangle h) in
+      let c1, c2 = BoundingBox.as_rect reformated_rect in
+      let module O = SvgPainter in
+      O.paint_rect ~kolor:`Black c1 c2 ctx
+*)
+    let draw_all_hunks prev (ctx, n) (h : hunk) =
+(*        let rect_ctx = draw_hunk_rectangle h ctx in *)
+      ( Array.fold ~f:(plot_elt Idem)
+          (Array.sub prev ~pos:n ~len:(h.prev_start - n - 1))
+          ~init:ctx
+        |> draw_hunk h
+      , max 0 (h.prev_start + h.prev_size - 2) )
+
+    let  dispatch_rect (res, acc) elt =
+      let open Float in
+      if (BoundingBox.overlap_ratio res elt) > 0.9 then
+        BoundingBox.add_rect res elt , acc
+      else
+          res, elt::acc
+
+    let rec aggregate rect rect_list =
+      let result, remaining = List.fold  ~f:dispatch_rect ~init:(rect, []) rect_list in
+      if Int.equal (List.length remaining) (List.length rect_list) then
+        result, remaining
+      else
+        aggregate result remaining
+
+    let merge_rects rects:BoundingBox.t list =
+      let rec aggregate_list out_list = function
+        | rect::l ->
+          let res, remaining = aggregate rect l in
+
+          aggregate_list (res::out_list) remaining
+        | [] -> out_list , [] in
+      fst (aggregate_list [] rects)
+
+    let compute_hunk_rectangles hunks =
+      let rect_hunk h = BoundingBox.reformat ~min_size:20 ~extend:50 (hunk_rectangle h) in
+      let rects = List.map ~f:rect_hunk hunks in
+      merge_rects rects
+
+    let draw_hunk_rectangles hunks ctx =
+      let merged_rects = compute_hunk_rectangles hunks in
+      let draw_rect ctx r =
+        let c1, c2 = BoundingBox.as_rect r  in
+        SvgPainter.paint_rect ~kolor:`Blue c1 c2 ctx in
+      List.fold ~f:draw_rect ~init:ctx merged_rects
+
     let draw_difftotal ~prev ~next out_canevas =
       let comparison =
-        Patdiff.get_hunks ~transform ~prev ~next ~context:5 ~big_enough:1
+        Patdiff.get_hunks ~transform ~prev ~next ~context:2 ~big_enough:1
       in
       if
         List.for_all ~f:Patience_diff_lib.Patience_diff.Hunk.all_same
           comparison
       then None
       else
-        let draw_all_hunk (ctx, n) (h : hunk) =
-          ( Array.fold ~f:(plot_elt Idem)
-              (Array.sub prev ~pos:n ~len:(h.prev_start - n - 1))
-              ~init:ctx
-            |> draw_hunk h
-          , max 0 (h.prev_start + h.prev_size - 2) )
-        in
+        let nctx = draw_hunk_rectangles comparison out_canevas in
         let ctx, n =
-          List.fold ~f:draw_all_hunk ~init:(out_canevas, 0) comparison
+          List.fold ~f:(draw_all_hunks prev) ~init:(nctx, 0) comparison
         in
         Some
           (Array.fold ~f:(plot_elt Idem)
