@@ -3,7 +3,7 @@ open Core_kernel
 type os = MacOS | Linux | Windows | Cygwin
 
 let process_output_to_string command =
-  let chan = Unix.open_process_in command in
+  let chan = UnixLabels.open_process_in command in
   let res = ref "" in
   let rec process_otl_aux () =
     let e = input_line chan in
@@ -12,7 +12,7 @@ let process_output_to_string command =
   in
   try process_otl_aux ()
   with End_of_file ->
-    let stat = Unix.close_process_in chan in
+    let stat = UnixLabels.close_process_in chan in
     (!res, stat)
 
 let cmd_output command =
@@ -27,9 +27,9 @@ let detect_os () : os =
   if Sys.win32 then Windows
   else if Sys.cygwin then Cygwin
   else
-    let ((in_ch, _, _) as uname) = Unix.open_process_full "uname" [||] in
+    let ((in_ch, _, _) as uname) = UnixLabels.open_process_full "uname" ~env:[| |] in
     let os = input_line in_ch in
-    ignore (Unix.close_process_full uname) ;
+    ignore (UnixLabels.close_process_full uname) ;
     match os with
     | "Darwin" ->
         MacOS

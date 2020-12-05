@@ -199,7 +199,7 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) =
         Lwt.return false
       | Some outctx ->
         let svg_name = SysAbst.build_tmp_svg_name ~keep "diff_" filename in
-        let open Unix in
+        let open UnixLabels in
         let wait_for_1_s result =
           match result with
           | WSIGNALED n ->
@@ -262,7 +262,7 @@ module ImageDiff = struct
       both
       >>= fun _ ->
       SysAbst.exec "git-imgdiff" [|from_filename; to_filename|]
-      >|= let open Unix in
+      >|= let open UnixLabels in
       function
       | WEXITED ret ->
         if Int.equal ret 0 then true else false

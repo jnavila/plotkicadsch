@@ -28,7 +28,7 @@ let make commitish =
           (* that's a git repo and d is the root *)
           Lwt.return (d, b)
         with
-        | Unix.Unix_error (Unix.ENOENT, _, _) ->
+        | UnixLabels.Unix_error (UnixLabels.ENOENT, _, _) ->
           let new_d = dirname d in
           if String.equal new_d d then
             (* we've reached the root of the FS *)
