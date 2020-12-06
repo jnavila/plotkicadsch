@@ -123,10 +123,37 @@ let colors =
 
   Arg.(value & opt get_colors None & info ["c"; "colors"] ~env ~doc ~docv)
 
+let pp_zone_color out c =
+  match c with
+  | None ->
+    Format.fprintf out "transparent"
+  | Some c ->
+    Format.fprintf out "#%s" c
+
+let extract_zone_color s =
+  let col_exp = "(#[0-9a-fA-F]{6})" in
+  let col_re = Re.Posix.compile_pat col_exp in
+  match Re.all col_re s with
+  | [_] -> Result.Ok (Some s)
+  | _ ->
+      Result.Error (`Msg "wrong colors format")
+
+let get_zone_color =
+  let docv = "RGB color format" in
+  Arg.(conv ~docv (extract_zone_color, pp_zone_color))
+
+let zone_color =
+  let doc =
+    "color of the frame around changed zones in hex RGB format, if specified"
+  in
+  let docv = "RGB, eg: #rrggbb" in
+  let env = Arg.env_var ~doc:"Color for plotting frames around changes" "PLOTGITSCH_CHANGE_COLOR" in
+  Arg.(value & opt get_zone_color None & info ["z"; "zone"] ~env ~doc ~docv)
+
 let plotgitsch_t =
   Term.(
     const doit $ from_ref $ to_ref $ diff_of_file $ internal_diff
-    $ textual_diff $ preloaded_libs $ keep_files $ colors)
+    $ textual_diff $ preloaded_libs $ keep_files $ colors $ zone_color)
 
 let info =
   let doc =

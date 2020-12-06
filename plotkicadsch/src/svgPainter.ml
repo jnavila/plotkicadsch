@@ -7,7 +7,7 @@ type content = [`Polyline | `Text | `Svg | `Rect | `Circle | `Path | `Image]
 
 type dim = int * int
 
-type t = {d: dim; c: content elt list; colors: diff_colors option} [@@inline]
+type t = {d: dim; c: content elt list; colors: diff_colors option; zone_color: string option} [@@inline]
 
 let style_attr_of_style = function
   | Italic ->
@@ -33,7 +33,7 @@ let anchor_attr_of_justify justif =
     | J_top ->
         `Start )
 
-let color_of_kolor k {colors; _} =
+let color_of_kolor k {colors; zone_color; _} =
   let new_ver, old_ver, fg =
     match colors with
     | None ->
@@ -41,28 +41,30 @@ let color_of_kolor k {colors; _} =
     | Some {old_ver; new_ver; fg; _} ->
         (new_ver, old_ver, fg)
   in
-  let cstring =
-    match k with
-    | `NoColor ->
-        "none"
-    | `Black ->
-        "#000000"
-    | `Red ->
-        "#FF0000"
-    | `Green ->
-        "#00FF00"
-    | `Blue ->
-        "#0000CD"
-    | `Brown ->
-        "#800000"
-    | `Old ->
-        old_ver
-    | `New ->
-        new_ver
-    | `ForeGround ->
-        fg
-  in
-  `Color (cstring, None)
+  let plain c = `Color (c, None) in
+  match k with
+  | `NoColor ->
+    plain "none"
+  | `Black ->
+    plain "#000000"
+  | `Red ->
+    plain "#FF0000"
+  | `Green ->
+    plain "#00FF00"
+  | `Blue ->
+    plain "#0000CD"
+  | `Brown ->
+    plain "#800000"
+  | `Old ->
+    plain old_ver
+  | `New ->
+    plain new_ver
+  | `ForeGround ->
+    plain fg
+  | `Zone ->
+    match zone_color with
+    | None -> `None
+    | Some c -> plain c
 
 (** SVG coord type conversion from int **)
 let coord_of_int x = (float_of_int x, None)
@@ -191,13 +193,37 @@ let paint_image (Coord (x, y)) scale b ({c; _} as ctxt) =
   | Error (`Msg err) ->
       raise (Base64Exception err)
 
-let get_context () = {d= (0, 0); c= []; colors= None}
+let paint_zone (Coord (x, y)) (Coord (dim_x, dim_y)) ({c; _} as ctxt) =
+  let fill_color = color_of_kolor `Zone ctxt in
+  let render = if fill_color == `None then
+      [a_style "fill-opacity: 0;"]
+    else
+      [ a_fill (color_of_kolor `Zone ctxt)
+      ; a_style "fill-opacity: 0.1;"
+      ] in
 
-let get_color_context cols = {d= (0, 0); c= []; colors= cols}
+  { ctxt with
+    c=
+      rect
+        ~a:(
+          [ a_x (coord_of_int x)
+          ; a_y (coord_of_int y)
+          ; a_width (coord_of_int dim_x)
+          ; a_height (coord_of_int dim_y)
+          ; a_stroke_width (5., Some `Px)
+          ; a_class ["zone"]
+          ] @ render)
+        []
+      :: c }
+
+
+let get_context () = {d= (0, 0); c= []; colors= None; zone_color=None}
+
+let get_color_context colors zone_color = {d= (0, 0); c= []; colors; zone_color}
 
 let set_canevas_size x y ctxt = {ctxt with d= (x, y)}
 
-let write ?(op = true) {d= x, y; c; colors} =
+let write ?(op = true) {d= x, y; c; colors; _} =
   let fx = float x in
   let fy = float y in
   let o = if op then 1.0 else 0.8 in

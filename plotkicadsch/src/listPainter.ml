@@ -10,6 +10,7 @@ type t =
   | Arc of kolor * kolor * coord * coord * coord * int
   | Image of coord * float * image_data
   | Format of coord
+  | Zone of coord * coord
 
 type listcanevas = t list
 
@@ -35,6 +36,7 @@ module L = struct
     Arc (kolor, fill, pt_center, pt_start, pt_stop, radius) :: ctx
 
   let paint_image corner scale b c = Image (corner, scale, b) :: c
+
 
   let get_context () = []
 

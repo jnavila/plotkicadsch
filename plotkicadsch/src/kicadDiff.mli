@@ -23,4 +23,4 @@ val doc: t -> string
     diff, if [keep] then the diff file isn't removed after *)
 val doit: t -> t -> string option ->
   differ -> bool -> string list -> bool ->
-  SvgPainter.diff_colors option -> unit
+  SvgPainter.diff_colors option -> string option -> unit

@@ -87,7 +87,7 @@ module type Differ = sig
     from_ctx:pctx -> to_ctx:pctx -> string list -> keep:bool -> bool Lwt.t
 end
 
-let internal_diff (d : string) (c : SvgPainter.diff_colors option) =
+let internal_diff (d : string) (c : SvgPainter.diff_colors option) (z: string option) =
   ( module struct
     let doc = "internal diff and show with " ^ d
 
@@ -113,6 +113,8 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) =
         Printf.sprintf "image %d %d %f" x y scale
       | Format (Coord (x, y)) ->
         Printf.sprintf "format %d %d" x y
+      | Zone (_, _) ->
+        Printf.sprintf "zone"
 
     type diff_style = Theirs | Ours | Idem
 
@@ -143,6 +145,8 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) =
         O.paint_image corner scale data out_ctx
       | Format (Coord (x, y)) ->
         O.set_canevas_size x y out_ctx
+      | Zone (c1, c2) ->
+        O.paint_zone c1 c2 out_ctx
 
     let draw_range ctx r =
       let open Patience_diff_lib.Patience_diff.Range in
@@ -164,19 +168,32 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) =
     let draw_hunk (h : hunk) ctx =
       List.fold_left ~f:draw_range ~init:ctx h.ranges
 
+    let text_bbox text o c s j =
+      let len = String.length text in
+      let Size sz = s in
+      let Coord (x,y) = c in
+      let shift =
+        match j with
+        | J_right | J_top -> -sz*len
+        | J_center -> - (sz*len)/2
+        | J_left | J_bottom -> 0
+      in
+      match o with
+      | Orient_H ->
+        BoundingBox.create_from_rect (Coord (x+shift,y)) (Coord (sz*len,sz))
+      | Orient_V ->
+        BoundingBox.create_from_rect (Coord (x, y+shift)) (Coord (sz, sz*len))
+
     let elt_rect elt =
       let open ListPainter in
       let module BB = BoundingBox in
       match elt with
-      | Text (_, text, _, c, s, _, _) ->
-        (* TODO: take into account alignment and orientation *)
-        let len = String.length text in
-        let Size sz = s in
-        let Coord (x,y) = c in
-        BB.create_from_rect (Coord (x,y)) (Coord (sz*len,sz))
+      | Text (_, text, o, c, s, j, _) ->
+        text_bbox text o c s j
       | Line (_, _, f, t) ->
         BB.create_from_limits f t
-      | Rect (_,  _, c1, c2) ->
+      | Rect (_,  _, c1, c2)
+      | Zone (c1, c2) ->
         BB.create_from_rect c1 c2
       | Circle (_, _, center, radius) ->
         let Coord(x,y) = center in
@@ -251,7 +268,7 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) =
       let merged_rects = compute_hunk_rectangles hunks in
       let draw_rect ctx r =
         let c1, c2 = BoundingBox.as_rect r  in
-        SvgPainter.paint_rect ~kolor:`Blue c1 c2 ctx in
+        SvgPainter.paint_zone c1 c2 ctx in
       List.fold ~f:draw_rect ~init:ctx merged_rects
 
     let draw_difftotal ~prev ~next out_canevas =
@@ -277,7 +294,7 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) =
       let to_canevas = Array.of_list to_ctx in
       match
         draw_difftotal ~prev:from_canevas ~next:to_canevas
-          (SvgPainter.get_color_context c)
+          (SvgPainter.get_color_context c z)
       with
       | None ->
         Lwt.return false
@@ -383,13 +400,13 @@ let diff_cmd f t filename =
     , [| fc ^ Filename.dir_sep ^ filename
        ; tc ^ Filename.dir_sep ^ filename |] )
 
-let doit from_fs to_fs file_to_diff differ textdiff libs keep colors =
+let doit from_fs to_fs file_to_diff differ textdiff libs keep colors zone_color =
   let module_d =
     match differ with
     | Image_Diff ->
       (module ImageDiff : Differ)
     | Internal s ->
-      internal_diff s colors
+      internal_diff s colors zone_color
   in
   let module D = (val module_d : Differ) in
   let module F = (val (fs_mod from_fs) : Simple_FS) in
