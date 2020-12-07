@@ -174,15 +174,15 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) (z: string op
       let Coord (x,y) = c in
       let shift =
         match j with
-        | J_right | J_top -> -sz*len
-        | J_center -> - (sz*len)/2
-        | J_left | J_bottom -> 0
+        | J_right | J_bottom -> -sz*len/2
+        | J_center -> - sz*len/4
+        | J_left | J_top -> 0
       in
       match o with
       | Orient_H ->
-        BoundingBox.create_from_rect (Coord (x+shift,y)) (Coord (sz*len,sz))
+        BoundingBox.create_from_rect (Coord (x+shift,y)) (Coord (sz*len/2,sz/2))
       | Orient_V ->
-        BoundingBox.create_from_rect (Coord (x, y+shift)) (Coord (sz, sz*len))
+        BoundingBox.create_from_rect (Coord (x, y-sz*len/2+shift)) (Coord (sz/2, sz*len/2))
 
     let elt_rect elt =
       let open ListPainter in
@@ -207,34 +207,29 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) (z: string op
         BB.create_from_rect corner (Coord(w, h))
       | Format _ -> BB.create ()
 
-    let range_rectangle rect r =
-      let open Patience_diff_lib.Patience_diff.Range in
-      let wrap r s =
-        BoundingBox.add_rect r (elt_rect s) in
-      match r with
-        | Same _ -> rect
-        | Prev a  ->  Array.fold ~f:wrap a ~init:rect
-        | Next a  ->  Array.fold ~f:wrap a ~init:rect
-        | Replace (o,n) -> let r1 = Array.fold ~f:wrap ~init:rect o in
-                          Array.fold ~f:wrap n ~init:r1
-        | Unified _ -> rect
-
-    let hunk_rectangle (h:hunk) =
-      List.fold_left ~f:range_rectangle h.ranges ~init:(BoundingBox.create ())
-(*
-    let draw_hunk_rectangle h ctx =
-      let reformated_rect = BoundingBox.reformat ~min_size:20 ~extend:50 ( hunk_rectangle h) in
-      let c1, c2 = BoundingBox.as_rect reformated_rect in
-      let module O = SvgPainter in
-      O.paint_rect ~kolor:`Black c1 c2 ctx
-*)
     let draw_all_hunks prev (ctx, n) (h : hunk) =
-(*        let rect_ctx = draw_hunk_rectangle h ctx in *)
       ( Array.fold ~f:(plot_elt Idem)
           (Array.sub prev ~pos:n ~len:(h.prev_start - n - 1))
           ~init:ctx
         |> draw_hunk h
       , max 0 (h.prev_start + h.prev_size - 2) )
+
+    let range_rectangles l r =
+      let open Patience_diff_lib.Patience_diff.Range in
+      let wrap l s =
+        (BoundingBox.reformat ~min_size:20 ~extend:50 (elt_rect s))::l
+      in
+      match r with
+      | Same _ -> l
+      | Prev a  ->  Array.fold ~f:wrap a ~init:l
+      | Next a  ->  Array.fold ~f:wrap a ~init:l
+      | Replace (o,n) -> let r1 = Array.fold ~f:wrap ~init:l o in
+        Array.fold ~f:wrap n ~init:r1
+      | Unified _ -> l
+
+    let hunk_rectangles l (h: hunk) =
+      List.fold_left ~f:range_rectangles h.ranges ~init:l
+
 
     let  dispatch_rect (res, acc) elt =
       let open Float in
@@ -254,14 +249,13 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) (z: string op
       let rec aggregate_list out_list = function
         | rect::l ->
           let res, remaining = aggregate rect l in
-
-          aggregate_list (res::out_list) remaining
+          let res2, remaining2 = aggregate res out_list in
+          aggregate_list (res2::remaining2) remaining
         | [] -> out_list , [] in
       fst (aggregate_list [] rects)
 
     let compute_hunk_rectangles hunks =
-      let rect_hunk h = BoundingBox.reformat ~min_size:20 ~extend:50 (hunk_rectangle h) in
-      let rects = List.map ~f:rect_hunk hunks in
+      let rects = List.fold_left ~f:hunk_rectangles hunks ~init:[] in
       merge_rects rects
 
     let draw_hunk_rectangles hunks ctx =
@@ -273,7 +267,7 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) (z: string op
 
     let draw_difftotal ~prev ~next out_canevas =
       let comparison =
-        Patdiff.get_hunks ~transform ~prev ~next ~context:2 ~big_enough:1
+        Patdiff.get_hunks ~transform ~prev ~next ~context:1 ~big_enough:1
       in
       if
         List.for_all ~f:Patience_diff_lib.Patience_diff.Hunk.all_same
