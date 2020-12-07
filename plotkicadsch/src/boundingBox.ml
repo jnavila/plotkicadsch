@@ -39,3 +39,18 @@ let overlap_ratio {left_inf=Coord(xli_1, yli_1); right_sup=Coord(xrs_1, yrs_1)} 
     (float (max surface_1 surface_2) ) /. (float surface)
   else
     0.0
+
+let compare {left_inf=Coord(xli_1, yli_1); right_sup=Coord(xrs_1, yrs_1)}  {left_inf=Coord(xli_2, yli_2); right_sup=Coord(xrs_2, yrs_2)} : int =
+  let xli_r = xli_1 - xli_2 in
+  if xli_r == 0 then
+      let yli_r = yli_1 - yli_2 in
+      if (yli_r == 0) then
+          let xrs_r = xrs_1 - xrs_2 in
+          if xrs_r == 0 then
+            yrs_1 - yrs_2
+          else
+            xrs_r
+      else
+        yli_r
+  else
+    xli_r

@@ -12,7 +12,6 @@
       lwt.unix
       sha
       base64
-      patience_diff
       core_kernel
       cmdliner
    )

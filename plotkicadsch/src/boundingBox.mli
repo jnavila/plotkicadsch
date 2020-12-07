@@ -16,3 +16,5 @@ val reformat: min_size:int -> extend:int -> t -> t
 val as_rect: t -> coord*coord
 
 val overlap_ratio: t -> t -> float
+
+val compare: t -> t -> int

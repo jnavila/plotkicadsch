@@ -94,27 +94,6 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) (z: string op
     type pctx = ListPainter.listcanevas
 
     module S = LP
-    module Patdiff = Patience_diff_lib.Patience_diff.Make (String)
-
-    let transform (arg : ListPainter.t) =
-      let open ListPainter in
-      match arg with
-      | Text (_, text, _o, Coord (x, y), Size s, _j, _style) ->
-        Printf.sprintf "text %s %d %d %d" text x y s
-      | Line (_, Size s, Coord (x1, y1), Coord (x2, y2)) ->
-        Printf.sprintf "line %d %d -> %d %d %d" x1 y1 x2 y2 s
-      | Rect (_, _, Coord (x1, y1), Coord (x2, y2)) ->
-        Printf.sprintf "rectangle %d %d -> %d %d" x1 y1 x2 y2
-      | Circle (_, _, Coord (x, y), radius) ->
-        Printf.sprintf "circle %d %d %d" x y radius
-      | Arc (_, _, Coord (x, y), Coord (x1, y1), Coord (x2, y2), radius) ->
-        Printf.sprintf "arc %d %d -> %d %d %d %d %d" x1 y1 x2 y2 radius x y
-      | Image (Coord (x, y), scale, _) ->
-        Printf.sprintf "image %d %d %f" x y scale
-      | Format (Coord (x, y)) ->
-        Printf.sprintf "format %d %d" x y
-      | Zone (_, _) ->
-        Printf.sprintf "zone"
 
     type diff_style = Theirs | Ours | Idem
 
@@ -148,27 +127,8 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) (z: string op
       | Zone (c1, c2) ->
         O.paint_zone c1 c2 out_ctx
 
-    let draw_range ctx r =
-      let open Patience_diff_lib.Patience_diff.Range in
-      match r with
-      | Same a ->
-        Array.fold ~f:(fun c (x, _) -> plot_elt Idem c x) a ~init:ctx
-      | Prev a ->
-        Array.fold ~f:(plot_elt Theirs) a ~init:ctx
-      | Next a ->
-        Array.fold ~f:(plot_elt Ours) a ~init:ctx
-      | Replace (o, n) ->
-        let c' = Array.fold ~f:(plot_elt Ours) n ~init:ctx in
-        Array.fold o ~f:(plot_elt Theirs) ~init:c'
-      | Unified a ->
-        Array.fold ~f:(plot_elt Idem) a ~init:ctx
-
-    type hunk = ListPainter.t Patience_diff_lib.Patience_diff.Hunk.t
-
-    let draw_hunk (h : hunk) ctx =
-      List.fold_left ~f:draw_range ~init:ctx h.ranges
-
     let text_bbox text o c s j =
+      (* TODO: vertical text does not work *)
       let len = String.length text in
       let Size sz = s in
       let Coord (x,y) = c in
@@ -207,30 +167,6 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) (z: string op
         BB.create_from_rect corner (Coord(w, h))
       | Format _ -> BB.create ()
 
-    let draw_all_hunks prev (ctx, n) (h : hunk) =
-      ( Array.fold ~f:(plot_elt Idem)
-          (Array.sub prev ~pos:n ~len:(h.prev_start - n - 1))
-          ~init:ctx
-        |> draw_hunk h
-      , max 0 (h.prev_start + h.prev_size - 2) )
-
-    let range_rectangles l r =
-      let open Patience_diff_lib.Patience_diff.Range in
-      let wrap l s =
-        (BoundingBox.reformat ~min_size:20 ~extend:50 (elt_rect s))::l
-      in
-      match r with
-      | Same _ -> l
-      | Prev a  ->  Array.fold ~f:wrap a ~init:l
-      | Next a  ->  Array.fold ~f:wrap a ~init:l
-      | Replace (o,n) -> let r1 = Array.fold ~f:wrap ~init:l o in
-        Array.fold ~f:wrap n ~init:r1
-      | Unified _ -> l
-
-    let hunk_rectangles l (h: hunk) =
-      List.fold_left ~f:range_rectangles h.ranges ~init:l
-
-
     let  dispatch_rect (res, acc) elt =
       let open Float in
       if (BoundingBox.overlap_ratio res elt) > 0.9 then
@@ -254,45 +190,43 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) (z: string op
         | [] -> out_list , [] in
       fst (aggregate_list [] rects)
 
-    let compute_hunk_rectangles hunks =
-      let rects = List.fold_left ~f:hunk_rectangles hunks ~init:[] in
-      merge_rects rects
+    let draw_bb ctx r =
+      let c1, c2 = BoundingBox.as_rect r  in
+      SvgPainter.paint_zone c1 c2 ctx
 
-    let draw_hunk_rectangles hunks ctx =
-      let merged_rects = compute_hunk_rectangles hunks in
-      let draw_rect ctx r =
-        let c1, c2 = BoundingBox.as_rect r  in
-        SvgPainter.paint_zone c1 c2 ctx in
-      List.fold ~f:draw_rect ~init:ctx merged_rects
+    let compare s1 s2 =
+      let s1_r = elt_rect s1
+      and s2_r = elt_rect s2 in
+      BoundingBox.compare s1_r s2_r
 
-    let draw_difftotal ~prev ~next out_canevas =
-      let comparison =
-        Patdiff.get_hunks ~transform ~prev ~next ~context:1 ~big_enough:1
-      in
-      if
-        List.for_all ~f:Patience_diff_lib.Patience_diff.Hunk.all_same
-          comparison
-      then None
-      else
-        let nctx = draw_hunk_rectangles comparison out_canevas in
-        let ctx, n =
-          List.fold ~f:(draw_all_hunks prev) ~init:(nctx, 0) comparison
-        in
-        Some
-          (Array.fold ~f:(plot_elt Idem)
-             (Array.sub prev ~pos:n ~len:(Array.length prev - n))
-             ~init:ctx)
+    let rec draw_difftotal ~prev ~next out_canevas diff_list =
+      let r s = BoundingBox.reformat ~min_size:20 ~extend:50 (elt_rect s) in
+      match prev, next with
+      | p::pl, n::nl ->
+        let comp = compare p n in
+        if comp == 0 then
+          draw_difftotal ~prev:pl ~next:nl (plot_elt Idem out_canevas p) diff_list
+        else if comp < 0 then
+          draw_difftotal ~prev:pl ~next (plot_elt Theirs out_canevas p) ((r p)::diff_list)
+        else
+          draw_difftotal ~prev ~next:nl (plot_elt Ours out_canevas n) (r n::diff_list)
+      | p::pl, [] ->
+        draw_difftotal ~prev:pl ~next (plot_elt Theirs out_canevas p) (r p::diff_list)
+      | [], n::nl ->
+        draw_difftotal ~prev ~next:nl (plot_elt Ours out_canevas n) (r n::diff_list)
+      |[],[] -> out_canevas, diff_list
 
     let display_diff ~from_ctx ~to_ctx (filename:string list) ~keep =
-      let from_canevas = Array.of_list from_ctx in
-      let to_canevas = Array.of_list to_ctx in
+      let prev = List.sort ~compare from_ctx in
+      let next = List.sort ~compare to_ctx in
       match
-        draw_difftotal ~prev:from_canevas ~next:to_canevas
-          (SvgPainter.get_color_context c z)
+        draw_difftotal ~prev ~next (SvgPainter.get_color_context c z) []
       with
-      | None ->
+      | _, [] ->
         Lwt.return false
-      | Some outctx ->
+      | outctx, diff_list ->
+        let merged_rects = merge_rects diff_list in
+        let outctx = List.fold_left ~f:draw_bb ~init:outctx merged_rects in
         let svg_name = SysAbst.build_tmp_svg_name ~keep "diff_" filename in
         let open UnixLabels in
         let wait_for_1_s result =
