@@ -199,28 +199,32 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) (z: string op
       and s2_r = elt_rect s2 in
       BoundingBox.compare s1_r s2_r
 
-    let rec draw_difftotal ~prev ~next out_canevas diff_list =
+    let draw_difftotal ~prev ~next out_canevas =
+    let rec rec_draw_difftotal ~prev ~next (idem, theirs, ours, outc) diff_list =
       let r s = BoundingBox.reformat ~min_size:20 ~extend:50 (elt_rect s) in
       match prev, next with
       | p::pl, n::nl ->
         let comp = compare p n in
         if comp == 0 then
-          draw_difftotal ~prev:pl ~next:nl (plot_elt Idem out_canevas p) diff_list
+          rec_draw_difftotal ~prev:pl ~next:nl ((plot_elt Idem idem p),theirs, ours, outc) diff_list
         else if comp < 0 then
-          draw_difftotal ~prev:pl ~next (plot_elt Theirs out_canevas p) ((r p)::diff_list)
+          rec_draw_difftotal ~prev:pl ~next (idem, (plot_elt Theirs theirs p), ours, outc) ((r p)::diff_list)
         else
-          draw_difftotal ~prev ~next:nl (plot_elt Ours out_canevas n) (r n::diff_list)
+          rec_draw_difftotal ~prev ~next:nl (idem, theirs, (plot_elt Ours ours n), outc) (r n::diff_list)
       | p::pl, [] ->
-        draw_difftotal ~prev:pl ~next (plot_elt Theirs out_canevas p) (r p::diff_list)
+        rec_draw_difftotal ~prev:pl ~next (idem, (plot_elt Theirs theirs p), ours, outc) (r p::diff_list)
       | [], n::nl ->
-        draw_difftotal ~prev ~next:nl (plot_elt Ours out_canevas n) (r n::diff_list)
-      |[],[] -> out_canevas, diff_list
+        rec_draw_difftotal ~prev ~next:nl (idem, theirs, (plot_elt Ours ours n), outc) (r n::diff_list)
+      |[],[] -> SvgPainter.(add_to theirs (add_to ours (add_to idem outc))), diff_list
+    in
+    let new_ctx = SvgPainter.new_from out_canevas in
+    rec_draw_difftotal ~prev ~next (new_ctx, new_ctx, new_ctx, out_canevas) []
 
     let display_diff ~from_ctx ~to_ctx (filename:string list) ~keep =
       let prev = List.sort ~compare from_ctx in
       let next = List.sort ~compare to_ctx in
       match
-        draw_difftotal ~prev ~next (SvgPainter.get_color_context c z) []
+        draw_difftotal ~prev ~next (SvgPainter.get_color_context c z)
       with
       | _, [] ->
         Lwt.return false

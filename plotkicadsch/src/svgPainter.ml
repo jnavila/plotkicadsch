@@ -44,7 +44,7 @@ let color_of_kolor k {colors; zone_color; _} =
   let plain c = `Color (c, None) in
   match k with
   | `NoColor ->
-    plain "none"
+    `None
   | `Black ->
     plain "#000000"
   | `Red ->
@@ -220,6 +220,12 @@ let paint_zone (Coord (x, y)) (Coord (dim_x, dim_y)) ({c; _} as ctxt) =
 let get_context () = {d= (0, 0); c= []; colors= None; zone_color=None}
 
 let get_color_context colors zone_color = {d= (0, 0); c= []; colors; zone_color}
+
+let new_from {colors; zone_color; _} = {d= (0, 0); c= []; colors; zone_color}
+
+let add_to {d=(x2, y2);c=c1; _} {d=(x1, y1); c=c2; colors; zone_color} =
+  let c = List.rev_append c1 c2 in
+  {d=((max x1 x2), (max y1 y2)); c; colors; zone_color}
 
 let set_canevas_size x y ctxt = {ctxt with d= (x, y)}
 
