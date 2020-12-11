@@ -1,3 +1,11 @@
+v0.7.0
+------
+
+ - plotgitsch: introduce -z option to highlight zones of changes
+ - plotgitsch: implement home made internal diff
+ - plotgitsch: fix bug in keep option (#39)
+ - plotgitsch: z-order shapes in SVG according to new, old, idem status
+
 v0.6.1
 ------
 
