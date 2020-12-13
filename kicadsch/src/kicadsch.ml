@@ -61,9 +61,27 @@ module MakeSchPainter (P : Painter) :
     | TextContext of label option
     | BitmapContext of bitmapContext
 
-  type schContext = CPainter.t * schParseContext * P.t
+  type wireDesc =
+    { start: coord
+    ; stop: coord }
 
-  let initial_context () = (CPainter.lib (), BodyContext, P.get_context ())
+  type connectionDesc = coord
+  type wires =
+    { wires: wireDesc list
+    ; cons: connectionDesc list
+    ; buses: wireDesc list
+    }
+
+  type schContext =
+    { wires: wires
+    ; lib: CPainter.t
+    ; c: schParseContext
+    ; canevas: P.t
+    }
+  type ('a, 'b) either =
+      Left of 'a | Right of 'b
+
+  let initial_context () = {wires={wires=[]; cons=[]; buses=[]}; lib=CPainter.lib (); c=BodyContext; canevas=P.get_context ()}
 
   let swap_type = function
     | (UnSpcPort | ThreeStatePort | NoPort | BiDiPort) as p ->
@@ -588,53 +606,53 @@ module MakeSchPainter (P : Painter) :
       in
       comp_rec str p 0
 
-  let parse_body_line (_, _, canevas) line =
+  let parse_body_line ctx line =
     if String.compare line "$Comp" = 0 then
-      ( ComponentContext
-          {component= NoComp; sym= None; origin= None; fields= []}
-      , canevas )
+      {ctx with c=ComponentContext
+          {component= NoComp; sym= None; origin= None; fields= []}}
+
     else if String.compare line "$Bitmap" = 0 then
-      (BitmapContext {pos= None; scale= None; data= None}, canevas)
+      {ctx with c=BitmapContext {pos= None; scale= None; data= None}}
     else if starts_with line "$Descr" then
       parse_descr_header line
-        ~onerror:(fun () -> (BodyContext, canevas))
+        ~onerror:(fun () -> {ctx with c=BodyContext})
         ~process:(fun (_, (Coord (x, y) as f_left)) ->
-          ( DescrContext (Coord (x - 4000, y - 100))
-          , plot_page_frame f_left (P.set_canevas_size x y canevas) ) )
+          {ctx with c=DescrContext (Coord (x - 4000, y - 100))
+          ;canevas=plot_page_frame f_left (P.set_canevas_size x y ctx.canevas) } )
     else if starts_with line "Wire" || starts_with line "Entry" then
       ( parse_wire_wire line
-          ~onerror:(fun () -> BodyContext)
-          ~process:(fun lt -> WireContext lt)
-      , canevas )
+          ~onerror:(fun () -> {ctx with c=BodyContext})
+          ~process:(fun lt ->  {ctx with c=WireContext lt}))
     else if starts_with line "NoConn" then
-      ( BodyContext
-      , parse_noconn_line line
-          ~onerror:(fun () -> canevas)
+      {ctx with c=BodyContext
+      ; canevas=(parse_noconn_line line
+          ~onerror:(fun () -> ctx.canevas)
           ~process:(fun (Coord (x, y)) ->
             let delta = 20 in
-            canevas
+            ctx.canevas
             |> P.paint_line
                  (Coord (x - delta, y - delta))
                  (Coord (x + delta, y + delta))
             |> P.paint_line
                  (Coord (x - delta, y + delta))
-                 (Coord (x + delta, y - delta)) ) )
+                 (Coord (x + delta, y - delta)) ) ) }
     else if starts_with line "Connection" then
-      ( BodyContext
-      , parse_conn_line line
-          ~onerror:(fun () -> canevas)
-          ~process:(fun (Coord (x, y)) ->
-            let delta = 10 in
-            P.paint_circle ~fill:`Black (Coord (x, y)) delta canevas ) )
-    else if String.compare line "$Sheet" = 0 then (SheetContext None, canevas)
+      parse_conn_line line
+          ~onerror:(fun () -> ctx)
+          ~process:(fun conn_c -> {ctx with c=BodyContext
+                                          ; canevas=(
+          let delta = 10 in
+            P.paint_circle ~fill:`Black conn_c delta ctx.canevas)
+          ;wires={ctx.wires with cons=conn_c::ctx.wires.cons}} )
+    else if String.compare line "$Sheet" = 0 then {ctx with c=SheetContext None}
     else if starts_with line "Text" then
       let lab : label option =
         parse_text_line line
           ~onerror:(fun () -> None)
           ~process:(fun l -> Some l)
       in
-      (TextContext lab, canevas)
-    else (BodyContext, canevas)
+      {ctx with c=TextContext lab}
+    else {ctx with c=BodyContext}
 
   let parse_descr_line line (Coord (x, y)) canevas =
     parse_descr_body line
@@ -694,55 +712,120 @@ module MakeSchPainter (P : Painter) :
       {b with data= Some (Buffer.create 1000)}
     else ( append_bm_line b.data line ; b )
 
-  let parse_line line (lib, c, canevas) =
-    match c with
-    | DescrContext page_size as context ->
-        if String.compare line "$EndDescr" = 0 then (lib, BodyContext, canevas)
-        else (lib, context, parse_descr_line line page_size canevas)
+  let parse_line line (ctx:schContext) =
+    match ctx.c with
+    | DescrContext page_size as c ->
+        if String.compare line "$EndDescr" = 0 then {ctx with c=BodyContext}
+        else {ctx with c;canevas=(parse_descr_line line page_size ctx.canevas)}
     | ComponentContext comp ->
-        if String.compare line "$EndComp" = 0 then (lib, BodyContext, canevas)
+        if String.compare line "$EndComp" = 0 then {ctx with c=BodyContext}
         else
-          let comp, canevas = parse_component_line lib line comp canevas in
-          (lib, ComponentContext comp, canevas)
+          let comp, canevas = parse_component_line ctx.lib line comp ctx.canevas in
+          {ctx with c=ComponentContext comp; canevas}
     | BodyContext ->
-        let c, canevas = parse_body_line (lib, c, canevas) line in
-        (lib, c, canevas)
+        parse_body_line ctx line
     | WireContext l ->
-        ( lib
-        , BodyContext
-        , parse_wire_line line
-            ~onerror:(fun () -> canevas)
+      parse_wire_line line
+            ~onerror:(fun () -> {ctx with c=BodyContext})
             ~process:(fun (c1, c2) ->
-              let kolor, width =
-                match l with
-                | Bus | BusEntry ->
-                    (`Blue, Size 5)
-                | Wire | WireEntry ->
-                    (`Brown, Size 2)
-                | Line ->
-                    (`Black, Size 2)
-              in
-              P.paint_line ~kolor ~width c1 c2 canevas ) )
+                let Coord (x1, y1), Coord (x2, y2)  = c1, c2 in
+                let start, stop =
+                  if x1 < x2 || y1 < y2 then
+                    c1, c2
+                  else
+                    c2, c1 in
+                let paint_param =
+                  match l with
+                  | Bus -> Right true
+                  | BusEntry ->
+                    Left (`Blue, Size 5)
+                  | Wire -> Right false
+                  | WireEntry ->
+                    Left (`Brown, Size 2)
+                  | Line ->
+                    Left (`Black, Size 2)
+                in
+                begin
+                  match paint_param with
+                  | Left (kolor, width) ->
+                    {ctx with c=BodyContext;canevas=P.paint_line ~kolor ~width start stop ctx.canevas}
+                  | Right isBus ->
+                    if isBus then
+                      {ctx with c=BodyContext; wires={ctx.wires with buses={start; stop}::ctx.wires.buses}}
+                    else
+                      {ctx with c=BodyContext; wires={ctx.wires with wires={start; stop}::ctx.wires.wires}}
+                end)
     | SheetContext sc ->
-        if String.compare line "$EndSheet" = 0 then (lib, BodyContext, canevas)
+        if String.compare line "$EndSheet" = 0 then {ctx with c=BodyContext}
         else
-          let nsc, o = parse_sheet_line line sc canevas in
-          (lib, SheetContext nsc, o)
+          let nsc, canevas = parse_sheet_line line sc ctx.canevas in
+          {ctx with c=SheetContext nsc; canevas}
     | TextContext sc -> (
       match sc with
       | None ->
           failwith "TextContext without definition!"
       | Some v ->
-          (lib, BodyContext, print_text_line line v canevas) )
+          {ctx with c=BodyContext; canevas= print_text_line line v ctx.canevas} )
     | BitmapContext b ->
         if String.compare line "$EndBitmap" = 0 then
-          (lib, BodyContext, plot_bitmap b canevas)
+          {ctx with c=BodyContext; canevas=plot_bitmap b ctx.canevas}
         else
           let nb = parse_bitmap_line line b in
-          (lib, BitmapContext nb, canevas)
+          {ctx with c=BitmapContext nb}
+  module type OrderedCoord =
+  sig
+    val compare: coord -> coord -> int
+  end
 
-  let output_context (_, _, canevas) : P.t = canevas
+  module SegmentCutter(O:OrderedCoord):(sig val cut_wires: wireDesc list -> coord list -> kolor:kolor -> width:size -> P.t -> P.t end) =
+  struct
+    module SegmentSet = Set.Make(struct
+        type t = wireDesc
+        let compare {start=start1; _}  {start=start2; _} = O.compare start1 start2
+      end)
 
-  let add_lib line (lib, ctxt, canevas) =
-    CPainter.append_lib line lib |> fun c -> (c, ctxt, canevas)
+
+    let cut_vertical_wire set con =
+      match SegmentSet.find_first_opt (fun {stop; _} -> (O.compare stop con > 0)) set with
+      | None -> set
+      | Some ({start; stop} as seg) ->
+        if O.compare start con < 0 then
+          set |> SegmentSet.remove seg |> SegmentSet.add {start; stop=con} |> SegmentSet.add {start=con;stop}
+        else
+          set
+    let cut_wires seg_list junctions ~kolor ~width canevas =
+      let seg_set = SegmentSet.of_list seg_list in
+      let split_set = List.fold_left cut_vertical_wire seg_set junctions in
+      SegmentSet.fold (fun {start; stop} canevas -> P.paint_line ~kolor ~width start stop canevas) split_set canevas
+  end
+
+  module VerticalSet = SegmentCutter(
+    struct
+      let compare (Coord (xs0, ys0)) (Coord (xs1, ys1)) =
+      match Stdlib.compare xs0 xs1 with
+        | 0 -> Stdlib.compare ys0 ys1
+        | c -> c
+    end)
+
+  module HorizontalSet = SegmentCutter(
+    struct
+      let compare (Coord (xs0, ys0)) (Coord (xs1, ys1)) =
+      match Stdlib.compare ys0 ys1 with
+        | 0 -> Stdlib.compare xs0 xs1
+        | c -> c
+    end)
+
+  let cut_all_wires junctions wires ~kolor ~width canevas =
+    let vertical, horizontal = List.partition (fun {start=Coord (x1, _); stop=Coord (x2, _)} -> x1 == x2) wires in
+    VerticalSet.cut_wires vertical junctions ~kolor ~width canevas |>
+    HorizontalSet.cut_wires horizontal junctions ~kolor ~width
+
+  let cut_wires_and_buses {wires;buses;cons} canevas =
+    cut_all_wires cons wires ~kolor:`Brown ~width:(Size 2) canevas |>
+    cut_all_wires cons buses ~kolor:`Blue  ~width:(Size 5)
+
+  let output_context ({canevas; wires;_ }:schContext) = cut_wires_and_buses wires canevas
+
+  let add_lib line ctxt =
+    CPainter.append_lib line ctxt.lib |> fun lib -> {ctxt with lib}
 end
