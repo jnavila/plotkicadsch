@@ -166,6 +166,7 @@ module MakeSchPainter (P : Painter) :
         and stl =
           style_of_string (String.sub vjustbi 1 1, String.sub vjustbi 2 1)
         and visible = flags.[3] = '0' && not (String.equal "~" name) in
+        Printf.printf "%s" flags;
         Some (nb, visible, name, o, co, s, j, stl) )
 
   let parse_L =
@@ -295,6 +296,9 @@ module MakeSchPainter (P : Painter) :
   let parse_component_line lib (line : string) (comp : componentContext)
       canevas : componentContext * P.t =
     let update_comp comp = (comp, canevas) in
+    if String.length line == 0 then
+      comp, canevas
+    else
     let first = line.[0] in
     match first with
     | 'A' ->
@@ -439,14 +443,14 @@ module MakeSchPainter (P : Painter) :
       ~extract_fun:(fun x y -> Some (Coord (x, y)))
 
   let parse_sheet_field01 =
-    create_parse_fun ~name:"Sheet Field 0 or 1" ~regexp_str:"F%[01] \"%s@\" %d"
+    create_parse_fun ~name:"Sheet Field 0 or 1" ~regexp_str:"F%[01] %S %d"
       ~extract_fun:(fun num name size ->
         let number = int_of_string num in
         Some (number, name, Size size) )
 
   let parse_sheet_other_fields =
     create_parse_fun ~name:"Sheet generic field"
-      ~regexp_str:"F%d \"%s@\"  %[IOBTU] %[RLTB] %d %d %d"
+      ~regexp_str:"F%d %S  %[IOBTU] %[RLTB] %d %d %d"
       ~extract_fun:(fun _ name t j x y sz ->
         let ptype = porttype_of_string t in
         let justif = justify_of_string j in
