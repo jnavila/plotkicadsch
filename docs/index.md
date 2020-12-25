@@ -87,7 +87,7 @@ With this one, you should be able to diff your project and get a more understand
 
 The textual diffs between revisions of a schematic sheet have cleared up a bit with the filters, but most of us poor humans don't read the schematic format in the text. To put it bluntly, except when only properties of parts are changed, the text diff is totally useless. The good news is that there is a better solution: diffing visually the schematic.
 
-I developed a utility specially for this purpose: [Plotgitsch](https://github.com/jnavila/plotkicadsch). Plotgitsch can use two strategies to diff schematics:
+I developed a utility specially for this purpose: [Plotgitsch](https://jnavila.github.io/plotkicadsch/plotgitsch_usersguide.html) that you can download [here](https://github.com/jnavila/plotkicadsch/releases). Plotgitsch can use two strategies to diff schematics:
 
  * Generate bitmap pictures of each sheet of the schematic and use an external tool to visually diff them.
  * Perform an internal diff on the schematics drawing primitive lists and provide the result as an svg to be visualized in your prefered browser.
