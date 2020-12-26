@@ -166,7 +166,6 @@ module MakeSchPainter (P : Painter) :
         and stl =
           style_of_string (String.sub vjustbi 1 1, String.sub vjustbi 2 1)
         and visible = flags.[3] = '0' && not (String.equal "~" name) in
-        Printf.printf "%s" flags;
         Some (nb, visible, name, o, co, s, j, stl) )
 
   let parse_L =
