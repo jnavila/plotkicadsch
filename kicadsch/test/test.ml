@@ -186,6 +186,28 @@ Entry Bus Line
   assert_bool "Entry bus segment present"  (List.mem "Line 2000 5500 - 2100 5500" ~set:output);
   assert_bool "Fourth segment present" (List.mem "Line 2100 5500 - 2200 5500" ~set:output)
 ;;
+
+let segment_vertical_wire_test () =
+  let u =
+      {|Wire Wire Line
+	6000 1150 6000 2750
+Wire Wire Line
+	6000 1350 6000 1350
+Connection ~ 6000 1350
+Connection ~ 6000 2050
+Connection ~ 6000 1250
+Connection ~ 6000 1150
+|}
+    |> String.split_on_char ~sep:'\n'
+    |> List.fold_left ~f:(fun a b -> MUT.parse_line b a) ~init:(init ()) in
+  let output = StubPainter.write (MUT.output_context u) in
+  assert_bool "Wire 1150 - 1250"  (List.mem "Line 6000 1150 - 6000 1250" ~set:output)
+  ; assert_bool "Wire 1250 - 1350" (List.mem "Line 6000 1250 - 6000 1350" ~set:output)
+  ; assert_bool "Wire 1350 - 2050"  (List.mem "Line 6000 1350 - 6000 2050" ~set:output)
+  ; assert_bool "Wire 2050 - 2750" (List.mem "Line 6000 2050 - 6000 2750" ~set:output)
+  ; assert_bool "no Wire 1150 - 1150" (not(List.mem "Line 6000 1150 - 6000 1150" ~set:output))
+;;
+
 let suite = "OUnit for " >:::
             [ "printable F line" >:: test_printable_F_line
             ; "match wire line" >:: match_wire_line
@@ -199,6 +221,7 @@ let suite = "OUnit for " >:::
             ; "Segment inverse horizontal bus" >:: segment_inverse_horizontal_wire "Bus"
             ; "Segment vertical bus" >:: segment_vertical_wire "Bus"
             ; "Segment inverse vertical bus" >:: segment_inverse_vertical_wire "Bus"
+            ; "Segment vertical test ">:: segment_vertical_wire_test
             ]
 let _ =
   run_test_tt_main suite

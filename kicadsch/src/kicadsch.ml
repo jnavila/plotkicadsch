@@ -730,13 +730,7 @@ module MakeSchPainter (P : Painter) :
     | WireContext l ->
       parse_wire_line line
             ~onerror:(fun () -> {ctx with c=BodyContext})
-            ~process:(fun (c1, c2) ->
-                let Coord (x1, y1), Coord (x2, y2)  = c1, c2 in
-                let start, stop =
-                  if x1 < x2 || y1 < y2 then
-                    c1, c2
-                  else
-                    c2, c1 in
+            ~process:(fun (start, stop) ->
                 let paint_param =
                   match l with
                   | Bus -> Right true
@@ -792,19 +786,62 @@ module MakeSchPainter (P : Painter) :
         let compare {start=start1; _}  {start=start2; _} = O.compare start1 start2
       end)
 
+    let point_in_segment c {start; stop} =
+      (O.compare start c <= 0) && (O.compare stop c >= 0)
+
+    let con_in_a_segment c set =
+      match SegmentSet.find_first_opt (fun {stop; _} -> (O.compare stop c > 0)) set with
+      | None -> None
+      | Some ({start; _} as seg) ->
+        if O.compare start c < 0 then
+          Some seg
+        else
+          None
+    ;;
+
+    let point_in_a_segment c set =
+      match SegmentSet.find_first_opt (fun {stop; _} -> (O.compare stop c >= 0)) set with
+      | None -> None
+      | Some ({start; _} as seg) ->
+        if O.compare start c <= 0 then
+          Some seg
+        else
+          None
+    ;;
 
     let cut_wire set con =
-      match SegmentSet.find_first_opt (fun {stop; _} -> (O.compare stop con > 0)) set with
+      match con_in_a_segment con set with
       | None -> set
       | Some ({start; stop} as seg) ->
-        if O.compare start con < 0 then
           set |> SegmentSet.remove seg |> SegmentSet.add {start; stop=con} |> SegmentSet.add {start=con;stop}
+    ;;
+
+    let merge_segment ~set seg =
+      SegmentSet.filter (fun {start=stt; _} -> not( point_in_segment stt seg)) set
+      |>SegmentSet.add seg
+    ;;
+
+    let insert_segment set {start; stop} =
+      let start, stop = if O.compare start stop <= 0 then
+          start, stop
         else
-          set
+          stop, start in
+      match (point_in_a_segment start set), (point_in_a_segment stop set) with
+      | None, None ->
+        merge_segment ~set {start; stop}
+      | Some ({start=stt; _}), None ->
+        merge_segment ~set {start=stt; stop}
+      | None, Some {stop=stp; _} ->
+        merge_segment ~set {start; stop=stp}
+      | Some {start=stt; _}, Some {stop=stp; _} ->
+        merge_segment ~set {start=stt; stop=stp}
+    ;;
+
     let cut_wires seg_list junctions ~kolor ~width canevas =
-      let seg_set = SegmentSet.of_list seg_list in
+      let seg_set = List.fold_left insert_segment SegmentSet.empty seg_list in
       let split_set = List.fold_left cut_wire seg_set junctions in
       SegmentSet.fold (fun {start; stop} canevas -> P.paint_line ~kolor ~width start stop canevas) split_set canevas
+    ;;
   end
 
   module VerticalSet = SegmentCutter(
