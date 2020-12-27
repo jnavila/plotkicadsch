@@ -1,3 +1,11 @@
+v0.8.0
+------
+
+ - plotgitsch: split wires with respect to jonction points to refine diff
+ - manage escaped strings in fields
+ - Remove dependency to Core_kernel
+
+
 v0.7.0
 ------
 
