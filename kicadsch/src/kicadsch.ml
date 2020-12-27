@@ -741,17 +741,22 @@ module MakeSchPainter (P : Painter) :
                   match l with
                   | Bus -> Right true
                   | BusEntry ->
-                    Left (`Blue, Size 5)
+                    Left ((`Blue, Size 5), true)
                   | Wire -> Right false
                   | WireEntry ->
-                    Left (`Brown, Size 2)
+                    Left ((`Brown, Size 2), true)
                   | Line ->
-                    Left (`Black, Size 2)
+                    Left ((`Black, Size 2), false)
                 in
                 begin
                   match paint_param with
-                  | Left (kolor, width) ->
-                    {ctx with c=BodyContext;canevas=P.paint_line ~kolor ~width start stop ctx.canevas}
+                  | Left ((kolor, width), isEntry) ->
+                    if isEntry then
+                      {ctx with
+                       c=BodyContext;canevas=P.paint_line ~kolor ~width start stop ctx.canevas
+                       ; wires={ctx.wires with cons=start::stop::ctx.wires.cons}}
+                    else
+                      {ctx with c=BodyContext;canevas=P.paint_line ~kolor ~width start stop ctx.canevas}
                   | Right isBus ->
                     if isBus then
                       {ctx with c=BodyContext; wires={ctx.wires with buses={start; stop}::ctx.wires.buses}}

@@ -111,11 +111,94 @@ let match_wire_line () =
   | _ -> assert_failure "Wire line should have matched"
 ;;
 
-let suite = "OUnit for " >::: [
-    "printable F line" >:: test_printable_F_line;
-    "match wire line" >:: match_wire_line;
-    "zero length lines" >:: test_zero_length_lines;
-    "escaped field lines" >:: test_escaped_F_line;
-  ]
+let segment_horizontal_wire wire_type () =
+  let u =
+    Printf.sprintf {|Wire %s Line
+	5500 1700 5500 2200
+Connection ~ 5500 1800
+Entry Wire Line
+	5500 2000 5550 2050
+Entry Bus Line
+	5500 2100 5550 2150 5550
+|} wire_type
+
+    |> String.split_on_char ~sep:'\n'
+    |> List.fold_left ~f:(fun a b -> MUT.parse_line b a) ~init:(init ()) in
+  let output = StubPainter.write (MUT.output_context u) in
+  assert_bool "Connection segment present" (List.mem "Line 5500 1700 - 5500 1800" ~set:output);
+  assert_bool "Entry wire segment present" (List.mem "Line 5500 1800 - 5500 2000" ~set:output);
+  assert_bool "Entry bus segment present" (List.mem "Line 5500 2000 - 5500 2100" ~set:output);
+  assert_bool "Fourth segment present" (List.mem "Line 5500 2100 - 5500 2200" ~set:output)
+
+let segment_inverse_horizontal_wire wire_type () =
+  let u =
+    Printf.sprintf {|Wire %s Line
+	5500 2200 5500 1700
+Connection ~ 5500 1800
+Entry Wire Line
+	5500 2000 5550 2050
+Entry Bus Line
+	5500 2100 5550 2150
+|} wire_type
+    |> String.split_on_char ~sep:'\n'
+    |> List.fold_left ~f:(fun a b -> MUT.parse_line b a) ~init:(init ()) in
+  let output = StubPainter.write (MUT.output_context u) in
+  assert_bool "Connection segment present" (List.mem "Line 5500 1700 - 5500 1800" ~set:output);
+  assert_bool "Entry wire segment present" (List.mem "Line 5500 1800 - 5500 2000" ~set:output);
+  assert_bool "Entry bus segment present" (List.mem "Line 5500 2000 - 5500 2100" ~set:output);
+  assert_bool "Fourth segment present" (List.mem "Line 5500 2100 - 5500 2200" ~set:output)
+;;
+
+let segment_vertical_wire wire_type () =
+  let u =
+    Printf.sprintf {|Wire %s Line
+	 1700 5500 2200 5500
+Connection ~ 1800 5500
+Entry Wire Line
+	2000 5500 2050 5550
+Entry Bus Line
+	2100 5500 2150 5550
+|} wire_type
+    |> String.split_on_char ~sep:'\n'
+    |> List.fold_left ~f:(fun a b -> MUT.parse_line b a) ~init:(init ()) in
+  let output = StubPainter.write (MUT.output_context u) in
+  assert_bool "Connection segment present"  (List.mem "Line 1700 5500 - 1800 5500" ~set:output);
+  assert_bool "Entry wire segment present" (List.mem "Line 1800 5500 - 2000 5500" ~set:output);
+  assert_bool "Entry bus segment present"  (List.mem "Line 2000 5500 - 2100 5500" ~set:output);
+  assert_bool "Fourth segment present" (List.mem "Line 2100 5500 - 2200 5500" ~set:output)
+;;
+
+let segment_inverse_vertical_wire wire_type () =
+  let u =
+     Printf.sprintf {|Wire %s Line
+	 2200 5500 1700 5500
+Connection ~ 1800 5500
+Entry Wire Line
+	2000 5500 2050 5550
+Entry Bus Line
+	2100 5500 2150 5550
+|} wire_type
+    |> String.split_on_char ~sep:'\n'
+    |> List.fold_left ~f:(fun a b -> MUT.parse_line b a) ~init:(init ()) in
+  let output = StubPainter.write (MUT.output_context u) in
+  assert_bool "Connection segment present"  (List.mem "Line 1700 5500 - 1800 5500" ~set:output);
+  assert_bool "Entry wire segment present" (List.mem "Line 1800 5500 - 2000 5500" ~set:output);
+  assert_bool "Entry bus segment present"  (List.mem "Line 2000 5500 - 2100 5500" ~set:output);
+  assert_bool "Fourth segment present" (List.mem "Line 2100 5500 - 2200 5500" ~set:output)
+;;
+let suite = "OUnit for " >:::
+            [ "printable F line" >:: test_printable_F_line
+            ; "match wire line" >:: match_wire_line
+            ; "zero length lines" >:: test_zero_length_lines
+            ; "escaped field lines" >:: test_escaped_F_line
+            ; "Segment horizontal wire" >:: segment_horizontal_wire "Wire"
+            ; "Segment inverse horizontal wire" >:: segment_inverse_horizontal_wire "Wire"
+            ; "Segment vertical wire" >:: segment_vertical_wire "Wire"
+            ; "Segment inverse vertical wire" >:: segment_inverse_vertical_wire "Wire"
+            ; "Segment horizontal bus" >:: segment_horizontal_wire "Bus"
+            ; "Segment inverse horizontal bus" >:: segment_inverse_horizontal_wire "Bus"
+            ; "Segment vertical bus" >:: segment_vertical_wire "Bus"
+            ; "Segment inverse vertical bus" >:: segment_inverse_vertical_wire "Bus"
+            ]
 let _ =
   run_test_tt_main suite
