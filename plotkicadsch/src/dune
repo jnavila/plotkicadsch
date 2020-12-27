@@ -12,7 +12,6 @@
       lwt.unix
       sha
       base64
-      core_kernel
       cmdliner
    )
    (flags (:standard -w -3 -safe-string))

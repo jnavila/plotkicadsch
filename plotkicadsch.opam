@@ -27,6 +27,5 @@ depends: [
   "git" {>= "2.0.0"}
   "git-unix"
   "base64" {>= "3.0.0"}
-  "core_kernel"
   "cmdliner"
 ]

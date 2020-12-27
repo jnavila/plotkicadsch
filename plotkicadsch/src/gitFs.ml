@@ -1,4 +1,4 @@
-open Core_kernel
+open StdLabels
 open Lwt.Infix
 open DiffFs
 exception InternalGitError of string
@@ -11,7 +11,7 @@ let make commitish =
     let rev_parse r =
       SysAbst.pread "git" [|"rev-parse"; r ^ "^{commit}"|]
       >>= fun s ->
-      try Lwt.return @@ Store.Hash.of_hex @@ String.prefix s 40
+      try Lwt.return @@ Store.Hash.of_hex @@ String.sub ~pos:0 s ~len:(min 40 (String.length s))
       with _ -> Lwt.fail (InternalGitError ("cannot parse rev " ^ r))
 
     let label = GitFS commitish
@@ -83,10 +83,13 @@ let make commitish =
       |> List.filter_map ~f:(fun {name; node; _} ->
           if filter name then Some ([name], Store.Hash.to_hex node) else None
         )
+    ;;
 
     let find_dir_local t =
-      let file_list = Store.Value.Tree.to_list t in
-      List.filter ~f:(fun entry -> let open Core_kernel.Poly in entry.perm = `Dir) file_list
+      let open Store.Value.Tree in
+      to_list t
+      |> List.filter ~f:(fun {perm;_} -> perm == `Dir)
+    ;;
 
     let rec recurse_dir ?dirname node pattern =
       let rename name = match dirname with

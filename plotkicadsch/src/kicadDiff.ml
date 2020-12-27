@@ -1,4 +1,4 @@
-open Core_kernel
+open StdLabels
 open Lwt.Infix
 module S = Kicadsch.MakeSchPainter (SvgPainter)
 open Kicadsch.Sigs
@@ -18,6 +18,14 @@ let fs_mod = function
   | GitFS r -> GitFs.make r
   | TrueFS r -> TrueFs.make r
 
+
+let is_suffix ~suffix s =
+  let suff_length = String.length suffix in
+  let s_length = String.length s in
+  (suff_length < s_length) &&
+  (String.equal (String.sub s ~pos:(String.length s - suff_length) ~len:suff_length) suffix)
+;;
+
 module L = Kicadsch.MakeSchPainter(ListPainter.L)
 
 module LP = struct
@@ -33,25 +41,25 @@ module FSPainter (S : SchPainter) (F : Simple_FS) : sig
 
   val context_from : S.schContext Lwt.t -> S.schContext Lwt.t
 end = struct
-  let find_schematics () = F.list_files (String.is_suffix ~suffix:".sch")
+  let find_schematics () = F.list_files (is_suffix ~suffix:".sch")
 
   let process_file initctx filename =
     let parse c l = S.parse_line l c in
     let%lwt init = initctx in
     F.get_content filename
     >|= fun ctt ->
-    let lines = String.split_lines ctt in
+    let lines = String.split_on_char ~sep:'\n' ctt in
     let endctx = List.fold_left ~f:parse ~init lines in
     S.output_context endctx
 
   let find_libs () =
-    F.list_files (String.is_suffix ~suffix:"-cache.lib") >|= List.map ~f:fst
+    F.list_files (is_suffix ~suffix:"-cache.lib") >|= List.map ~f:fst
 
   let read_libs initial_ctx lib_list =
     Lwt_list.fold_left_s
       (fun c l ->
          F.get_content l
-         >|= String.split_lines
+         >|= String.split_on_char ~sep:'\n'
          >|= List.fold_left ~f:(fun ctxt l -> S.add_lib l ctxt) ~init:c )
       initial_ctx lib_list
 
@@ -69,7 +77,7 @@ let intersect_lists l1l l2l =
     ~f:(fun (name2, sha2) ->
         List.exists
           ~f:(fun (name1, sha1) ->
-              List.equal String.equal name1 name2 && not (String.equal sha2 sha1) )
+              not (String.equal sha2 sha1) && (List.length name1 == List.length name2) && (List.for_all2 ~f:String.equal name1 name2))
           l1 )
     l2
   |> List.map ~f:fst
@@ -168,14 +176,13 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) (z: string op
       | Format _ -> BB.create ()
 
     let  dispatch_rect (res, acc) elt =
-      let open Float in
       if (BoundingBox.overlap_ratio res elt) > 0.9 then
         BoundingBox.add_rect res elt , acc
       else
           res, elt::acc
 
     let rec aggregate rect rect_list =
-      let result, remaining = List.fold  ~f:dispatch_rect ~init:(rect, []) rect_list in
+      let result, remaining = List.fold_left  ~f:dispatch_rect ~init:(rect, []) rect_list in
       if Int.equal (List.length remaining) (List.length rect_list) then
         result, remaining
       else
@@ -221,8 +228,8 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) (z: string op
     rec_draw_difftotal ~prev ~next (new_ctx, new_ctx, new_ctx, out_canevas) []
 
     let display_diff ~from_ctx ~to_ctx (filename:string list) ~keep =
-      let prev = List.sort ~compare from_ctx in
-      let next = List.sort ~compare to_ctx in
+      let prev = List.sort ~cmp:compare from_ctx in
+      let next = List.sort ~cmp:compare to_ctx in
       match
         draw_difftotal ~prev ~next (SvgPainter.get_color_context c z)
       with
@@ -352,7 +359,7 @@ let doit from_fs to_fs file_to_diff differ textdiff libs keep colors zone_color 
       let to_list = ToP.find_schematics () in
       intersect_lists from_list to_list
     | Some filename ->
-      let filename_l = String.split ~on:'/' filename in
+      let filename_l = String.split_on_char ~sep:'/' filename in
       Lwt.return [filename_l]
   in
   let preload_libs () =
@@ -384,6 +391,6 @@ let doit from_fs to_fs file_to_diff differ textdiff libs keep colors zone_color 
         | GitFs.InternalGitError s ->
           Lwt_io.printf "Git Exception: %s\n" s
         | a ->
-          Lwt_io.printf "Exception %s\n" (Exn.to_string a) )
+          Lwt_io.printf "Exception %s\n" (Printexc.to_string a) )
   in
   Lwt_main.run catch_errors

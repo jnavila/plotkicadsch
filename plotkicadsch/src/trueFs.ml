@@ -1,4 +1,4 @@
-open Core_kernel
+open StdLabels
 open Lwt.Infix
 open DiffFs
 
@@ -7,7 +7,16 @@ let make rootname =
 
     let label = TrueFS rootname
 
-    let rootname = String.lstrip ~drop:(Char.equal '/') rootname
+    let lstrip c s =
+      let rec find_non_c c s n =
+        if s.[n] != c then
+          String.sub ~pos:n ~len:(String.length s - n) s
+        else
+          find_non_c c s (n+1)
+      in
+      find_non_c c s 0
+
+    let rootname = lstrip '/' rootname
     let rootlength = (String.length rootname) + 1
 
     let get_content filename =
@@ -38,8 +47,8 @@ let make rootname =
    let list_files pattern =
      let list = dir_contents rootname pattern in
      let file_list = Lwt_list.map_s (fun filename ->
-         let filename = String.drop_prefix  filename rootlength in
-         let file_path = String.split ~on:'/' filename in
+         let filename = String.sub filename ~pos:rootlength ~len:(String.length filename - rootlength) in
+         let file_path = String.split_on_char ~sep:'/' filename in
          hash_file file_path) list in
      file_list
  end

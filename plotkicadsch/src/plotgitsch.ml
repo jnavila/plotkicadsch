@@ -1,4 +1,4 @@
-open Core_kernel
+open StdLabels
 open KicadDiff
 open Cmdliner
 
