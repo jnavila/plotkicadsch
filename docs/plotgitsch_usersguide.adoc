@@ -48,9 +48,9 @@ This is a checkout of what is usually followed under git in kicad projects. For 
 
 == Internal Diff
 
-Although `plotgitsch` is invoked by default to run an external image diff tool, we will focus on using the internal diff feature by using the `-i` option. This feature tries to compute the visual differences between internal list of drawing primitives (lines, texts, arcs…) of the schematics drawings and keeps the difference at the level of https://en.wikipedia.org/wiki/Vector_graphics[vector graphics], which allows any zooming level.
+Although `plotgitsch` is invoked by default to run an external image diff tool, we will focus on using the internal diff feature by using the `-i` option. This feature tries to compute the visual differences between lists of drawing primitives (lines, texts, arcs…) of the schematics drawings and keeps the difference at the level of https://en.wikipedia.org/wiki/Vector_graphics[vector graphics], which allows any zooming level.
 
-This way of doing has a down side of showing diffs where an element has been deleted and an identical one has been put at the same place. That's why it is important to change your schematic by moving things around instead of deleting everything.
+The primitives are reordered internally, so that the diffing algorithm can cope with great reworks of the schematics but still find the differences at the shape level.
 
 In order to visualize the vector output of the difference, you'll need an application able to display SVG pictures. Your default web browser should be able to handle these files. Let's try for instance with firefox:
 
@@ -71,13 +71,13 @@ This is the display of changes that were introduced in your present working copy
 
 For the simplicity of this guide, all the revisions of this playground repo have been tagged so that you can easily type them in.
 
-`plotgitsch` handles revision specifiers just like git (behind the scene, it uses git). Please have a look at https://git-scm.com/docs/gitrevisions[git revisions] for all the kinds of commit references.
+`plotgitsch` handles revision specifiers just like git (behind the scene, it uses git). Please have a look at https://git-scm.com/docs/gitrevisions[git revisions] for all the kinds of commit reference specifiers.
 
 Revisions to be compared can be specified in three forms: with two, one or no revisions.
 
- 1. `plotgitsch` alone, which performs the comparison between the working copy and `HEAD` (the tip of the branch you have checked out). This is by far the most used one. Very helpful for checking what's changed before committing.
- 2. `plotgitsch <rev>` performs the comparison between the working copy and the given revision. You can quickly spot what changed since the last tagged prototype.
- 3. `plotgitsch <rev1> <rev2>`, with `rev1` and `rev2` being two references to commits (tag, branch or any commitish form). The changes in  schematic sheets from `rev1` to `rev2` are displayed.
+ 1. `plotgitsch` alone, performs the comparison between the working copy and `HEAD` (the tip of the branch you have checked out). This is by far the most used one. Very helpful for verifying what's changed before committing.
+ 2. `plotgitsch <rev>` performs the comparison between the working copy and the given revision _rev_ . You can quickly spot what changed since the last tagged prototype.
+ 3. `plotgitsch <rev1> <rev2>`, with _rev1_ and _rev2_ being two references to commits (tag, branch or any commitish form). The changes in schematic sheets from _rev1_ to _rev2_ are displayed.
 
 For instance, let's check the changes between two tagged revisions:
 
@@ -87,6 +87,9 @@ $ plotgitsch -ifirefox v0.0.3 v0.0.4
 ----
 
 image::LED_swap.png[]
+
+
+TIP: You can also diff plain directories, without any reference to git, by using the scheme `dir:<directory>` for a side of diff: `plotgitsch dir:<dir1> dir:<dir2>` will perform the schematic diff between directories _dir1_ and _dir2_.
 
 == Changing Colors
 
@@ -147,6 +150,8 @@ Another option is to use environment variables to customize the behavior of `plo
    This variable makes `plotgitsch` use the internal differ and its value is the command of the viewer.
 `PLOTGITSCH_COLORS`::
    This variable is the value passed to the `--colors` option.
+`PLOTGITSCH_CHANGE_COLOR`::
+   This variable activate change zone highlighting with the specified color in hex format #rrggbb
 
 Set and export these variables in your `$HOME/.bashrc` or in you `$HOME/.profilerc`, like this:
 
@@ -167,6 +172,9 @@ There are a few last options:
 
 `--version`::
   Show the version string.
+
+`-z#_<RRGGBB>_`, `--zone=#_<RRGGBB>_`::
+  Highlight the change zones in the diff output with specified colors.
 
 `--help`::
   Show a very helpful manual page.

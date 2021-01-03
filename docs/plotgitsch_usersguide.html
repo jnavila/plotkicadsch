@@ -542,10 +542,10 @@ LEDs.sch</code></pre>
 <h2 id="_internal_diff">Internal Diff</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>Although <code>plotgitsch</code> is invoked by default to run an external image diff tool, we will focus on using the internal diff feature by using the <code>-i</code> option. This feature tries to compute the visual differences between internal list of drawing primitives (lines, texts, arcs…) of the schematics drawings and keeps the difference at the level of <a href="https://en.wikipedia.org/wiki/Vector_graphics">vector graphics</a>, which allows any zooming level.</p>
+<p>Although <code>plotgitsch</code> is invoked by default to run an external image diff tool, we will focus on using the internal diff feature by using the <code>-i</code> option. This feature tries to compute the visual differences between lists of drawing primitives (lines, texts, arcs…) of the schematics drawings and keeps the difference at the level of <a href="https://en.wikipedia.org/wiki/Vector_graphics">vector graphics</a>, which allows any zooming level.</p>
 </div>
 <div class="paragraph">
-<p>This way of doing has a down side of showing diffs where an element has been deleted and an identical one has been put at the same place. That&#8217;s why it is important to change your schematic by moving things around instead of deleting everything.</p>
+<p>The primitives are reordered internally, so that the diffing algorithm can cope with great reworks of the schematics but still find the differences at the shape level.</p>
 </div>
 <div class="paragraph">
 <p>In order to visualize the vector output of the difference, you&#8217;ll need an application able to display SVG pictures. Your default web browser should be able to handle these files. Let&#8217;s try for instance with firefox:</p>
@@ -578,7 +578,7 @@ LEDs.sch</code></pre>
 <p>For the simplicity of this guide, all the revisions of this playground repo have been tagged so that you can easily type them in.</p>
 </div>
 <div class="paragraph">
-<p><code>plotgitsch</code> handles revision specifiers just like git (behind the scene, it uses git). Please have a look at <a href="https://git-scm.com/docs/gitrevisions">git revisions</a> for all the kinds of commit references.</p>
+<p><code>plotgitsch</code> handles revision specifiers just like git (behind the scene, it uses git). Please have a look at <a href="https://git-scm.com/docs/gitrevisions">git revisions</a> for all the kinds of commit reference specifiers.</p>
 </div>
 <div class="paragraph">
 <p>Revisions to be compared can be specified in three forms: with two, one or no revisions.</p>
@@ -586,13 +586,13 @@ LEDs.sch</code></pre>
 <div class="olist arabic">
 <ol class="arabic">
 <li>
-<p><code>plotgitsch</code> alone, which performs the comparison between the working copy and <code>HEAD</code> (the tip of the branch you have checked out). This is by far the most used one. Very helpful for checking what&#8217;s changed before committing.</p>
+<p><code>plotgitsch</code> alone, performs the comparison between the working copy and <code>HEAD</code> (the tip of the branch you have checked out). This is by far the most used one. Very helpful for verifying what&#8217;s changed before committing.</p>
 </li>
 <li>
-<p><code>plotgitsch &lt;rev&gt;</code> performs the comparison between the working copy and the given revision. You can quickly spot what changed since the last tagged prototype.</p>
+<p><code>plotgitsch &lt;rev&gt;</code> performs the comparison between the working copy and the given revision <em>rev</em> . You can quickly spot what changed since the last tagged prototype.</p>
 </li>
 <li>
-<p><code>plotgitsch &lt;rev1&gt; &lt;rev2&gt;</code>, with <code>rev1</code> and <code>rev2</code> being two references to commits (tag, branch or any commitish form). The changes in  schematic sheets from <code>rev1</code> to <code>rev2</code> are displayed.</p>
+<p><code>plotgitsch &lt;rev1&gt; &lt;rev2&gt;</code>, with <em>rev1</em> and <em>rev2</em> being two references to commits (tag, branch or any commitish form). The changes in schematic sheets from <em>rev1</em> to <em>rev2</em> are displayed.</p>
 </li>
 </ol>
 </div>
@@ -608,6 +608,18 @@ LEDs.sch</code></pre>
 <div class="content">
 <img src="LED_swap.png" alt="LED swap">
 </div>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+You can also diff plain directories, without any reference to git, by using the scheme <code>dir:&lt;directory&gt;</code> for a side of diff: <code>plotgitsch dir:&lt;dir1&gt; dir:&lt;dir2&gt;</code> will perform the schematic diff between directories <em>dir1</em> and <em>dir2</em>.
+</td>
+</tr>
+</table>
 </div>
 </div>
 </div>
@@ -712,6 +724,10 @@ Don&#8217;t forget to commit your <code>*-cache.lib</code> file with your change
 <dd>
 <p>This variable is the value passed to the <code>--colors</code> option.</p>
 </dd>
+<dt class="hdlist1"><code>PLOTGITSCH_CHANGE_COLOR</code></dt>
+<dd>
+<p>This variable activate change zone highlighting with the specified color in hex format #rrggbb</p>
+</dd>
 </dl>
 </div>
 <div class="paragraph">
@@ -744,6 +760,10 @@ export PLOTGITSCH_COLORS=FF0000:008FFF:FFFFFF:000000</code></pre>
 <dd>
 <p>Show the version string.</p>
 </dd>
+<dt class="hdlist1"><code>-z#<em>&lt;RRGGBB&gt;</em></code>, <code>--zone=#<em>&lt;RRGGBB&gt;</em></code></dt>
+<dd>
+<p>Highlight the change zones in the diff output with specified colors.</p>
+</dd>
 <dt class="hdlist1"><code>--help</code></dt>
 <dd>
 <p>Show a very helpful manual page.</p>
@@ -755,7 +775,7 @@ export PLOTGITSCH_COLORS=FF0000:008FFF:FFFFFF:000000</code></pre>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2020-05-22 19:20:12 +0200
+Last updated 2021-01-03 14:36:08 +0100
 </div>
 </div>
 </body>
