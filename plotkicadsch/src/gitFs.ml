@@ -6,8 +6,7 @@ exception InternalGitError of string
 let make commitish =
   ( module struct
     open Git_unix
-    module Search = Git.Search.Make (Store)
-
+    module Search = Git.Search.Make (Digestif.SHA1) (Store)
     let rev_parse r =
       SysAbst.pread "git" [|"rev-parse"; r ^ "^{commit}"|]
       >>= fun s ->
@@ -71,22 +70,22 @@ let make commitish =
 
     let get_content filename =
       with_path filename
-      @@ function
-      | Store.Value.Blob b ->
+      @@ fun res -> match res with
+      | Git.Value.Blob b ->
         Lwt.return (Store.Value.Blob.to_string b)
       | _ ->
         Lwt.fail (InternalGitError "not a valid path")
 
-    let find_file_local filter t =
-      let open Store.Value.Tree in
+    let find_file_local filter (t: Store.Value.Tree.t) =
+      let open Git.Tree in
       to_list t
-      |> List.filter_map ~f:(fun {name; node; _} ->
-          if filter name then Some ([name], Store.Hash.to_hex node) else None
+      |> List.filter_map ~f:(fun t -> let {node; name; _} = t in
+            if filter name then Some ([name], Store.Hash.to_hex node) else None
         )
     ;;
 
     let find_dir_local t =
-      let open Store.Value.Tree in
+      let open Git.Tree in
       to_list t
       |> List.filter ~f:(fun {perm;_} -> perm == `Dir)
     ;;
@@ -99,12 +98,12 @@ let make commitish =
       let path_file_list = List.map local_file_list ~f:(fun (name, hash) -> ((rename name), hash)) in
       let dirs = find_dir_local node in
       let%lwt t = fs in
-      let open Store.Value.Tree in
+      let open Git.Tree in
       let recurse_tree = fun entry ->
           let%lwt res  = Store.read t entry.node in
           match res with
           |Error e -> Lwt.fail (InternalGitError (Fmt.strf "%a" Store.pp_error e))
-          |Ok Store.Value.Tree t ->(
+          |Ok Git.Value.Tree t ->(
             let%lwt subdir = recurse_dir ~dirname:entry.name t pattern in
             let subdir_files = List.map ~f:(fun (name, hash) -> ((rename name), hash)) subdir in
             Lwt.return subdir_files)
@@ -116,7 +115,7 @@ let make commitish =
     let list_files_from path pattern =
       with_path path
       @@ function
-      | Store.Value.Tree t -> recurse_dir t pattern
+      | Git.Value.Tree t -> recurse_dir t pattern
       | _ -> Lwt.fail (InternalGitError "not a tree!")
 
     let list_files pattern =list_files_from [] pattern
