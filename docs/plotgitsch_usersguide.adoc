@@ -132,6 +132,17 @@ This works quite well. However, you can still notice that some changes appear at
 
 TIP: Don't forget to commit your `*-cache.lib` file with your changes. They hold the shape of the components and are needed for accurate history recording.
 
+== Added sheets
+
+When a sheet is added or when several sheets are changed at once, the diffs are opened one tab per sheet in your browser.
+
+[source, shell]
+----
+$ plotgitsch -ifirefox v0.0.4 v0.0.5
+----
+image::diff_two_tabs.png[]
+
+
 == Setting Default Options
 
 It's tedious to repeat the same options on and on each time you wish to visualize a diff. One option around that is to define an alias in you preferred shell script environment. For instance, if you are using bash, you can add this line to your `.bashrc`:
