@@ -18,7 +18,6 @@ let fs_mod = function
   | GitFS r -> GitFs.make r
   | TrueFS r -> TrueFs.make r
 
-
 let is_suffix ~suffix s =
   let suff_length = String.length suffix in
   let s_length = String.length s in
@@ -41,6 +40,7 @@ module FSPainter (S : SchPainter) (F : Simple_FS) : sig
 
   val context_from : S.schContext Lwt.t -> S.schContext Lwt.t
 end = struct
+
   let find_schematics () = F.list_files (is_suffix ~suffix:".sch")
 
   let process_file initctx filename =
@@ -68,21 +68,33 @@ end = struct
     find_libs () >>= read_libs initial_context
 end
 
-let intersect_lists l1l l2l =
+module PathCompare = struct
+  type t = string list * string
+
+  let rec sl_compare l1 l2 =
+    match l1, l2 with
+    | name1::tl1, name2::tl2 -> let res = String.compare name1 name2 in
+      if res == 0 then
+        sl_compare tl1 tl2
+      else
+        res
+    | _h::_t, [] -> 1
+    | [], _h::_t -> -1
+    | [], [] -> 0
+  let compare (l1, _) (l2, _) = sl_compare l1 l2
+
+end
+module PathSet = Set.Make(PathCompare)
+
+let merge_lists l1l l2l =
   l1l
   >>= fun l1 ->
   l2l
   >|= fun l2 ->
-  List.filter
-    ~f:(fun (name2, sha2) ->
-        List.exists
-          ~f:(fun (name1, sha1) ->
-              not (String.equal sha2 sha1) && (List.length name1 == List.length name2) && (List.for_all2 ~f:String.equal name1 name2))
-          l1 )
-    l2
-  |> List.map ~f:fst
-
-let to_unit _ = ()
+  let r = PathSet.empty in
+  let r1 = List.fold_left ~f:(fun s l -> PathSet.add l s) ~init:r l1 in
+  let r2 = List.fold_left ~f:(fun s l -> PathSet.add l s) ~init:r1 l2 in
+  PathSet.elements r2 |> List.rev_map ~f:fst
 
 module type Differ = sig
   val doc : string
@@ -171,7 +183,7 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) (z: string op
         let Coord(x,y) = center in
         BB.create_from_limits (Coord(x-radius, y-radius)) (Coord(x+radius,y+radius))
       | Image (corner, _, data) ->
-        let w,h = SvgPainter.get_png_dims data in
+        let w, h = SvgPainter.get_png_dims data in
         BB.create_from_rect corner (Coord(w, h))
       | Format _ -> BB.create ()
 
@@ -357,7 +369,7 @@ let doit from_fs to_fs file_to_diff differ textdiff libs keep colors zone_color 
     | None ->
       let from_list = FromP.find_schematics () in
       let to_list = ToP.find_schematics () in
-      intersect_lists from_list to_list
+      merge_lists from_list to_list
     | Some filename ->
       let filename_l = String.split_on_char ~sep:'/' filename in
       Lwt.return [filename_l]
@@ -381,7 +393,7 @@ let doit from_fs to_fs file_to_diff differ textdiff libs keep colors zone_color 
         SysAbst.exec cmd args >|= ignore
       else Lwt.return ()
   in
-  let compare_all = file_list >>= Lwt_list.map_p compare_one >|= to_unit in
+  let compare_all = file_list >>= Lwt_list.iter_p compare_one in
   let catch_errors =
     Lwt.catch
       (fun _ ->

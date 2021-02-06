@@ -20,9 +20,12 @@ let make rootname =
     let rootlength = (String.length rootname) + 1
 
     let get_content filename =
-      Lwt_io.with_file ~mode:Lwt_io.input
-        (String.concat ~sep:Filename.dir_sep filename)
-        Lwt_io.read
+      try%lwt
+        Lwt_io.with_file ~mode:Lwt_io.input
+          (String.concat ~sep:Filename.dir_sep filename)
+          Lwt_io.read
+      with
+        _ -> Lwt.return ""
 
     let hash_file filename =
       get_content filename

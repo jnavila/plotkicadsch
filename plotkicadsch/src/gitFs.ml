@@ -2,6 +2,7 @@ open StdLabels
 open Lwt.Infix
 open DiffFs
 exception InternalGitError of string
+exception PathNotFound of string list
 
 let make commitish =
   ( module struct
@@ -59,8 +60,7 @@ let make commitish =
       with
       | None ->
         Lwt.fail
-          (InternalGitError
-             ("path not found: /" ^ String.concat ~sep:Filename.dir_sep path))
+          (PathNotFound path)
       | Some sha -> (
           match%lwt Store.read t sha with
           | Ok a ->
@@ -69,12 +69,17 @@ let make commitish =
             Lwt.fail (InternalGitError (Fmt.strf "%a" Store.pp_error e)) )
 
     let get_content filename =
-      with_path filename
-      @@ fun res -> match res with
-      | Git.Value.Blob b ->
-        Lwt.return (Store.Value.Blob.to_string b)
-      | _ ->
-        Lwt.fail (InternalGitError "not a valid path")
+      try%lwt
+        begin
+          with_path filename
+          @@ fun res -> match res with
+          | Git.Value.Blob b ->
+            Lwt.return (Store.Value.Blob.to_string b)
+          | _ ->
+            Lwt.fail (InternalGitError "not a valid path")
+        end
+      with
+        PathNotFound _ -> Lwt.return ""
 
     let find_file_local filter (t: Store.Value.Tree.t) =
       let open Git.Tree in
