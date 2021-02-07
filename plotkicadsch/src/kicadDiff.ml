@@ -213,10 +213,29 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) (z: string op
       let c1, c2 = BoundingBox.as_rect r  in
       SvgPainter.paint_zone c1 c2 ctx
 
-    let compare s1 s2 =
+    let refine_segments (Coord (x1, y1), _) (Coord (x1', y1'), Coord (x2', y2')) =
+      if (Int.compare x1 x1' == 0)
+      then
+        ((Int.compare y1 y1') * (Int.compare x1 x2'))
+      else
+        Int.compare y1 y2'
+
+    let compare s1 s2 : int =
       let s1_r = elt_rect s1
       and s2_r = elt_rect s2 in
-      BoundingBox.compare s1_r s2_r
+      let bb_comp = BoundingBox.compare s1_r s2_r in
+      if bb_comp == 0 then
+        match s1, s2 with
+        | Text (_, t1, _, _, _, _ , _), Text (_, t2, _, _, _, _, _) -> String.compare t1 t2
+        | Rect _, Rect _ -> 0
+        | Line (_, _ , c1, c2), Line(_, _, c1', c2') -> refine_segments (c1, c2) (c1', c2')
+        | Circle _, Circle _ -> 0
+        | Arc _, Arc _ -> 0
+        | Image _, Image _ -> 0
+        | Zone _, Zone _ -> 0
+        | Format _, Format _ -> 0
+        | _, _ -> 1
+      else bb_comp
 
     let draw_difftotal ~prev ~next out_canevas =
     let rec rec_draw_difftotal ~prev ~next (idem, theirs, ours, outc) diff_list =
