@@ -2,8 +2,8 @@ open StdLabels
 
 type os = MacOS | Linux | Windows | Cygwin
 
-let process_output_to_string command =
-  let chan = UnixLabels.open_process_in command in
+let process_output_to_string command args =
+  let chan = UnixLabels.open_process_args_in command args in
   let res = ref "" in
   let rec process_otl_aux () =
     let e = input_line chan in
@@ -16,13 +16,13 @@ let process_output_to_string command =
     (!res, stat)
 ;;
 
-let cmd_output command =
-  let l, _ = process_output_to_string command in
+let cmd_output command args =
+  let l, _ = process_output_to_string command args in
   l
 ;;
 
-let launch_on_windows command =
-  let _, s = process_output_to_string ("start " ^ command) in
+let launch_on_windows command args =
+  let _, s = process_output_to_string "start" (Array.append[| command |] args) in
   Lwt.return s
 ;;
 
@@ -42,21 +42,13 @@ let detect_os () : os =
         failwith "unknown operating system"
 ;;
 
-let windows_quote s =
-  let open Re in
-  replace
-    (Posix.compile_pat {|\^|&|\||\(|<|>|})
-    ~f:(fun ss -> "^" ^ Group.get ss 0)
-    s
-;;
-
 let exec c a =
   match detect_os () with
   | MacOS | Linux ->
       Lwt_process.exec (c, Array.append [|c|] a)
   | Cygwin | Windows ->
-      launch_on_windows
-      @@ Array.fold_left ~f:(fun f g -> f ^ " " ^ windows_quote g) ~init:c a
+      launch_on_windows c a
+
 ;;
 
 let pread c a =
@@ -65,8 +57,7 @@ let pread c a =
       Lwt_process.pread ~stderr:`Dev_null (c, Array.append [|c|] a)
   | Cygwin | Windows ->
       Lwt.return
-      @@ cmd_output
-           (Array.fold_left ~f:(fun f g -> f ^ " " ^ windows_quote g) ~init:c a)
+      @@ cmd_output c a
 ;;
 
 let rec last_exn = function
