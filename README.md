@@ -23,8 +23,8 @@ The quality of the output is not a first requirement (meaning: not supposed to m
 The stable version of plotkicadsch can be installed with [opam](http://opam.ocaml.org/). Be careful to install opam v2.0 for your platform.
 
 ```bash
-opam switch create 4.09.0
-opam switch 4.09.0
+opam switch create 4.09.1
+opam switch 4.09.1
 eval `opam config env`
 opam update
 opam install plotkicadsch
@@ -47,8 +47,8 @@ If you have installed git for windows, chances are that you have installed the b
 The latest running version can also be installed from this repo by pinning the project in opam:
 
 ```bash
-opam switch create 4.09.0
-opam switch 4.09.0
+opam switch create 4.09.1
+opam switch 4.09.1
 eval `opam config env`
 opam pin add kicadsch .
 opam pin add plotkicadsch .
