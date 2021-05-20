@@ -124,13 +124,13 @@ let doit from_fs to_fs file_to_diff differ textdiff libs keep colors zone_color 
       let filename_l = String.split_on_char ~sep:'/' filename in
       Lwt.return [filename_l]
   in
-  let preload_libs () =
+  let preload_libs desc =
     Lwt_list.fold_left_s
       (fun c f -> Lwt_stream.fold D.S.add_lib (Lwt_io.lines_of_file f) c)
-      (D.S.initial_context ()) libs
+      (D.S.initial_context desc) libs
   in
-  let from_init_ctx = FromP.context_from @@ preload_libs () in
-  let to_init_ctx = ToP.context_from @@ preload_libs () in
+  let from_init_ctx = FromP.context_from @@ preload_libs (First (doc from_fs)) in
+  let to_init_ctx = ToP.context_from @@ preload_libs (Second (doc to_fs)) in
   let compare_one filename =
     let%lwt from_ctx = FromP.process_file from_init_ctx filename in
     let%lwt to_ctx = ToP.process_file to_init_ctx filename in

@@ -23,6 +23,11 @@ type kolor = [`NoColor | `Black | `Green | `Red | `Blue | `Brown]
     The matrix is layed out as a pair of lines of pairs *)
 type transfo = (int * int) * (int * int)
 
+type revision =
+  | First of string
+  | Second of string
+  | No_Rev
+
 module type Painter = sig
   (** A module able to paint a canvas with several graphic primitives
       and then to process the canvas into a picture file format.  The
@@ -96,9 +101,9 @@ module type SchPainter = sig
   (** the underlying context *)
   type painterContext
 
-  val initial_context : unit -> schContext
-  (** [initial_context ()]
-      @return an new empty context *)
+  val initial_context : revision -> schContext
+  (** [initial_context rev]
+      @return an new empty context with description [rev]*)
 
   val add_lib : string -> schContext -> schContext
   (** [add_lib line context] parse the content of [line] provided to

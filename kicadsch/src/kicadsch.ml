@@ -77,11 +77,12 @@ module MakeSchPainter (P : Painter) :
     ; lib: CPainter.t
     ; c: schParseContext
     ; canevas: P.t
+    ; rev: revision
     }
   type ('a, 'b) either =
       Left of 'a | Right of 'b
 
-  let initial_context () = {wires={wires=[]; cons=[]; buses=[]}; lib=CPainter.lib (); c=BodyContext; canevas=P.get_context ()}
+  let initial_context rev = {wires={wires=[]; cons=[]; buses=[]}; lib=CPainter.lib (); c=BodyContext; canevas=P.get_context (); rev}
 
   let swap_type = function
     | (UnSpcPort | ThreeStatePort | NoPort | BiDiPort) as p ->
@@ -715,11 +716,26 @@ module MakeSchPainter (P : Painter) :
       {b with data= Some (Buffer.create 1000)}
     else ( append_bm_line b.data line ; b )
 
+  let write_revision  (Coord(x, y)) ctx =
+    match ctx.rev with
+    | First s ->
+    P.paint_text s Orient_H
+              (Coord (x, y + 50))
+              (Size 50) J_left NoStyle ctx.canevas
+    | Second s ->
+    P.paint_text s Orient_H
+              (Coord (x + 2200, y + 50))
+              (Size 50) J_left NoStyle ctx.canevas
+    | No_Rev -> ctx.canevas
+
+
   let parse_line line (ctx:schContext) =
     match ctx.c with
     | DescrContext page_size as c ->
-        if String.compare line "$EndDescr" = 0 then {ctx with c=BodyContext}
-        else {ctx with c;canevas=(parse_descr_line line page_size ctx.canevas)}
+      if String.compare line "$EndDescr" = 0 then
+        let canevas = write_revision page_size ctx in
+        {ctx with c=BodyContext; canevas}
+      else {ctx with c;canevas=(parse_descr_line line page_size ctx.canevas)}
     | ComponentContext comp ->
         if String.compare line "$EndComp" = 0 then {ctx with c=BodyContext}
         else

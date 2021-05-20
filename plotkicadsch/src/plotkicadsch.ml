@@ -22,7 +22,7 @@ let process_file init outdir sch =
 let process_libs libs =
   Lwt_list.fold_left_s
     (fun c l -> Lwt_stream.fold add_lib (Lwt_io.lines_of_file l) c)
-    (initial_context ()) libs
+    (initial_context No_Rev) libs
 
 let () =
   let files = ref [] in
