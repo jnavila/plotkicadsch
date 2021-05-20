@@ -24,7 +24,7 @@ let init () =
   let lib_lines =
     initial_lib
     |> String.split_on_char ~sep:'\n'
-    |> List.fold_left ~f:(fun a b -> MUT.add_lib b a) ~init:(MUT.initial_context ()) in
+    |> List.fold_left ~f:(fun a b -> MUT.add_lib b a) ~init:(MUT.initial_context No_Rev) in
   initial_sheet
   |> String.split_on_char ~sep:'\n'
   |> List.fold_left ~f:(fun a b -> MUT.parse_line b a) ~init:lib_lines
