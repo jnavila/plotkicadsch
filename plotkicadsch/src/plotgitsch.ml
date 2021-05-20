@@ -100,13 +100,15 @@ let pp_colors out c =
 let extract_colors s =
   let open SvgPainter in
   let col_exp = "([0-9a-fA-F]{6})" in
+  let bg_exp = "([0-9a-fA-F]{6}([0-9a-fA-F]{2})?)" in
   let cols_exp =
-    "^" ^ col_exp ^ ":" ^ col_exp ^ ":" ^ col_exp ^ ":" ^ col_exp ^ "$"
+    "^" ^ col_exp ^ ":" ^ col_exp ^ ":" ^ col_exp ^ ":" ^ bg_exp ^ "$"
   in
   let col_re = Re.Posix.compile_pat cols_exp in
   match Re.all col_re s with
   | [m] -> (
     match Re.Group.all m with
+    | [|_; o; n; f; b; _|]
     | [|_; o; n; f; b|] ->
         let e c = "#" ^ c in
         Result.Ok (Some {old_ver= e o; new_ver= e n; fg= e f; bg= e b})
@@ -121,8 +123,8 @@ let get_colors =
 
 let colors =
   let doc =
-    "list of colon separated hex RGB codes for colors used for diffing e.g. \
-     the default colors are FF0000:00FF00:00000:FFFFFF"
+    "list of colon separated hex RRGGBB codes for colors used for diffing and RRGGBB[AA] code for background e.g. \
+     the default colors are FF0000:00FF00:000000:FFFFFFFF"
   in
   let docv = "old:new:foreground:background" in
   let env = Arg.env_var ~doc:"Colors for plotting the diff" "PLOTGITSCH_COLORS" in
