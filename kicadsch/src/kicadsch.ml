@@ -1,4 +1,6 @@
 module Sigs = KicadSch_sigs
+module NewKicad = NewKicadSch
+module Lib_sigs = KicadLib_sigs
 open Sigs
 
 module MakeSchPainter (P : Painter) :

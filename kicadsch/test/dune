@@ -1,8 +1,8 @@
 (tests
- (names        test)
+ (names test test_new_kicad_parser)
  (libraries
-  oUnit
   kicadsch
+  oUnit
   )
  (flags (:standard -w -27 ))
  )

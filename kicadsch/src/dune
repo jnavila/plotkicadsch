@@ -3,5 +3,9 @@
    (public_name kicadsch)
    (modules_without_implementation kicadSch_sigs)
    (synopsis "Library to plotting KiCAD schematics")
-   (flags (:standard -safe-string))
+   (libraries
+    angstrom
+    uuidm
+    )
+   (flags (:standard -w -3 -safe-string))
   )
