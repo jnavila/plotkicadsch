@@ -78,11 +78,12 @@ module MakeSchPainter (P : Painter) :
     ; c: schParseContext
     ; canevas: P.t
     ; rev: revision
+    ; allow_missing_component: bool
     }
   type ('a, 'b) either =
       Left of 'a | Right of 'b
 
-  let initial_context rev = {wires={wires=[]; cons=[]; buses=[]}; lib=CPainter.lib (); c=BodyContext; canevas=P.get_context (); rev}
+  let initial_context ?allow_missing_component:(allow_missing_component=false) rev = {wires={wires=[]; cons=[]; buses=[]}; lib=CPainter.lib (); c=BodyContext; canevas=P.get_context (); rev; allow_missing_component}
 
   let swap_type = function
     | (UnSpcPort | ThreeStatePort | NoPort | BiDiPort) as p ->
@@ -293,7 +294,7 @@ module MakeSchPainter (P : Painter) :
     in
     P.paint_text new_port_name orient c s j NoStyle canevas
 
-  let parse_component_line lib (line : string) (comp : componentContext)
+  let parse_component_line lib (line : string) (comp : componentContext) allow_missing
       canevas : componentContext * P.t =
     let update_comp comp = (comp, canevas) in
     if String.length line == 0 then
@@ -394,7 +395,7 @@ module MakeSchPainter (P : Painter) :
                     | Some (refs, m_unitnr) ->
                         let transfo = ((a, b), (c, d)) in
                         let canevas', is_multi =
-                          CPainter.plot_comp lib sym m_unitnr origin transfo
+                          CPainter.plot_comp lib sym m_unitnr origin transfo allow_missing
                             canevas
                         in
                         let draw = draw_field origin transfo is_multi refs in
@@ -739,7 +740,7 @@ module MakeSchPainter (P : Painter) :
     | ComponentContext comp ->
         if String.compare line "$EndComp" = 0 then {ctx with c=BodyContext}
         else
-          let comp, canevas = parse_component_line ctx.lib line comp ctx.canevas in
+          let comp, canevas = parse_component_line ctx.lib line comp ctx.allow_missing_component ctx.canevas in
           {ctx with c=ComponentContext comp; canevas}
     | BodyContext ->
         parse_body_line ctx line

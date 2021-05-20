@@ -76,6 +76,12 @@ let textual_diff =
   in
   Arg.(value & flag & info ["t"; "textdiff"] ~doc)
 
+let continue_on_missing_component =
+  let doc =
+    "by default, a missing component aborts the comparison. With this option, a missing component is skipped and the process continues."
+  in
+  Arg.(value & flag & info ["m"; "allow_missing"] ~doc)
+
 let keep_files =
   let doc =
     "by default, the svg diff files are deleted after launching the viewer; \
@@ -153,7 +159,7 @@ let zone_color =
 let plotgitsch_t =
   Term.(
     const doit $ from_ref $ to_ref $ diff_of_file $ internal_diff
-    $ textual_diff $ preloaded_libs $ keep_files $ colors $ zone_color)
+    $ textual_diff $ preloaded_libs $ keep_files $ colors $ zone_color $ continue_on_missing_component)
 
 let info =
   let doc =

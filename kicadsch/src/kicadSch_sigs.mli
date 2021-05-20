@@ -101,9 +101,9 @@ module type SchPainter = sig
   (** the underlying context *)
   type painterContext
 
-  val initial_context : revision -> schContext
-  (** [initial_context rev]
-      @return an new empty context with description [rev]*)
+  val initial_context : ?allow_missing_component:bool -> revision -> schContext
+  (** [initial_context allow_missing_component revision]
+      @return an new empty context *)
 
   val add_lib : string -> schContext -> schContext
   (** [add_lib line context] parse the content of [line] provided to
@@ -142,10 +142,13 @@ module type CompPainter = sig
       @return the updated context *)
 
   val plot_comp :
-    t -> string -> int -> coord -> transfo -> drawContext -> drawContext * bool
-  (** [plot_comp lib name partnumber origin transformation context]
-      find in [lib] the component with given [name] and plot the part
-      [partnumber] at [origin] after [transfomation] into the graphical
-      [context] and the fact that the component is multipart.
-      @return the updated graphical context *)
+    t -> string -> int -> coord -> transfo -> bool -> drawContext -> drawContext * bool
+    (** [plot_comp lib name partnumber origin transformation
+       allow_missing context] find in [lib] the component with given
+       [name] and plot the part [partnumber] at [origin] after
+       [transfomation] into the graphical [context] and the fact that
+       the component is multipart. If the component is not found, raise
+       an exception, unless [allow_missing] is true.
+
+       @return the updated graphical context *)
 end

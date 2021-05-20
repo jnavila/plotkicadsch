@@ -304,13 +304,13 @@ struct
 
   exception Component_Not_Found of string
 
-  let plot_comp (lib, _, _) comp_name part rotation origin (ctx : drawContext)
-      =
+  let plot_comp (lib, _, _) comp_name part rotation origin allow_missing (ctx : drawContext)
+    =
     let rot = rotate rotation origin in
-    let thecomp =
-      try Lib.find lib (fix_illegal_chars comp_name)
-      with _ -> raise (Component_Not_Found comp_name)
-    in
-    ( List.fold_left (plot_elt rot thecomp part) ctx thecomp.graph
+    try let thecomp =
+      Lib.find lib (fix_illegal_chars comp_name)
+      in
+      ( List.fold_left (plot_elt rot thecomp part) ctx thecomp.graph
     , thecomp.multi )
+    with _ -> if allow_missing then (ctx, false) else raise (Component_Not_Found comp_name)
 end

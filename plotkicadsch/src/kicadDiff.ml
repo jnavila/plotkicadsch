@@ -101,7 +101,7 @@ let diff_cmd f t filename =
     , [| fc ^ Filename.dir_sep ^ filename
        ; tc ^ Filename.dir_sep ^ filename |] )
 
-let doit from_fs to_fs file_to_diff differ textdiff libs keep colors zone_color =
+let doit from_fs to_fs file_to_diff differ textdiff libs keep colors zone_color allow_missing_component =
   let module_d =
     match differ with
     | Image_Diff ->
@@ -127,7 +127,7 @@ let doit from_fs to_fs file_to_diff differ textdiff libs keep colors zone_color 
   let preload_libs desc =
     Lwt_list.fold_left_s
       (fun c f -> Lwt_stream.fold D.S.add_lib (Lwt_io.lines_of_file f) c)
-      (D.S.initial_context desc) libs
+      (D.S.initial_context ~allow_missing_component desc) libs
   in
   let from_init_ctx = FromP.context_from @@ preload_libs (First (doc from_fs)) in
   let to_init_ctx = ToP.context_from @@ preload_libs (Second (doc to_fs)) in
