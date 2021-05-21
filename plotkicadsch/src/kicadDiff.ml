@@ -13,9 +13,10 @@ let true_fs rootname = TrueFS rootname
 
 type differ = Internal of string | Image_Diff
 
-let fs_mod = function
-  | GitFS r -> GitFs.make r
-  | TrueFS r -> TrueFs.make r
+let fs_mod s r =
+  match s with
+  | GitFS s -> GitFs.make s r
+  | TrueFS s -> TrueFs.make s r
 
 let is_suffix ~suffix s =
   let suff_length = String.length suffix in
@@ -101,7 +102,7 @@ let diff_cmd f t filename =
     , [| fc ^ Filename.dir_sep ^ filename
        ; tc ^ Filename.dir_sep ^ filename |] )
 
-let doit from_fs to_fs file_to_diff differ textdiff libs keep colors zone_color allow_missing_component =
+let doit from_fs to_fs file_to_diff differ textdiff libs keep colors zone_color allow_missing_component relative_path =
   let module_d =
     match differ with
     | Image_Diff ->
@@ -110,8 +111,8 @@ let doit from_fs to_fs file_to_diff differ textdiff libs keep colors zone_color 
       InternalDiff.internal_diff s colors zone_color
   in
   let module D = (val module_d : Differ) in
-  let module F = (val (fs_mod from_fs) : Simple_FS) in
-  let module T = (val (fs_mod to_fs) : Simple_FS) in
+  let module F = (val (fs_mod from_fs relative_path) : Simple_FS) in
+  let module T = (val (fs_mod to_fs relative_path) : Simple_FS) in
   let module FromP = FSPainter (D.S) (F) in
   let module ToP = FSPainter (D.S) (T) in
   let file_list =
@@ -147,7 +148,7 @@ let doit from_fs to_fs file_to_diff differ textdiff libs keep colors zone_color 
   let catch_errors =
     Lwt.catch
       (fun _ ->
-         Lwt_io.printf "%s between %s and %s\n" D.doc (doc from_fs) (doc to_fs)
+         Lwt_io.printf "%s between %s and %s\n" D.doc (doc F.label) (doc T.label)
          >>= fun _ -> compare_all )
       (function
         | GitFs.InternalGitError s ->

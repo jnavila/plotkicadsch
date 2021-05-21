@@ -4,7 +4,7 @@ open DiffFs
 exception InternalGitError of string
 exception PathNotFound of string list
 
-let make commitish =
+let make commitish relative_path =
   ( module struct
     open Git_unix
     module Search = Git.Search.Make (Digestif.SHA1) (Store)
@@ -26,7 +26,9 @@ let make commitish =
         try%lwt
           let%lwt _ = Lwt_unix.stat new_gitdir in
           (* that's a git repo and d is the root *)
-          Lwt.return (d, b)
+          Lwt.return (match relative_path with
+          | None -> (d, b)
+          | Some p -> (d, String.split_on_char ~sep:'/' p))
         with
         | UnixLabels.Unix_error (UnixLabels.ENOENT, _, _) ->
           let new_d = dirname d in

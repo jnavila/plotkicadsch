@@ -158,10 +158,16 @@ let zone_color =
   let env = Arg.env_var ~doc:"Color for plotting frames around changes" "PLOTGITSCH_CHANGE_COLOR" in
   Arg.(value & opt get_zone_color None & info ["z"; "zone"] ~env ~doc ~docv)
 
+let relative_path =
+  let doc =
+    "force relative path to git working tree root. Detected automatically from current dir by default" in
+  let docv = "path" in
+  Arg.(value & opt (some string) None & info ["r"; "relative"] ~doc ~docv)
+
 let plotgitsch_t =
   Term.(
     const doit $ from_ref $ to_ref $ diff_of_file $ internal_diff
-    $ textual_diff $ preloaded_libs $ keep_files $ colors $ zone_color $ continue_on_missing_component)
+    $ textual_diff $ preloaded_libs $ keep_files $ colors $ zone_color $ continue_on_missing_component $ relative_path)
 
 let info =
   let doc =

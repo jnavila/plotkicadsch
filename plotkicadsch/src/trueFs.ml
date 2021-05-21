@@ -2,10 +2,8 @@ open StdLabels
 open Lwt.Infix
 open DiffFs
 
-let make rootname =
+let make rootname relative =
   ( module struct
-
-    let label = TrueFS rootname
 
     let lstrip c s =
       let rec find_non_c c s n =
@@ -16,14 +14,18 @@ let make rootname =
       in
       find_non_c c s 0
 
-    let rootname = lstrip '/' rootname
+    let rootname = (lstrip '/' rootname) ^ (match relative with
+        | None -> ""
+        | Some p -> "/" ^ (lstrip '/' p))
+
+    let label = TrueFS rootname
+
     let rootlength = (String.length rootname) + 1
 
     let get_content filename =
+      let filepath = (String.concat ~sep:Filename.dir_sep (rootname::filename)) in
       try%lwt
-        Lwt_io.with_file ~mode:Lwt_io.input
-          (String.concat ~sep:Filename.dir_sep filename)
-          Lwt_io.read
+        Lwt_io.with_file ~mode:Lwt_io.input  filepath Lwt_io.read
       with
         _ -> Lwt.return ""
 
