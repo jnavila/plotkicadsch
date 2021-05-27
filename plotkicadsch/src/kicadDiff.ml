@@ -25,6 +25,9 @@ let is_suffix ~suffix s =
   (String.equal (String.sub s ~pos:(String.length s - suff_length) ~len:suff_length) suffix)
 ;;
 
+let trim_cr l = if is_suffix ~suffix:"\r" l then String.sub ~pos:0 ~len:(String.length l - 1) l  else l
+;;
+
 module FSPainter (S : SchPainter) (F : Simple_FS) : sig
   val find_schematics : unit -> (string list * string) list Lwt.t
 
@@ -36,7 +39,9 @@ end = struct
   let find_schematics () = F.list_files (is_suffix ~suffix:".sch")
 
   let process_file initctx filename =
-    let parse c l = S.parse_line l c in
+    let parse c l =
+      let trimmed_line = trim_cr l in
+      S.parse_line trimmed_line c in
     let%lwt init = initctx in
     F.get_content filename
     >|= fun ctt ->
@@ -48,11 +53,14 @@ end = struct
     F.list_files (is_suffix ~suffix:"-cache.lib") >|= List.map ~f:fst
 
   let read_libs initial_ctx lib_list =
+    let add_lib ctx l =
+      let trimmed_line = trim_cr l  in
+       S.add_lib trimmed_line ctx in
     Lwt_list.fold_left_s
       (fun c l ->
          F.get_content l
          >|= String.split_on_char ~sep:'\n'
-         >|= List.fold_left ~f:(fun ctxt l -> S.add_lib l ctxt) ~init:c )
+         >|= List.fold_left ~f:add_lib ~init:c)
       initial_ctx lib_list
 
   let context_from from_ctx =
