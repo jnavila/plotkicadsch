@@ -14,9 +14,20 @@ let true_fs rootname = TrueFS rootname
 type differ = Internal of string | Image_Diff
 
 let fs_mod s r =
+  let rel_path = Option.bind r (fun rel_path ->
+      if (String.length rel_path > 1) &&
+           String.equal (String.sub rel_path ~pos:0 ~len:2) "./" then
+        begin
+          if String.length rel_path == 2 then
+            None
+          else
+            Some (String.sub rel_path ~pos:2 ~len:(String.length rel_path - 2))
+        end
+      else
+        Some rel_path) in
   match s with
-  | GitFS s -> GitFs.make s r
-  | TrueFS s -> TrueFs.make s r
+  | GitFS s -> GitFs.make s rel_path
+  | TrueFS s -> TrueFs.make s rel_path
 
 let is_suffix ~suffix s =
   let suff_length = String.length suffix in
