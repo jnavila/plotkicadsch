@@ -12,7 +12,7 @@ For more information type `plotgitsch --help`.
 
 ## Objectives
 
-This project is mainly an attempt at using ocaml with functional programing on a pet real-world project.
+This project is mainly an attempt at using ocaml with functional programming on a pet real-world project.
 
 The quality of the output is not a first requirement (meaning: not supposed to match Kicad one to one), but the accuracy of positioning matters.
 
