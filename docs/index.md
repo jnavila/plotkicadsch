@@ -1,6 +1,6 @@
 # Massaging your git for kicad
 
-Kicad is the only electronics CAD that I know to use a nice text format for managing all the data. That feature usually fits nicely with source code version control systems such as Git. However, in spite of the text format nature of Kicad files, the fit with Git is not totally perfect and needs some ajustments for smoother interaction.
+Kicad is the only electronics CAD that I know to use a nice text format for managing all the data. That feature usually fits nicely with source code version control systems such as Git. However, in spite of the text format nature of Kicad files, the fit with Git is not totally perfect and needs some adjustments for smoother interaction.
 
 The following points are the setup that I reached for the edition of schematics. Caveat: most of the following tricks run on unix-like systems, but I made no attempt to port them to Windows.
 
@@ -14,7 +14,7 @@ Concerning libraries of components, Kicad is well-behaved in that it maintains a
  * the `.pro` file which is main project file, e.g, `myboard.pro`
  * the `.sch` files that represent the schematic sheets.
  * the `cache.lib` which is the local cache for all the components used in your schematic, e.g. `myboard-cache.lib`
- * the `cache.dcm` which is the additional cache for component informations, e.g. `myboard-cache.dcm`
+ * the `cache.dcm` which is the additional cache for component information, e.g. `myboard-cache.dcm`
  * the `rescue.lib`, e.g. `myboard-rescue.lib`, if present, which is a cache file of components which have been changed in the global libraries since the components was used in the schematics. This file is here to record the components that you didn't want to “upgrade” to the new global version.
 
 Of course, you can choose to put other files of your project, such as datasheets, simulation files, notes, documents. Don't forget that, unlike you used to do, now the upcoming versions of your board will be tagged by your version control system, so it is no use making one directory per revision of the board.
@@ -36,7 +36,7 @@ I usually add these lines to my `.gitignore`
 
 Kicad generally has a nice behavior with respect to version controlling, such as taking care to not upset the structure of a schematic file when a small change is introduced. This lands very well in the version control world because when reviewing the changes between two versions, the changes are limited to some small chunks of the files. Nevertheless, some other behaviors are annoying for version control. One of these behaviors is the act of changing the content of the files for administrative purpose, without any causal or visual relationship with user's actions.
 
-Fortunately, to solve this issue, there is a very handy feature of git that allows to filter the content of the files when they are about to be commited and changed back if needed when they are checked out. This feature is called cleaning (when checking in)/smudging (when checking out). Using this feature, we can force the content of certain parts of the files to remain the same in version control, even when these parts are changing in the working copy.
+Fortunately, to solve this issue, there is a very handy feature of git that allows to filter the content of the files when they are about to be committed and changed back if needed when they are checked out. This feature is called cleaning (when checking in)/smudging (when checking out). Using this feature, we can force the content of certain parts of the files to remain the same in version control, even when these parts are changing in the working copy.
 
 ### How it works
 
@@ -68,7 +68,7 @@ The `--global` option makes the filter available in every project of the user. F
 
 #### Power and Flags Numbering
 
-Another annoying behavior in Kicad Schematics is the way the power and flag parts are numbered. These components are part of the schematic but they don't appear in the BOM. So, their numbering is all managed internally by Kicad. Kicad renumbers them all everytime the user requests an annotation of the project, which modifies all those references in all the sheets each time or when a DRC test is run. As a user, I don't care which numbers are assigned to these components and I don't want them to appear in the diff between commits. So it's better keeping the references for all theses phantom parts to "unknown" in the revision control system. Let's kick off another filter for that! First let's add a new attribute in the `.gitattributes` file:
+Another annoying behavior in Kicad Schematics is the way the power and flag parts are numbered. These components are part of the schematic but they don't appear in the BOM. So, their numbering is all managed internally by Kicad. Kicad renumbers them all every time the user requests an annotation of the project, which modifies all those references in all the sheets each time or when a DRC test is run. As a user, I don't care which numbers are assigned to these components and I don't want them to appear in the diff between commits. So it's better keeping the references for all these phantom parts to "unknown" in the revision control system. Let's kick off another filter for that! First let's add a new attribute in the `.gitattributes` file:
 
 ```ini
 *.sch filter=kicad_sch
@@ -90,7 +90,7 @@ The textual diffs between revisions of a schematic sheet have cleared up a bit w
 I developed a utility specially for this purpose: [Plotgitsch](https://jnavila.github.io/plotkicadsch/plotgitsch_usersguide.html) that you can download [here](https://github.com/jnavila/plotkicadsch/releases). Plotgitsch can use two strategies to diff schematics:
 
  * Generate bitmap pictures of each sheet of the schematic and use an external tool to visually diff them.
- * Perform an internal diff on the schematics drawing primitive lists and provide the result as an svg to be visualized in your prefered browser.
+ * Perform an internal diff on the schematics drawing primitive lists and provide the result as an svg to be visualized in your preferred browser.
 
 ### External Image Diffing
 
