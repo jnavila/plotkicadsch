@@ -146,7 +146,7 @@ module type CompPainter = sig
     (** [plot_comp lib name partnumber origin transformation
        allow_missing context] find in [lib] the component with given
        [name] and plot the part [partnumber] at [origin] after
-       [transfomation] into the graphical [context] and the fact that
+       [transformation] into the graphical [context] and the fact that
        the component is multipart. If the component is not found, raise
        an exception, unless [allow_missing] is true.
 
