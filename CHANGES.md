@@ -1,3 +1,11 @@
+v0.9.0
+------
+
+ - plotgitsch: introduce alpha channel for background in internal diff
+ - plotgitsch: add revisions in diff plots
+ - plotgitsch: allow missing components in libs
+ - plotgitsch: add --relative option
+
 v0.8.0
 ------
 
