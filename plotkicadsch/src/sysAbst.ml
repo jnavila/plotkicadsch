@@ -53,7 +53,7 @@ let windows_quote s =
 let exec c a =
   match detect_os () with
   | MacOS | Linux ->
-      Lwt_process.exec (c, Array.append [|c|] a)
+      Lwt_process.exec ("", Array.append [|c|] a)
   | Cygwin | Windows ->
       launch_on_windows
       @@ Array.fold_left ~f:(fun f g -> f ^ " " ^ windows_quote g) ~init:c a
@@ -62,7 +62,7 @@ let exec c a =
 let pread c a =
   match detect_os () with
   | MacOS | Linux ->
-      Lwt_process.pread ~stderr:`Dev_null (c, Array.append [|c|] a)
+      Lwt_process.pread ~stderr:`Dev_null ("", Array.append [|c|] a)
   | Cygwin | Windows ->
       Lwt.return
       @@ cmd_output
