@@ -1,6 +1,6 @@
 opam-version: "2.0"
-maintainer: "Jean-Noel Avila <jn.avila@free.fr>"
-authors: "Jean-Noel Avila <jn.avila@free.fr>"
+maintainer: "Jean-Noël Avila <jn.avila@free.fr>"
+authors: "Jean-Noël Avila <jn.avila@free.fr>"
 homepage: "https://jnavila.github.io/plotkicadsch/"
 bug-reports: "https://github.com/jnavila/plotkicadsch/issues"
 doc: "https://jnavila.github.io/plotkicadsch/index"
