@@ -21,3 +21,4 @@ depends: [
   "ounit" {with-test}
   "ocaml" {>="4.07"}
 ]
+available: arch != "arm32" & arch != "x86_32"
