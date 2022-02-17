@@ -1,0 +1,7 @@
+profile = default
+version = 0.20.1
+break-cases = nested
+margin = 77
+parse-docstrings = true
+wrap-comments = true
+line-endings = lf

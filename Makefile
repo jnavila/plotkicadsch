@@ -18,3 +18,7 @@ uninstall:
 distrib:
 	dune-release tag
 	dune-release
+
+format:
+	ocamlformat kicadsch/src/*.ml[i] --inplace
+	ocamlformat plotkicadsch/src/*.ml[i] --inplace
