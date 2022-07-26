@@ -1,4 +1,5 @@
 open Tyxml.Svg
+open Kicadsch.Defs
 open Kicadsch.Sigs
 
 type diff_colors = {old_ver: string; new_ver: string; fg: string; bg: string}

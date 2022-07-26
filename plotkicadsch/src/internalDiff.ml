@@ -1,5 +1,6 @@
 open! StdLabels
 open Lwt.Infix
+open Kicadsch.Defs
 open Kicadsch.Sigs
 
 include DiffTool

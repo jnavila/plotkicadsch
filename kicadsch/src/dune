@@ -1,11 +1,12 @@
 (library
    (name kicadsch)
    (public_name kicadsch)
-   (modules_without_implementation kicadSch_sigs)
+   (modules_without_implementation kicadSch_sigs kicadDefs)
    (synopsis "Library to plotting KiCAD schematics")
    (libraries
     angstrom
     uuidm
+    sexp_decode
     )
    (flags (:standard -w -3 -safe-string))
   )

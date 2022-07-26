@@ -1,14 +1,13 @@
 (**
    Kicad modules Signatures *)
 
+open KicadDefs
+
 (** orientation of a text *)
 type orientation = Orient_H | Orient_V  (** *)
 
 (** absolute coordinates in the drawing *)
 type coord = Coord of int * int
-
-(** font size of a text *)
-type size = Size of int  (** *)
 
 (** Text justification of a text *)
 type justify = J_left | J_right | J_center | J_bottom | J_top  (** *)
@@ -127,19 +126,10 @@ module type CompPainter = sig
       the drawing context *)
 
   (** A component Library manager *)
-  type t
+  type t = KicadLib_sigs.library
 
   (** A drawing context *)
   type drawContext
-
-  val lib : unit -> t
-  (** [lib ()]
-      @return an empty new component manager *)
-
-  val append_lib : string -> t -> t
-  (** [append_lib stream context] appends the lib contained in the
-      [stream] to the context.
-      @return the updated context *)
 
   val plot_comp :
     t -> string -> int -> coord -> transfo -> bool -> drawContext -> drawContext * bool

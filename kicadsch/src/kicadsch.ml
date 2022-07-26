@@ -1,3 +1,5 @@
+module Defs =  KicadDefs
+open Defs
 module Sigs = KicadSch_sigs
 module NewKicad = NewKicadSch
 module Lib_sigs = KicadLib_sigs
@@ -76,7 +78,7 @@ module MakeSchPainter (P : Painter) :
 
   type schContext =
     { wires: wires
-    ; lib: CPainter.t
+    ; lib: KicadLibParserV1.t
     ; c: schParseContext
     ; canevas: P.t
     ; rev: revision
@@ -85,7 +87,7 @@ module MakeSchPainter (P : Painter) :
   type ('a, 'b) either =
       Left of 'a | Right of 'b
 
-  let initial_context ?allow_missing_component:(allow_missing_component=false) rev = {wires={wires=[]; cons=[]; buses=[]}; lib=CPainter.lib (); c=BodyContext; canevas=P.get_context (); rev; allow_missing_component}
+  let initial_context ?allow_missing_component:(allow_missing_component=false) rev = {wires={wires=[]; cons=[]; buses=[]}; lib=KicadLibParserV1.lib (); c=BodyContext; canevas=P.get_context (); rev; allow_missing_component}
 
   let swap_type = function
     | (UnSpcPort | ThreeStatePort | NoPort | BiDiPort) as p ->
@@ -397,7 +399,7 @@ module MakeSchPainter (P : Painter) :
                     | Some (refs, m_unitnr) ->
                         let transfo = ((a, b), (c, d)) in
                         let canevas', is_multi =
-                          CPainter.plot_comp lib sym m_unitnr origin transfo allow_missing
+                          CPainter.plot_comp (KicadLibParserV1.get_comp_lib lib) sym m_unitnr origin transfo allow_missing
                             canevas
                         in
                         let draw = draw_field origin transfo is_multi refs in
@@ -891,5 +893,5 @@ module MakeSchPainter (P : Painter) :
   let output_context ({canevas; wires;_ }:schContext) = cut_wires_and_buses wires canevas
 
   let add_lib line ctxt =
-    CPainter.append_lib line ctxt.lib |> fun lib -> {ctxt with lib}
+    KicadLibParserV1.append_lib line ctxt.lib |> fun lib -> {ctxt with lib}
 end

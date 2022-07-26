@@ -1,3 +1,4 @@
+open Kicadsch.Defs
 open Kicadsch.Sigs
 
 type t = string list
