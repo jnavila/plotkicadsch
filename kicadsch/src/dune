@@ -7,6 +7,7 @@
     angstrom
     uuidm
     sexp_decode
+    parsexp
     )
    (flags (:standard -w -3 -safe-string))
   )
