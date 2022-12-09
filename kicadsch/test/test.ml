@@ -21,13 +21,8 @@ ENDDEF
 |}
 
 let init () =
-  let lib_lines =
-    initial_lib
-    |> String.split_on_char ~sep:'\n'
-    |> List.fold_left ~f:(fun a b -> MUT.add_lib b a) ~init:(MUT.initial_context No_Rev) in
-  initial_sheet
-  |> String.split_on_char ~sep:'\n'
-  |> List.fold_left ~f:(fun a b -> MUT.parse_line b a) ~init:lib_lines
+  let lib_lines = MUT.add_lib initial_lib  (MUT.initial_context No_Rev) in
+  MUT.parse_sheet lib_lines initial_sheet
 ;;
 
 
@@ -46,8 +41,7 @@ F 3 "~" H 3750 2500 50  0001 C CNN
 	1    0    0    -1
 $EndComp
 $EndSCHEMATC|}
-    |> String.split_on_char ~sep:'\n'
-    |> List.fold_left ~f:(fun a b -> MUT.parse_line b a) ~init:(init ()) in
+    |> MUT.parse_sheet (init ()) in
   let output = StubPainter.write (MUT.output_context u) in
   match output with
   | [] -> assert_failure "Field should have been printed"
@@ -70,8 +64,7 @@ F 3 "~" H 3750 2500 50  0001 C CNN
 	1    0    0    -1
 $EndComp
 $EndSCHEMATC|}
-    |> String.split_on_char ~sep:'\n'
-    |> List.fold_left ~f:(fun a b -> MUT.parse_line b a) ~init:(init ()) in
+    |> MUT.parse_sheet (init ()) in
   let output = StubPainter.write (MUT.output_context u) in
   match output with
   | [] -> assert_failure "Field should have been printed"
@@ -94,8 +87,7 @@ F 3 "~" H 3750 2500 50  0001 C CNN
 	1    0    0    -1
 $EndComp
 $EndSCHEMATC|}
-    |> String.split_on_char ~sep:'\n'
-    |> List.fold_left ~f:(fun a b -> MUT.parse_line b a) ~init:(init ()) in
+    |> MUT.parse_sheet (init ()) in
   let output = StubPainter.write (MUT.output_context u) in
   match output with
   | [] -> ()
@@ -103,9 +95,10 @@ $EndSCHEMATC|}
 ;;
 
 let match_wire_line () =
-  let line = "	5500 1700 5500 2200" in
-  let u = MUT.parse_line "Wire Wire Line" (init ())  in
-  let v = MUT.parse_line line u in
+  let v = {|Wire Wire Line
+	5500 1700 5500 2200
+|}
+    |> MUT.parse_sheet (init ()) in
   match StubPainter.write (MUT.output_context v) with
   | [v] -> ()
   | _ -> assert_failure "Wire line should have matched"
@@ -121,9 +114,7 @@ Entry Wire Line
 Entry Bus Line
 	5500 2100 5550 2150 5550
 |} wire_type
-
-    |> String.split_on_char ~sep:'\n'
-    |> List.fold_left ~f:(fun a b -> MUT.parse_line b a) ~init:(init ()) in
+    |> MUT.parse_sheet (init ()) in
   let output = StubPainter.write (MUT.output_context u) in
   assert_bool "Connection segment present" (List.mem "Line 5500 1700 - 5500 1800" ~set:output);
   assert_bool "Entry wire segment present" (List.mem "Line 5500 1800 - 5500 2000" ~set:output);
@@ -140,8 +131,7 @@ Entry Wire Line
 Entry Bus Line
 	5500 2100 5550 2150
 |} wire_type
-    |> String.split_on_char ~sep:'\n'
-    |> List.fold_left ~f:(fun a b -> MUT.parse_line b a) ~init:(init ()) in
+    |> MUT.parse_sheet (init ()) in
   let output = StubPainter.write (MUT.output_context u) in
   assert_bool "Connection segment present" (List.mem "Line 5500 1700 - 5500 1800" ~set:output);
   assert_bool "Entry wire segment present" (List.mem "Line 5500 1800 - 5500 2000" ~set:output);
@@ -159,8 +149,7 @@ Entry Wire Line
 Entry Bus Line
 	2100 5500 2150 5550
 |} wire_type
-    |> String.split_on_char ~sep:'\n'
-    |> List.fold_left ~f:(fun a b -> MUT.parse_line b a) ~init:(init ()) in
+    |> MUT.parse_sheet (init ()) in
   let output = StubPainter.write (MUT.output_context u) in
   assert_bool "Connection segment present"  (List.mem "Line 1700 5500 - 1800 5500" ~set:output);
   assert_bool "Entry wire segment present" (List.mem "Line 1800 5500 - 2000 5500" ~set:output);
@@ -178,8 +167,7 @@ Entry Wire Line
 Entry Bus Line
 	2100 5500 2150 5550
 |} wire_type
-    |> String.split_on_char ~sep:'\n'
-    |> List.fold_left ~f:(fun a b -> MUT.parse_line b a) ~init:(init ()) in
+    |> MUT.parse_sheet (init ()) in
   let output = StubPainter.write (MUT.output_context u) in
   assert_bool "Connection segment present"  (List.mem "Line 1700 5500 - 1800 5500" ~set:output);
   assert_bool "Entry wire segment present" (List.mem "Line 1800 5500 - 2000 5500" ~set:output);
@@ -198,8 +186,7 @@ Connection ~ 6000 2050
 Connection ~ 6000 1250
 Connection ~ 6000 1150
 |}
-    |> String.split_on_char ~sep:'\n'
-    |> List.fold_left ~f:(fun a b -> MUT.parse_line b a) ~init:(init ()) in
+    |> MUT.parse_sheet (init ()) in
   let output = StubPainter.write (MUT.output_context u) in
   assert_bool "Wire 1150 - 1250"  (List.mem "Line 6000 1150 - 6000 1250" ~set:output)
   ; assert_bool "Wire 1250 - 1350" (List.mem "Line 6000 1250 - 6000 1350" ~set:output)

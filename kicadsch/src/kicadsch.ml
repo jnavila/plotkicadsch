@@ -84,6 +84,7 @@ module MakeSchPainter (P : Painter) :
     ; rev: revision
     ; allow_missing_component: bool
     }
+
   type ('a, 'b) either =
       Left of 'a | Right of 'b
 
@@ -892,6 +893,24 @@ module MakeSchPainter (P : Painter) :
 
   let output_context ({canevas; wires;_ }:schContext) = cut_wires_and_buses wires canevas
 
-  let add_lib line ctxt =
-    KicadLibParserV1.append_lib line ctxt.lib |> fun lib -> {ctxt with lib}
+  let is_suffix ~suffix s =
+    let suff_length = String.length suffix in
+    let s_length = String.length s in
+    (suff_length < s_length) &&
+    (String.equal (String.sub s (String.length s - suff_length) suff_length) suffix)
+
+  let trim_cr l = if is_suffix ~suffix:"\r" l then String.sub l 0 (String.length l - 1)   else l
+
+  let add_lib content ctxt =
+    let lines = String.split_on_char  '\n' content in
+    let lib = List.fold_left (fun c l -> KicadLibParserV1.append_lib (trim_cr l) c) ctxt.lib lines in
+    {ctxt with lib}
+
+  let parse_sheet initctx content =
+    let parse c l =
+      let trimmed_line = trim_cr l in
+      parse_line trimmed_line c in
+    let lines = String.split_on_char '\n' content in
+    List.fold_left parse initctx lines
+
 end

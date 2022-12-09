@@ -86,7 +86,7 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) (z: string op
         BB.create_from_limits (Coord(x-radius, y-radius)) (Coord(x+radius,y+radius))
       | Arc (_ , _, center, _, _, radius) ->
         (* TODO: take into count partial angle *)
-        let Coord(x,y) = center in
+        let Coord(x, y) = center in
         BB.create_from_limits (Coord(x-radius, y-radius)) (Coord(x+radius,y+radius))
       | Image (corner, _, data) ->
         let w, h = SvgPainter.get_png_dims data in

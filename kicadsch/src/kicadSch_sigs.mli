@@ -105,12 +105,12 @@ module type SchPainter = sig
       @return an new empty context *)
 
   val add_lib : string -> schContext -> schContext
-  (** [add_lib line context] parse the content of [line] provided to
+  (** [add_lib content context] parse the [content] provided to
       libs to the [context].
       @return the updated context *)
 
-  val parse_line : String.t -> schContext -> schContext
-  (** [parse_line line context] parse a new [line] of schematic and
+  val parse_sheet : schContext -> String.t -> schContext
+  (** [parse_line content context] parse a [content] of schematic and
       update [context].
       @return the updated context *)
 

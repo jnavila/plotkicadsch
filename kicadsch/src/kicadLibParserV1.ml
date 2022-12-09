@@ -14,17 +14,17 @@ let pin_orientation_of_string = function
     | s ->
         failwith ("pin orientation mismatch " ^ s)
 
-        type t = component Lib.t * component option * elt list
-  let lib () = (Lib.create 256, None, [])
+type t = component Lib.t * component option * elt list
+let lib () = (Lib.create 256, None, [])
 
-  let get_comp_lib (lib, _, _) = lib
+let get_comp_lib (lib, _, _) = lib
 
-  open Schparse
+open Schparse
 
-        let parse_def =
-    create_lib_parse_fun ~name:"component header"
-      ~regexp_str:"DEF %s %s 0 %d %[YN] %[YN] %d %[FL] %[NP]"
-      ~processing:(fun name _ _ dpnum dpname unit_count _ _ ->
+let parse_def =
+  create_lib_parse_fun ~name:"component header"
+    ~regexp_str:"DEF %s %s 0 %d %[YN] %[YN] %d %[FL] %[NP]"
+    ~processing:(fun name _ _ dpnum dpname unit_count _ _ ->
         let draw_pnum = dpnum.[0] = 'Y' in
         let draw_pname = dpname.[0] = 'Y' in
         let nname =
