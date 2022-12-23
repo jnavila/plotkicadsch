@@ -8,39 +8,11 @@ open Sigs
 module MakeSchPainter (P : Painter) :
   SchPainter with type painterContext := P.t = struct
   module CPainter = Kicadlib.MakePainter (P)
+  module EltPainter = SchElementPainter.MakePainter (P)
 
   type rect = {c: coord; dim: coord}
 
-  type portrange = Glabel | Hlabel
-
-  type labeluse = WireLabel | TextNote
-
-  type porttype =
-    | UnSpcPort
-    | ThreeStatePort
-    | OutputPort
-    | InputPort
-    | NoPort
-    | BiDiPort
-
   type linetype = Wire | Bus | Line | WireEntry | BusEntry
-
-  type labeltype = PortLabel of portrange * porttype | TextLabel of labeluse
-
-  type label = {c: coord; size: size; orient: justify; labeltype: labeltype}
-
-  type field =
-    { nb: int
-    ; text: string
-    ; o: orientation
-    ; co: coord
-    ; s: size
-    ; j: justify
-    ; stl: style }
-
-  type single_reference = {piece: string option; unitnr: int option}
-
-  type multi_reference = {m_piece: string; m_unitnr: int}
 
   type component =
     | NoComp
@@ -53,9 +25,6 @@ module MakeSchPainter (P : Painter) :
     ; origin: coord option
     ; fields: field list }
 
-  type bitmapContext =
-    {pos: coord option; scale: float option; data: Buffer.t option}
-
   type schParseContext =
     | BodyContext
     | DescrContext of coord
@@ -65,38 +34,18 @@ module MakeSchPainter (P : Painter) :
     | TextContext of label option
     | BitmapContext of bitmapContext
 
-  type wireDesc =
-    { start: coord
-    ; stop: coord }
-
-  type connectionDesc = coord
-  type wires =
-    { wires: wireDesc list
-    ; cons: connectionDesc list
-    ; buses: wireDesc list
-    }
-
   type schContext =
-    { wires: wires
-    ; lib: KicadLibParserV1.t
+    {
+      lib: KicadLibParserV1.t
     ; c: schParseContext
-    ; canevas: P.t
+    ; canevas: EltPainter.t
     ; rev: revision
     ; allow_missing_component: bool
     }
 
-  type ('a, 'b) either =
-      Left of 'a | Right of 'b
+  let initial_context ?allow_missing_component:(allow_missing_component=false) rev =
+    {lib=KicadLibParserV1.lib (); c=BodyContext; canevas=EltPainter.create (P.get_context ()); rev; allow_missing_component}
 
-  let initial_context ?allow_missing_component:(allow_missing_component=false) rev = {wires={wires=[]; cons=[]; buses=[]}; lib=KicadLibParserV1.lib (); c=BodyContext; canevas=P.get_context (); rev; allow_missing_component}
-
-  let swap_type = function
-    | (UnSpcPort | ThreeStatePort | NoPort | BiDiPort) as p ->
-        p
-    | OutputPort ->
-        InputPort
-    | InputPort ->
-        OutputPort
 
   let porttype_of_string = function
     | "U" | "UnSpc" ->
@@ -152,12 +101,6 @@ module MakeSchPainter (P : Painter) :
         Orient_V
     | c ->
         failwith (Printf.sprintf "no match for orientation! (%c)" c)
-
-  let orientation_of_justify = function
-    | J_left | J_right | J_center ->
-        Orient_H
-    | J_top | J_bottom ->
-        Orient_V
 
   (* Parsing a sch file *)
   open Schparse
@@ -221,86 +164,8 @@ module MakeSchPainter (P : Painter) :
     | J_top ->
         J_bottom
 
-  let draw_field (Coord (x0, y0)) ((a, b), (c, d)) is_multi refs context
-      {nb; text; o; co; s; j; stl} =
-    let (Coord (x, y)) = co in
-    let xrel = x - x0 and yrel = y - y0 in
-    let x' = (a * xrel) + (b * yrel) + x0 in
-    let y' = (c * xrel) + (d * yrel) + y0 in
-    let o' =
-      if a = 0 then
-        (* this is a ±90° rotation matrix *)
-        match o with Orient_H -> Orient_V | Orient_V -> Orient_H
-      else o
-    in
-    let text =
-      if nb != 0 then text
-      else
-        String.concat "/"
-          (List.map
-             (fun {m_unitnr; m_piece} ->
-               if is_multi then
-                 m_piece
-                 ^ Char.escaped (char_of_int (m_unitnr + int_of_char 'A' - 1))
-               else m_piece )
-             refs)
-    in
-    let j' =
-      match o' with
-      | Orient_H ->
-          if a = -1 || b = -1 then swap_justify j else j
-      | Orient_V ->
-          if c = 1 || d = -1 then swap_justify j else j
-    in
-    P.paint_text text o' (Coord (x', y')) s j' stl context
-
-  let right_arrow = "\xE2\x96\xB6"
-
-  let left_arrow = "\xE2\x97\x80"
-
-  let diamond = "\xE2\x97\x86"
-
-  let square = "\xE2\x97\xBC"
-
-  let decorate_port_name name ptype justif =
-    let port_char =
-      match (ptype, justif) with
-      | UnSpcPort, _ | NoPort, _ ->
-          ""
-      | ThreeStatePort, _ | BiDiPort, _ ->
-          diamond
-      | OutputPort, (J_left | J_top) | InputPort, (J_right | J_bottom) ->
-          left_arrow
-      | OutputPort, (J_right | J_bottom) | InputPort, (J_left | J_top) ->
-          right_arrow
-      | _, J_center ->
-          square
-    in
-    match justif with
-    | J_left | J_top ->
-        port_char ^ name
-    | J_right | J_bottom ->
-        name ^ port_char
-    | J_center ->
-        name
-
-  let draw_port ?(kolor = `Black) name ptype justif (Coord (x, y))
-      (Size l as s) canevas =
-    let new_port_name = decorate_port_name name ptype justif in
-    let orient = orientation_of_justify justif in
-    let j = justif in
-    let _ = kolor in
-    let c =
-      match orient with
-      | Orient_H ->
-          Coord (x, y + (l / 4))
-      | Orient_V ->
-          Coord (x + (l / 4), y)
-    in
-    P.paint_text new_port_name orient c s j NoStyle canevas
-
   let parse_component_line lib (line : string) (comp : componentContext) allow_missing
-      canevas : componentContext * P.t =
+      canevas : componentContext * EltPainter.t =
     let update_comp comp = (comp, canevas) in
     if String.length line == 0 then
       comp, canevas
@@ -400,10 +265,11 @@ module MakeSchPainter (P : Painter) :
                     | Some (refs, m_unitnr) ->
                         let transfo = ((a, b), (c, d)) in
                         let canevas', is_multi =
-                          CPainter.plot_comp (KicadLibParserV1.get_comp_lib lib) sym m_unitnr origin transfo allow_missing
+                          EltPainter.modify_canevas
+                           (CPainter.plot_comp (KicadLibParserV1.get_comp_lib lib) sym m_unitnr origin transfo allow_missing)
                             canevas
                         in
-                        let draw = draw_field origin transfo is_multi refs in
+                        let draw = EltPainter.draw_field origin transfo is_multi refs in
                         (comp, List.fold_left draw canevas' fields) )
                 | _ ->
                     Printf.printf
@@ -514,63 +380,10 @@ module MakeSchPainter (P : Painter) :
     create_parse_fun ~name:"Bitmap Scale" ~regexp_str:"Scale %f"
       ~extract_fun:(fun sc -> Some sc)
 
-  (* Printing things *)
-
-  let split_lines line =
-    let len = String.length line in
-    let rec split lstart lend (acc : string list) =
-      if lend < len - 1 then
-        if line.[lend] = '\\' && line.[lend + 1] = 'n' then
-          split (lend + 2) (lend + 2)
-            (String.sub line lstart (lend - lstart) :: acc)
-        else split lstart (lend + 1) acc
-      else String.sub line lstart (len - lstart) :: acc
-    in
-    split 0 0 []
-
-  let print_text_line line l c =
-    match l.labeltype with
-    | TextLabel t ->
-        let pcolor = match t with TextNote -> `Green | WireLabel -> `Red in
-        let (Size s) = l.size in
-        let (Coord (x, y)) = l.c in
-        let paint_line c' (line_index, l') =
-          P.paint_text ~kolor:pcolor l'
-            (orientation_of_justify l.orient)
-            (Coord (x, y - (line_index * s)))
-            l.size l.orient NoStyle c'
-        in
-        let lines = split_lines line in
-        List.fold_left paint_line c (List.mapi (fun i l -> (i, l)) lines)
-    | PortLabel (prange, ptype) ->
-        let pcolor = match prange with Glabel -> `Green | Hlabel -> `Red in
-        let new_type = swap_type ptype in
-        draw_port ~kolor:pcolor line new_type l.orient l.c l.size c
-
-  let plot_page_frame (Coord (x, y)) canevas =
-    let b_width = 100 in
-    let f_width = 4000 in
-    let bot_x = x - b_width in
-    let bot_y = y - b_width in
-    let frame_x = bot_x - f_width in
-    canevas
-    |> P.paint_rect
-         (Coord (b_width, b_width))
-         (Coord (x - (2 * b_width), y - (2 * b_width)))
-    |> P.paint_rect (Coord (frame_x, bot_y - 150)) (Coord (f_width, 150))
-    |> P.paint_rect (Coord (frame_x, bot_y - 250)) (Coord (f_width, 100))
-    |> P.paint_rect (Coord (frame_x, bot_y - 550)) (Coord (f_width, 400))
-
-  let plot_bitmap b context =
-    match (b.pos, b.scale, b.data) with
-    | Some p, Some s, Some d ->
-        P.paint_image p s d context
-    | _ ->
-        context
 
   (* high level parsing *)
 
-  let parse_sheet_line line context canevas =
+  let parse_sheet_line line context canevas : rect option*EltPainter.t =
     match line.[0] with
     | 'F' ->
         ( context
@@ -580,25 +393,22 @@ module MakeSchPainter (P : Painter) :
               if number < 2 then
                 parse_sheet_field01 line
                   ~onerror:(fun () -> canevas)
-                  ~process:(fun (number, name, (Size size as s)) ->
+                  ~process:(fun (number, name, s) ->
                     match context with
-                    | Some {c= Coord (x, y); dim= Coord (_, dim_y)} ->
-                        let y = if number = 0 then y else y + dim_y + size in
-                        P.paint_text name Orient_H
-                          (Coord (x, y))
-                          s J_left NoStyle canevas
+                      | Some {c; dim} ->
+                        EltPainter.draw_sheet_field name number s c dim canevas
                     | None ->
                         canevas )
               else
                 parse_sheet_other_fields line
                   ~onerror:(fun () -> canevas)
                   ~process:(fun (name, ptype, justif, c, s) ->
-                    draw_port name ptype justif c s canevas ) ) )
+                    EltPainter.draw_port name ptype justif c s canevas ) ) )
     | 'S' ->
         parse_sheet_rect line
           ~onerror:(fun () -> (context, canevas))
           ~process:(fun ({c; dim} as range) ->
-            (Some range, P.paint_rect c dim canevas) )
+            (Some range, EltPainter.draw_sheet_rect c dim canevas) )
     | 'U' ->
         (context, canevas)
     | _ ->
@@ -628,7 +438,7 @@ module MakeSchPainter (P : Painter) :
         ~onerror:(fun () -> {ctx with c=BodyContext})
         ~process:(fun (_, (Coord (x, y) as f_left)) ->
           {ctx with c=DescrContext (Coord (x - 4000, y - 100))
-          ;canevas=plot_page_frame f_left (P.set_canevas_size x y ctx.canevas) } )
+          ;canevas=EltPainter.draw_page_frame f_left ctx.canevas } )
     else if starts_with line "Wire" || starts_with line "Entry" then
       ( parse_wire_wire line
           ~onerror:(fun () -> {ctx with c=BodyContext})
@@ -637,23 +447,13 @@ module MakeSchPainter (P : Painter) :
       {ctx with c=BodyContext
       ; canevas=(parse_noconn_line line
           ~onerror:(fun () -> ctx.canevas)
-          ~process:(fun (Coord (x, y)) ->
-            let delta = 20 in
-            ctx.canevas
-            |> P.paint_line
-                 (Coord (x - delta, y - delta))
-                 (Coord (x + delta, y + delta))
-            |> P.paint_line
-                 (Coord (x - delta, y + delta))
-                 (Coord (x + delta, y - delta)) ) ) }
+          ~process:(fun c -> EltPainter.draw_no_connect c ctx.canevas))}
     else if starts_with line "Connection" then
       parse_conn_line line
           ~onerror:(fun () -> ctx)
-          ~process:(fun conn_c -> {ctx with c=BodyContext
-                                          ; canevas=(
-          let delta = 10 in
-            P.paint_circle ~fill:`Black conn_c delta ctx.canevas)
-          ;wires={ctx.wires with cons=conn_c::ctx.wires.cons}} )
+          ~process:(fun conn_c ->
+              {ctx with c=BodyContext
+                      ; canevas=EltPainter.draw_junction conn_c ctx.canevas})
     else if String.compare line "$Sheet" = 0 then {ctx with c=SheetContext None}
     else if starts_with line "Text" then
       let lab : label option =
@@ -664,38 +464,10 @@ module MakeSchPainter (P : Painter) :
       {ctx with c=TextContext lab}
     else {ctx with c=BodyContext}
 
-  let parse_descr_line line (Coord (x, y)) canevas =
+  let parse_descr_line line c canevas =
     parse_descr_body line
       ~onerror:(fun () -> canevas)
-      ~process:(fun (field, content) ->
-        if String.length content > 0 then
-          let title_text content x y s =
-            P.paint_text content Orient_H
-              (Coord (x, y))
-              (Size s) J_left NoStyle canevas
-          in
-          match field with
-          | "Sheet" ->
-              title_text ("Page: " ^ content) x (y - 200) 50
-          | "Title" ->
-              title_text ("Title: " ^ content) x (y - 50) 100
-          | "Rev" ->
-              title_text ("Rev: " ^ content) (x + 3200) (y - 50) 100
-          | "Date" ->
-              title_text ("Date: " ^ content) (x + 500) (y - 200) 50
-          | "Comp" ->
-              title_text content (x + 1000) (y - 200) 50
-          | "Comment1" ->
-              title_text content x (y - 400) 50
-          | "Comment2" ->
-              title_text content (x + 2000) (y - 400) 50
-          | "Comment3" ->
-              title_text content x (y - 300) 50
-          | "Comment4" ->
-              title_text content (x + 2000) (y - 300) 50
-          | _ ->
-              canevas
-        else canevas )
+      ~process:(fun (field, content) -> EltPainter.draw_title_field c field content canevas)
 
   let append_bm_line data_opt line =
     match data_opt with
@@ -722,20 +494,10 @@ module MakeSchPainter (P : Painter) :
       {b with data= Some (Buffer.create 1000)}
     else ( append_bm_line b.data line ; b )
 
-  let write_revision  (Coord(x, y)) ctx =
-    match ctx.rev with
-    | First s ->
-    P.paint_text s Orient_H
-              (Coord (x, y + 50))
-              (Size 50) J_left NoStyle ctx.canevas
-    | Second s ->
-    P.paint_text s Orient_H
-              (Coord (x + 2200, y + 50))
-              (Size 50) J_left NoStyle ctx.canevas
-    | No_Rev -> ctx.canevas
+  let write_revision c ctx =
+    EltPainter.write_revision c ctx.rev ctx.canevas
 
-
-  let parse_line line (ctx:schContext) =
+  let parse_line line ctx =
     match ctx.c with
     | DescrContext page_size as c ->
       if String.compare line "$EndDescr" = 0 then
@@ -753,32 +515,14 @@ module MakeSchPainter (P : Painter) :
       parse_wire_line line
             ~onerror:(fun () -> {ctx with c=BodyContext})
             ~process:(fun (start, stop) ->
-                let paint_param =
+                let canevas =
                   match l with
-                  | Bus -> Right true
-                  | BusEntry ->
-                    Left ((`Blue, Size 5), true)
-                  | Wire -> Right false
-                  | WireEntry ->
-                    Left ((`Brown, Size 2), true)
-                  | Line ->
-                    Left ((`Black, Size 2), false)
-                in
-                begin
-                  match paint_param with
-                  | Left ((kolor, width), isEntry) ->
-                    if isEntry then
-                      {ctx with
-                       c=BodyContext;canevas=P.paint_line ~kolor ~width start stop ctx.canevas
-                       ; wires={ctx.wires with cons=start::stop::ctx.wires.cons}}
-                    else
-                      {ctx with c=BodyContext;canevas=P.paint_line ~kolor ~width start stop ctx.canevas}
-                  | Right isBus ->
-                    if isBus then
-                      {ctx with c=BodyContext; wires={ctx.wires with buses={start; stop}::ctx.wires.buses}}
-                    else
-                      {ctx with c=BodyContext; wires={ctx.wires with wires={start; stop}::ctx.wires.wires}}
-                end)
+                  | Bus -> EltPainter.draw_bus [start; stop] false ctx.canevas
+                  | BusEntry -> EltPainter.draw_bus [start; stop] true ctx.canevas
+                  | Wire -> EltPainter.draw_wire [start; stop] false ctx.canevas
+                  | WireEntry -> EltPainter.draw_wire [start; stop] true ctx.canevas
+                  | Line -> EltPainter.draw_line [start; stop] ctx.canevas
+                in {ctx with c=BodyContext;canevas})
     | SheetContext sc ->
         if String.compare line "$EndSheet" = 0 then {ctx with c=BodyContext}
         else
@@ -789,109 +533,15 @@ module MakeSchPainter (P : Painter) :
       | None ->
           failwith "TextContext without definition!"
       | Some v ->
-          {ctx with c=BodyContext; canevas= print_text_line line v ctx.canevas} )
+          {ctx with c=BodyContext; canevas=EltPainter.draw_text_line line v ctx.canevas} )
     | BitmapContext b ->
         if String.compare line "$EndBitmap" = 0 then
-          {ctx with c=BodyContext; canevas=plot_bitmap b ctx.canevas}
+          {ctx with c=BodyContext; canevas=EltPainter.draw_bitmap b ctx.canevas}
         else
           let nb = parse_bitmap_line line b in
           {ctx with c=BitmapContext nb}
-  module type OrderedCoord =
-  sig
-    val compare: coord -> coord -> int
-  end
 
-  module SegmentCutter(O:OrderedCoord):(sig val cut_wires: wireDesc list -> coord list -> kolor:kolor -> width:size -> P.t -> P.t end) =
-  struct
-    module SegmentSet = Set.Make(struct
-        type t = wireDesc
-        let compare {start=start1; _}  {start=start2; _} = O.compare start1 start2
-      end)
-
-    let point_in_segment c {start; stop} =
-      (O.compare start c <= 0) && (O.compare stop c >= 0)
-
-    let con_in_a_segment c set =
-      match SegmentSet.find_first_opt (fun {stop; _} -> (O.compare stop c > 0)) set with
-      | None -> None
-      | Some ({start; _} as seg) ->
-        if O.compare start c < 0 then
-          Some seg
-        else
-          None
-    ;;
-
-    let point_in_a_segment c set =
-      match SegmentSet.find_first_opt (fun {stop; _} -> (O.compare stop c >= 0)) set with
-      | None -> None
-      | Some ({start; _} as seg) ->
-        if O.compare start c <= 0 then
-          Some seg
-        else
-          None
-    ;;
-
-    let cut_wire set con =
-      match con_in_a_segment con set with
-      | None -> set
-      | Some ({start; stop} as seg) ->
-          set |> SegmentSet.remove seg |> SegmentSet.add {start; stop=con} |> SegmentSet.add {start=con;stop}
-    ;;
-
-    let merge_segment ~set seg =
-      SegmentSet.filter (fun {start=stt; _} -> not( point_in_segment stt seg)) set
-      |>SegmentSet.add seg
-    ;;
-
-    let insert_segment set {start; stop} =
-      let start, stop = if O.compare start stop <= 0 then
-          start, stop
-        else
-          stop, start in
-      match (point_in_a_segment start set), (point_in_a_segment stop set) with
-      | None, None ->
-        merge_segment ~set {start; stop}
-      | Some ({start=stt; _}), None ->
-        merge_segment ~set {start=stt; stop}
-      | None, Some {stop=stp; _} ->
-        merge_segment ~set {start; stop=stp}
-      | Some {start=stt; _}, Some {stop=stp; _} ->
-        merge_segment ~set {start=stt; stop=stp}
-    ;;
-
-    let cut_wires seg_list junctions ~kolor ~width canevas =
-      let seg_set = List.fold_left insert_segment SegmentSet.empty seg_list in
-      let split_set = List.fold_left cut_wire seg_set junctions in
-      SegmentSet.fold (fun {start; stop} canevas -> P.paint_line ~kolor ~width start stop canevas) split_set canevas
-    ;;
-  end
-
-  module VerticalSet = SegmentCutter(
-    struct
-      let compare (Coord (xs0, ys0)) (Coord (xs1, ys1)) =
-      match Stdlib.compare xs0 xs1 with
-        | 0 -> Stdlib.compare ys0 ys1
-        | c -> c
-    end)
-
-  module HorizontalSet = SegmentCutter(
-    struct
-      let compare (Coord (xs0, ys0)) (Coord (xs1, ys1)) =
-      match Stdlib.compare ys0 ys1 with
-        | 0 -> Stdlib.compare xs0 xs1
-        | c -> c
-    end)
-
-  let cut_all_wires junctions wires ~kolor ~width canevas =
-    let vertical, horizontal = List.partition (fun {start=Coord (x1, _); stop=Coord (x2, _)} -> x1 == x2) wires in
-    VerticalSet.cut_wires vertical junctions ~kolor ~width canevas |>
-    HorizontalSet.cut_wires horizontal junctions ~kolor ~width
-
-  let cut_wires_and_buses {wires;buses;cons} canevas =
-    cut_all_wires cons wires ~kolor:`Brown ~width:(Size 2) canevas |>
-    cut_all_wires cons buses ~kolor:`Blue  ~width:(Size 5)
-
-  let output_context ({canevas; wires;_ }:schContext) = cut_wires_and_buses wires canevas
+  let output_context ({canevas;_ }:schContext) = EltPainter.get_context canevas
 
   let is_suffix ~suffix s =
     let suff_length = String.length suffix in

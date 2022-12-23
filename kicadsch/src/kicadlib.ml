@@ -8,8 +8,6 @@ struct
 
   type drawContext = P.t
 
-
-
   let ( +$ ) (Coord (x1, y1)) (RelCoord (x2, y2)) = Coord (x1 + x2, y1 + y2)
 
   let ( *$ ) ((a, b), (c, d)) (RelCoord (x, y)) =

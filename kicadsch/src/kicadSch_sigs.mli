@@ -27,6 +27,38 @@ type revision =
   | Second of string
   | No_Rev
 
+type portrange = Glabel | Hlabel
+
+type porttype =
+  | UnSpcPort
+  | ThreeStatePort
+  | OutputPort
+  | InputPort
+  | NoPort
+  | BiDiPort
+
+type labeluse = WireLabel | TextNote
+
+type labeltype = PortLabel of portrange * porttype | TextLabel of labeluse
+
+type label = {c: coord; size: size; orient: justify; labeltype: labeltype}
+
+type field =
+  { nb: int
+  ; text: string
+  ; o: orientation
+  ; co: coord
+  ; s: size
+  ; j: justify
+  ; stl: style }
+
+type single_reference = {piece: string option; unitnr: int option}
+
+type multi_reference = {m_piece: string; m_unitnr: int}
+
+type bitmapContext =
+  {pos: coord option; scale: float option; data: Buffer.t option}
+
 module type Painter = sig
   (** A module able to paint a canvas with several graphic primitives
       and then to process the canvas into a picture file format.  The
