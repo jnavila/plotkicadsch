@@ -6,6 +6,7 @@ module Decode = Sexp_decode.Make(Base.Sexp)
 open Decode
 open! StdLabels
 
+
 (* let mm_size x = int_of_float (x *. 1000.) *)
 let wx_size x = int_of_float (x *. (1000. /. 25.4))
 
@@ -33,10 +34,10 @@ let kolor_expr = field "color" kolor_args
 
 
 let gen_uuid_expr s =
-  field s (string ~escaped:false) >>| (fun s -> match Uuidm.of_string s with Some u -> return u | None -> failwith "Not a uuid")
+  field s (string ~escaped:false) >>= (fun s -> match Uuidm.of_string s with Some u -> return u | None -> failwith "Not a uuid")
 
 let uuid_expr = gen_uuid_expr "uuid"
-let page_UUID_expr = gen_uuid_expr "page"
+let page_UUID_expr = gen_uuid_expr "uuid"
 let page_expr = field "page" (string ~escaped:false)
 ;;
 
@@ -90,15 +91,12 @@ let yesno_expr s =
 
 ;;
 
-let pin_at_coord_expr =
-  let+ at_coords = field "at" @@ tuple3 float float (maybe int) in
-  let x, y, _ = at_coords in
-  Coord (wx_size x, wx_size y)
-
-let pin_at_coord2_expr =
-  let+ at_coords = field "at" @@ tuple3 float float (maybe int) in
+let pin_at_coord_args =
+  let+ at_coords = tuple3 float float (maybe int) in
   let x, y, angle = at_coords in
-  Coord (wx_size x, wx_size y), angle
+  Coord (wx_size x, wx_size y), Option.value ~default:0 angle
+
+let pin_at_coord_expr = field "at" pin_at_coord_args
 
 ;;
 
@@ -147,19 +145,19 @@ let vertical_justify_atom =
       | _ ->
         error
 
-
 type justification =
   {
-    horiz: justify
-  ; vert: justify
+    horiz: justify option
+  ; vert: justify option
   }
 
 let justify_args =
-  let+ justif = tuple2 horizontal_justify_atom vertical_justify_atom in
+  let+ justif = tuple2 (maybe horizontal_justify_atom) (maybe vertical_justify_atom) in
   let horiz, vert = justif in
   {horiz; vert}
 
 let justify_expr = field "justify" justify_args
+
 ;;
 
 type font_def =
@@ -264,6 +262,7 @@ type property =
   ; value: string
   ; id: int
   ; at : coord
+  ; rot: int
   ; effects: effects option
   }
 
@@ -275,13 +274,43 @@ let property_build _name _ text _id at effects =
       let c = make_rel at in
       Text {text; c; s=Size 1})
 
+let justify_of_justification j =
+  let justify = Option.value j ~default:{horiz=None; vert=None} in
+  Option.value ~default:J_left justify.horiz
+
+let justify_of_effect e = justify_of_justification e.justify
+
+let field_build {name; value; id; at; rot; effects} =
+  let _ = name in
+  let nb = id in
+  let text = value in
+  let co = at in
+  let o =
+    match rot with
+    | 0 | 180 -> Orient_H
+    | 90 | 270 -> Orient_V
+    | _ -> raise Not_found in
+  let s, j, stl = match effects with
+    | None -> Size default_width, J_left, NoStyle
+    | Some ef ->
+      let j = justify_of_effect ef in
+      let Coord (_, y)= ef.font.size in
+      let s = Size y in
+      let style = match ef.font.italic, ef.font.bold with
+        | true, false -> Italic
+        | false, true -> Bold
+        | true, true -> BoldItalic
+        | false, false -> NoStyle
+      in s, j, style in
+  {nb; text; co; o; s; j; stl}
+
 let property_args =
   let* name = string ~escaped:true in
   let* value = string ~escaped:true in
   let* id = field "id" int in
-  let* at = pin_at_coord_expr in
+  let* at, rot = pin_at_coord_expr in
   let+ effects = maybe effects_expr in
-  {name; value; id; at; effects}
+  {name; value; id; at; rot; effects}
 
 let property_expr = field "property" property_args
 
@@ -289,7 +318,7 @@ let property_expr = field "property" property_args
 
 let text_args =
   let* text = string ~escaped:true in
-  let* coords = pin_at_coord_expr in
+  let* coords, _rot = pin_at_coord_expr in
   let+ effects = effects_expr in
   let Coord (size, _) = effects.font.size in
   Text {c=make_rel coords; text; s=Size size }
@@ -302,8 +331,7 @@ let polyline_args =
   let* pts = pts_expr in
   let* stroke = maybe stroke_expr in
   let+ _fill = maybe fill_expr in
-  let points = make_rel_pts pts in
-  Polygon((optional_stroke_to_width stroke), points)
+  (optional_stroke_to_width stroke), pts
 
 let polyline_expr =
    field "polyline" polyline_args
@@ -372,16 +400,16 @@ let pin_shape_atom =
 let pin_args =
   let* _ = pin_type_atom in
   let* _ = pin_shape_atom in
-  let* c, a = pin_at_coord2_expr in
+  let* c, a = pin_at_coord_expr in
   let* s = field "length" float in
   let* (name_str, name_effect) = pin_tag_expr "name" in
   let+ (number_str, number_effect) = pin_tag_expr "number" in
   let contact = make_rel c in
   let orient = match a with
-    | Some 0 -> P_R
-    | Some 90 -> P_U
-    | Some 180 -> P_L
-    | Some 270 -> P_D
+    | 0 -> P_R
+    | 90 -> P_U
+    | 180 -> P_L
+    | 270 -> P_D
     | _ -> P_R (* Error *)
   in
   let length = Size (wx_size s) in
@@ -475,7 +503,7 @@ let circle_expr =
 
 let primitive =
         variant
-          [ ("polyline", polyline_args)
+          [ ("polyline", polyline_args >>| (fun (s,l) -> Polygon (s, make_rel_pts l)))
           ; ("circle", circle_args)
           ; ("arc", arc_args)
           ; ("bezier", bezier_args)
@@ -570,19 +598,76 @@ let bus_expr = field "bus" bus_wire_args
 let wire_expr = field "wire" bus_wire_args
 
 ;;
-(*
-let shape_args = variant
-    [ ("input", InputPort)
-    ; ("output", OutputPort)
-    ; ("bidirectional", BiDiPort)
-    ; ("tri_state", ThreeStatePort)
-    ; ("passive", ThreeStatePort)
-    ]
+;;
 
-let global_hierarchical_label_args =
+let label_args =
   let* text = string ~escaped:true in
-  let* shape = field "shape" shape_args
-  let* coords = pin_at_coord_expr in
+  let* coords, rot = pin_at_coord_expr in
   let+ effects = effects_expr in
   let Coord (size, _) = effects.font.size in
-*)
+  (coords, rot, text, Size size, justify_of_justification effects.justify)
+
+;;
+
+let shape_args = variant
+    [ ("input", return InputPort)
+    ; ("output", return OutputPort)
+    ; ("bidirectional", return BiDiPort)
+    ; ("tri_state", return ThreeStatePort)
+    ; ("passive", return ThreeStatePort)
+    ]
+
+;;
+
+let hierarchical_label_args =
+  let* text = string ~escaped:true in
+  let* shape = field "shape" shape_args in
+  let* coords, rot = pin_at_coord_expr in
+  let+ effects = effects_expr in
+  let Coord (size, _) = effects.font.size in
+  (coords, rot, text, Size size, shape, justify_of_justification effects.justify)
+
+;;
+
+let sch_pin_args =
+  let* name = string ~escaped:true in
+  let+ _id = uuid_expr in
+  name
+
+let sch_pin_expr = field "pin" sch_pin_args
+;;
+
+let path_instance_args =
+  let* _project_name = string ~escaped:true in
+  let* _reference = string_expr "reference" in
+  let* _unit_v = int_expr "unit" in
+  let* _value = string_expr "value" in
+  let+ _footprint = string_expr "footprint" in
+  ()
+
+let path_instance_expr = field "project" path_instance_args
+
+let instances_args = repeat1_full_list path_instance_expr >>| (fun _ -> () )
+
+let instances_expr = field "instances" instances_args
+
+type lib_sym = {lib_id: string; pos: coord; rot: int; unit_nr: int; properties: property list}
+
+let sch_symbol_args =
+  let* lib_id =  string_expr "lib_id" in
+  let+ lib_sym = fields
+      ~default: {lib_id; pos= Coord(0,0); rot=0; unit_nr=1; properties=[]}
+      [ ("at", pin_at_coord_args >>| (fun (pos, rot) args -> {args with pos; rot}))
+      ; ("unit", int  >>| (fun unit_nr args -> {args with unit_nr}))
+      ; ("in_bom", atom >>| (fun _ args -> args))
+      ; ("on_board", atom >>| (fun _ args -> args))
+      ; ("uuid", atom >>|  (fun _ args -> args))
+      ; ("property", property_args >>| (fun prop args -> {args with properties=prop::args.properties}))
+      ; ("pin", sch_pin_args >>| (fun _ args -> args))
+      ; ("instances", instances_args >>| (fun _ args -> args))
+      ]
+  in lib_sym
+
+let sch_symbol_expr = field "symbol" sch_symbol_args
+
+;;

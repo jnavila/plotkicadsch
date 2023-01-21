@@ -2,7 +2,7 @@ open OUnit
 open! StdLabels
 open Kicadsch.Sigs
 open Kicadsch.Defs
-    open Kicadsch.Sexp
+open Kicadsch.Sexp
 open Kicadsch.Lib_sigs
 module Decode = Sexp_decode.Make(Base.Sexp)
 (* module Csexp_i = Csexp.Make(Sexp) *)
@@ -30,6 +30,17 @@ let yesno_tests = test_list test_yesno
     ; ({|(foo no)|}, false)
     ]
 ;;
+let make_uuid u =   match Uuidm.of_string u with
+  | Some uuid2 -> uuid2
+  | None -> raise (Invalid_argument ("internal error " ^ u))
+
+
+let check_uuid u1 u2 = assert_bool "uuid do not match" (Uuidm.compare u1 u2 = 0)
+let test_uuid = create_test uuid_expr check_uuid
+
+let uuid_tests = test_list test_uuid
+    [ ({|(uuid 072ad1ed-9172-426c-8e5d-41f1dcd4b625)|}, make_uuid "072ad1ed-9172-426c-8e5d-41f1dcd4b625")
+    ]
 let check_kolor =  (fun k1 k2 ->
        assert_equal k1.alpha k2.alpha
      ; assert_equal k1.red k2.red
@@ -490,9 +501,51 @@ let no_connect_tests = test_list test_no_connect
     ; ("(no_connect (at 49.53 151.13) (uuid e8352a79-c40d-4cf1-97a7-2bb649ced79a))", Coord (1950, 5950))
     ]
 
+;;
+
+let test_sch_pin = create_test sch_pin_expr (fun _ _ -> ())
+
+let sch_pin_tests = test_list test_sch_pin
+    [ ({|(pin "1" (uuid 7829cc5e-c0ba-483b-8ef1-279a374fd70e))|}, () )
+    ]
+
+;;
+
+let test_sch_symbol = create_test sch_symbol_expr (fun _ _ -> ())
+
+let sch_symbol_tests = test_list test_sch_symbol
+    [ ({|(symbol (lib_id "Switch:SW_Rotary12") (at 123.19 101.6 180) (unit 1)
+    (in_bom yes) (on_board yes) (fields_autoplaced)
+    (uuid d1df6972-c898-47bb-9c11-b133529d84e6)
+    (property "Reference" "SW?" (id 0) (at 126.0475 81.28 0))
+    (property "Value" "SW_Rotary12" (id 1) (at 126.0475 83.82 0))
+    (property "Footprint" "" (id 2) (at 128.27 119.38 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Datasheet" "http://cdn-reichelt.de/documents/datenblatt/C200/DS-Serie%23LOR.pdf" (id 3) (at 128.27 119.38 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (pin "1" (uuid 7829cc5e-c0ba-483b-8ef1-279a374fd70e))
+    (pin "10" (uuid ce111db8-722a-4485-a3c1-65a8695aff2c))
+    (pin "11" (uuid 9d1189e7-dcd1-4d13-ac76-84afc907eac9))
+    (pin "12" (uuid cb6c106f-8938-4a81-9e6f-86ef570eb0f8))
+    (pin "13" (uuid 7449147b-2736-425b-8918-55edf88f3417))
+    (pin "2" (uuid b74cd7b3-8d88-45b4-8f43-57735f14c07f))
+    (pin "3" (uuid 39673e95-bfc6-4eec-bc62-e81ddb94e65a))
+    (pin "4" (uuid 7dca9bf3-904d-4a2e-8829-04a976367986))
+    (pin "5" (uuid e8e8eb28-ed91-4674-b2dc-fbbb637f75f7))
+    (pin "6" (uuid 9688b964-3dc7-4fc1-9167-8c2ef1ae7bac))
+    (pin "7" (uuid 9712e705-cada-4c71-8e1b-e8b5d0669b50))
+    (pin "8" (uuid 39105380-e6cd-4a90-9748-cb3de7e4ffa2))
+    (pin "9" (uuid b408cfea-98f0-460b-8b24-4722609632a0))
+  )|}, ())
+    ]
+;;
+
 let suite = "OUnit for " >:::
             List.concat
               [ yesno_tests
+              ; uuid_tests
               ; at_tests
               ; fill_tests
               ; justif_tests
@@ -511,6 +564,8 @@ let suite = "OUnit for " >:::
               ; component_tests
               ; junction_tests
               ; no_connect_tests
+              ; sch_pin_tests
+              ; sch_symbol_tests
             ]
 
 let _ =

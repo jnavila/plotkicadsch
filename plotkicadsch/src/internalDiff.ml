@@ -5,7 +5,7 @@ open Kicadsch.Sigs
 
 include DiffTool
 
-module L = Kicadsch.MakeSchPainter(ListPainter.L)
+module L = Kicadsch.V5.MakeSchPainter(ListPainter.L)
 
 module LP = struct
   include L

@@ -79,48 +79,40 @@ module type Painter = sig
     -> t
   (** [paint ?kolor text orient coord size justification style canvas]
       adds a [text] with the given [orient], [size], [justification]
-      and [style] at the given [coord] to [canvas].
-      @return the modified canvas *)
+      and [style] at the given [coord] to [canvas]. *)
 
   val paint_line : ?kolor:kolor -> ?width:size -> coord -> coord -> t -> t
   (** [paint_line ?kolor width start end canvas] paints a line with
       the given [kolor] and [width] between [start] and [stop] on
-      [canvas].
-      @return the modified canvas *)
+      [canvas]. *)
 
   val paint_circle : ?kolor:kolor -> ?fill:kolor -> coord -> int -> t -> t
   (** [paint_circle ?kolor center radius canvas] paints a circle
       filled with the given [kolor] defined by [center] and [radius] on
-      [canvas].
-      @return the modified canvas *)
+      [canvas]. *)
 
   val paint_rect : ?kolor:kolor -> ?fill:kolor -> coord -> coord -> t -> t
   (** [paint_rect ?kolor corner1 corner2 canvas] paints a rectangle
       filled with the given [kolor] defined by [corner1] and [corner2]
-      on [canvas].
-      @return the modified canvas *)
+      on [canvas]. *)
 
   val paint_image : coord -> float -> Buffer.t -> t -> t
   (** [paint_image corner scale png canvas] paints a [png] image
-      filled at [corner], scaled at [scale] on [canvas].
-      @return the
-      modified canvas *)
+      filled at [corner], scaled at [scale] on [canvas]. *)
+
 
   val paint_arc :
     ?kolor:kolor -> ?fill:kolor -> coord -> coord -> coord -> int -> t -> t
   (** [paint_arc ?kolor center start end radius canvas] paints an arc filled
       with [kolor] between [start] and [end] of [radius] around center on
-      [canvas].
-      @return the modified canvas *)
+      [canvas]. *)
 
   val set_canevas_size : int -> int -> t -> t
-  (** [set_canevas x y canvas] set the size of the canevas
+  (** [set_canevas x y canvas] set the size of the canevas *)
 
-      @return the modified canvas *)
 
   val get_context : unit -> t
-  (** [get_context ()]
-      @return a new painting canvas *)
+  (** [get_context ()] is a new painting canvas *)
 end
 
 module type SchPainter = sig
@@ -134,7 +126,7 @@ module type SchPainter = sig
 
   val initial_context : ?allow_missing_component:bool -> revision -> schContext
   (** [initial_context allow_missing_component revision]
-      @return an new empty context *)
+      is an new empty context *)
 
   val add_lib : string -> schContext -> schContext
   (** [add_lib content context] parse the [content] provided to
@@ -166,11 +158,15 @@ module type CompPainter = sig
   val plot_comp :
     t -> string -> int -> coord -> transfo -> bool -> drawContext -> drawContext * bool
     (** [plot_comp lib name partnumber origin transformation
-       allow_missing context] find in [lib] the component with given
+       allow_missing context] finds in [lib] the component with given
        [name] and plot the part [partnumber] at [origin] after
        [transformation] into the graphical [context] and the fact that
        the component is multipart. If the component is not found, raise
-       an exception, unless [allow_missing] is true.
+       an exception, unless [allow_missing] is true. *)
+end
 
-       @return the updated graphical context *)
+module type KicadSchHandler = sig
+
+  module MakeSchPainter: functor (P: Painter) -> SchPainter with type  painterContext := P.t
+
 end

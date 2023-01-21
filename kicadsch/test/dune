@@ -1,5 +1,5 @@
 (tests
- (names test test_new_kicad_parser test_sexp_kicad_parser)
+ (names test test_sexp_kicad_parser)
  (libraries
   kicadsch
   oUnit

@@ -4,9 +4,11 @@ open KicadDefs
 module type EltPainter =
 sig
   type t
-  (** A drawing context *)
+  (** The context fo the EltPainter *)
+
 
   type drawContext
+  (** The sub-context type of the drawer *)
 
   val create: drawContext -> t
 
@@ -67,7 +69,7 @@ struct
     ; canevas: P.t
     }
 
-  type drawContext = P.t
+  (* type drawContext = P.t *)
 
   let create canevas = {wires={wires=[]; cons=[]; buses=[]}; canevas}
 
@@ -428,7 +430,7 @@ struct
     cut_all_wires cons wires ~kolor:`Brown ~width:(Size 2) canevas |>
     cut_all_wires cons buses ~kolor:`Blue  ~width:(Size 5)
 
-  let get_context ctx : drawContext = cut_wires_and_buses ctx.wires ctx.canevas
+  let get_context ctx : P.t = cut_wires_and_buses ctx.wires ctx.canevas
 
 
   let draw_page_frame (Coord (x, y)) ctx =
