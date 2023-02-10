@@ -335,7 +335,8 @@ let text_expr = field "text" text_args
 let polyline_args =
   let* pts = pts_expr in
   let* stroke = maybe stroke_expr in
-  let+ _fill = maybe fill_expr in
+  let* _fill = maybe fill_expr in
+  let+ _uuid = maybe uuid_expr in
   (optional_stroke_to_width stroke), pts
 
 let polyline_expr =

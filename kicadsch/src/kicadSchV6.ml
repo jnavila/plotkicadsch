@@ -27,6 +27,13 @@ module MakeSchPainter (P : Painter) :
     {lib=lib();canevas=EltPainter.create (P.get_context ()); rev; allow_missing_component}
 
 
+  let orient_of_rot = function
+    | 0 -> J_left
+    | 90 -> J_top
+    | 180 -> J_right
+    | 270 -> J_bottom
+    | s -> failwith ("unknown angle " ^ string_of_int s)
+
   let parse_schematics initctx content_tree =
     let sch_expr =
       field "kicad_sch"
@@ -44,23 +51,23 @@ module MakeSchPainter (P : Painter) :
            ; ("wire", bus_wire_args >>| (fun l args -> {args with canevas=EltPainter.draw_wire l false args.canevas}))
            ; ("bus", bus_wire_args >>| (fun l args -> {args with canevas=EltPainter.draw_bus l false args.canevas}))
            ; ("text", text_gen_args >>| (fun (c, text, size, rot) args ->
-               let orient = match rot with | 0 -> J_left
-                                           | 90 -> J_bottom
-                                           | 180 -> J_right
-                                           | 270 -> J_top
-                                           | s -> failwith ("unknown angle " ^ string_of_int s) in
-               let l={c; size; orient;labeltype=TextLabel TextNote} in {args with canevas=EltPainter.draw_text_line text l args.canevas}))
+               let orient = orient_of_rot rot in
+               let l={c; size; orient;labeltype=TextLabel TextNote} in
+               {args with canevas=EltPainter.draw_text_line text l args.canevas}))
            ; ("bus_entry", bus_entry_args >>|
               (fun ((Coord (xs, ys) as c), (xe, ye)) args ->
                  let end_point = Coord (xs+xe, ys+ye) in
                  {args with canevas=EltPainter.draw_wire [c; end_point] true args.canevas}))
-           ; ("label", label_args >>| (fun (c, _rot, text, size, orient) args ->
+           ; ("label", label_args >>| (fun (c, rot, text, size, _orient) args ->
+               let orient = orient_of_rot rot in
                let label = {c; size; orient;labeltype=TextLabel WireLabel} in
                {args with canevas=EltPainter.draw_label text label args.canevas}))
-           ; ("hierarchical_label", hierarchical_label_args >>| (fun (c, _rot, text, size, shape, orient) args ->
+           ; ("hierarchical_label", hierarchical_label_args >>| (fun (c, rot, text, size, shape, _orient) args ->
+               let orient = orient_of_rot rot in
                let label = {c; size; orient; labeltype=PortLabel (Hlabel, shape)} in
                {args with canevas=EltPainter.draw_label text label args.canevas}))
-           ; ("global_label", hierarchical_label_args >>| (fun (c, _rot, text, size, shape, orient) args ->
+           ; ("global_label", hierarchical_label_args >>| (fun (c, rot, text, size, shape, _orient) args ->
+               let orient = orient_of_rot rot in
                let label = {c; size; orient; labeltype=PortLabel (Glabel, shape)} in
                {args with canevas=EltPainter.draw_label text label args.canevas}))
            ; ("polyline", polyline_args >>| (fun (_s, l) args -> {args with canevas=EltPainter.draw_line l args.canevas}))

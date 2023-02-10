@@ -327,7 +327,7 @@ struct
             (Coord (x, y - (line_index * s)))
             l.size l.orient NoStyle c'
         in
-        let lines = split_lines line in
+        let lines = List.rev (String.split_on_char '\n' line) in
         let canevas = List.fold_left paint_line c.canevas (List.mapi (fun i l -> (i, l)) lines) in
         {c with canevas}
     | PortLabel (prange, ptype) ->
