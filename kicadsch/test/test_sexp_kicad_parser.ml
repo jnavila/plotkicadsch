@@ -34,7 +34,6 @@ let make_uuid u =   match Uuidm.of_string u with
   | Some uuid2 -> uuid2
   | None -> raise (Invalid_argument ("internal error " ^ u))
 
-
 let check_uuid u1 u2 = assert_bool "uuid do not match" (Uuidm.compare u1 u2 = 0)
 let test_uuid = create_test uuid_expr check_uuid
 
@@ -489,13 +488,60 @@ let component_tests = test_list test_component
           (number "3" (effects (font (size 1.27 1.27))))
         )
       )
+    )|}
+      , { names=["Connector:Conn_01x03_Male"]
+        ; draw_pnum=true
+        ; draw_pname=false
+        ; multi=false
+        ; graph=List.init ~len:9 ~f:(fun _ -> {parts=1; prim=Field})})
+    ; ({|
+    (symbol "power:GND" (power) (pin_names (offset 0)) (in_bom yes) (on_board yes)
+      (property "Reference" "#PWR" (id 0) (at 0 -6.35 0)
+        (effects (font (size 1.27 1.27)) hide)
+      )
+      (property "Value" "GND" (id 1) (at 0 -3.81 0)
+        (effects (font (size 1.27 1.27)))
+      )
+      (property "Footprint" "" (id 2) (at 0 0 0)
+        (effects (font (size 1.27 1.27)) hide)
+      )
+      (property "Datasheet" "" (id 3) (at 0 0 0)
+        (effects (font (size 1.27 1.27)) hide)
+      )
+      (property "ki_keywords" "global power" (id 4) (at 0 0 0)
+        (effects (font (size 1.27 1.27)) hide)
+      )
+      (property "ki_description" "Power symbol creates a global label with name \"GND\" , ground" (id 5) (at 0 0 0)
+        (effects (font (size 1.27 1.27)) hide)
+      )
+      (symbol "GND_0_1"
+        (polyline
+          (pts
+            (xy 0 0)
+            (xy 0 -1.27)
+            (xy 1.27 -1.27)
+            (xy 0 -2.54)
+            (xy -1.27 -1.27)
+            (xy 0 -1.27)
+          )
+          (stroke (width 0) (type default) (color 0 0 0 0))
+          (fill (type none))
+        )
+      )
+      (symbol "GND_1_1"
+        (pin power_in line (at 0 0 270) (length 0) hide
+          (name "GND" (effects (font (size 1.27 1.27))))
+          (number "1" (effects (font (size 1.27 1.27))))
+        )
+      )
     )
-|}, { names=["Connector:Conn_01x03_Male"]
-    ; draw_pnum=true
-    ; draw_pname=false
-    ; multi=false
-    ; graph=List.init ~len:9 ~f:(fun _ -> {parts=1; prim=Field})})
-        ]
+ |}
+      , { names=["power:GND"]
+        ; draw_pnum=true
+        ; draw_pname=false
+        ; multi=false
+        ; graph=List.init ~len:2 ~f:(fun _ -> {parts=1; prim=Field})})
+    ]
 
 ;;
 
