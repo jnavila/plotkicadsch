@@ -150,6 +150,9 @@ let property_tests = List.map ~f:(fun (expr, p) -> (expr >:: (fun _ -> test_prop
         (effects (font (size 1.27 1.27)) hide)
       )",
          {name="Footprint"; value=""; id=2; at=(Coord(0, 0)); rot=0; effects=Some {font={font=None; size=Coord(50, 50); italic=false; bold=false; kolor=None}; justify=None; hide=true}})
+        ; ({|    (property "Références Inter-Feuilles" "${INTERSHEET_REFS}" (id 0) (at 71.6583 87.5506 0)
+      (effects (font (size 1.27 1.27)) (justify left) hide)
+    )|},          {name="Références Inter-Feuilles"; value="${INTERSHEET_REFS}"; id=0; at=(Coord(716583, 875506)); rot=0; effects=Some {font={font=None; size=Coord(50, 50); italic=false; bold=false; kolor=None}; justify=None; hide=true}})
 
         ]
 
@@ -570,6 +573,22 @@ let wire_tests = test_list test_wire
   )|}, ())
   ]
 
+;;
+
+let check_global_label (Coord(x1, y1), r1, text1, (Size s1), shape1, j1) (Coord (x2, y2), r2, text2, (Size s2), shape2, j2) = assert_equal x1 x2 ~printer:string_of_int; assert_equal y1 y2 ~printer:string_of_int; assert_equal r1 r2 ~printer:string_of_int; assert_equal text1 text2 ~printer:(fun c->c); assert_equal s1 s2 ~printer:string_of_int
+
+let test_global_test = create_test global_label_expr check_global_label
+
+let global_label_tests = test_list test_global_test
+    [ ({|  (global_label "test 1" (shape input) (at 63.5 87.63 0) (fields_autoplaced)
+    (effects (font (size 1.27 1.27)) (justify left))
+    (uuid 2cee9329-354d-4eab-887d-c615701cca76)
+    (property "Références Inter-Feuilles" "${INTERSHEET_REFS}" (id 0) (at 71.6583 87.5506 0)
+      (effects (font (size 1.27 1.27)) (justify left) hide)
+    )
+  )|}, (Coord(6350, 8763), 0, "test 1", (Size 127), InputPort, J_left))
+        ]
+
 
 let suite = "OUnit for " >:::
             List.concat
@@ -597,6 +616,7 @@ let suite = "OUnit for " >:::
               ; sch_pin_tests
               ; sch_symbol_tests
               ; wire_tests
+              ; global_label_tests
             ]
 
 let _ =
