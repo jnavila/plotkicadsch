@@ -56,14 +56,24 @@ let color_tests = test_list test_kolor
     ]
 ;;
 
-let check_at = (fun (Coord(x1, y1)) (Coord(x2, y2)) -> assert_equal x1 x2; assert_equal y1 y2)
+let check_at = (fun (Coord(x1, y1), a1) (Coord(x2, y2), a2) -> assert_equal x1 x2; assert_equal y1 y2; assert_equal a1 a2)
 
 let test_at = create_test pin_at_coord_expr check_at
 
 let at_tests = test_list test_at
-    [ ("(at 254 0 3)", Coord (10_000, 0))
-    ; ("(at 0 127)", Coord (0, 5000))
+    [ ("(at 254 0 3)", (Coord (25400, 0), 3))
+    ; ("(at 0 127)", (Coord (0, 12700), 0))
     ]
+;;
+
+let check_paper = (fun (Coord(x1, y1)) (Coord(x2, y2)) -> assert_equal ~printer:string_of_int x1 x2; assert_equal ~printer:string_of_int y1 y2)
+
+let test_paper = create_test paper_expr check_paper
+
+let paper_tests = test_list test_paper
+    [ ({|  (paper "A4") |}, Coord (29700, 21000))
+    ]
+
 ;;
 
 let check_fill f1 f2 =
@@ -86,12 +96,12 @@ let test_justif = create_test justify_expr check_justif
 
 let justif_tests = test_list test_justif
     [
-      ("(justify left bottom)", {horiz=J_left; vert=J_bottom})
-    ; ("(justify right center)", {horiz=J_right; vert=J_center})
-    ; ("(justify center top)", {horiz=J_center; vert=J_top})
-    ; ("(justify  center top)", {horiz=J_center; vert=J_top})
-    ; ("(justify center 	 top)", {horiz=J_center; vert=J_top})
-    ; ("(justify left bottom )", {horiz=J_left; vert=J_bottom})
+      ("(justify left bottom)", {horiz=Some J_left; vert=Some J_bottom})
+    ; ("(justify right center)", {horiz=Some J_right; vert=Some J_center})
+    ; ("(justify center top)", {horiz=Some J_center; vert=Some J_top})
+    ; ("(justify  center top)", {horiz=Some J_center; vert=Some J_top})
+    ; ("(justify center 	 top)", {horiz=Some J_center; vert=Some J_top})
+    ; ("(justify left bottom )", {horiz=Some J_left; vert=Some J_bottom})
     ]
 ;;
 
@@ -114,14 +124,14 @@ let test_font = create_test font_expr check_font
 let font_tests =
   test_list test_font
     [
-      ("(font (size 1.7526 1.7526))", {font=None; size=Coord(69, 69); italic=false; bold=false; kolor=None})
-    ; ("(font (size 1.7526 1.7526) italic)", {font=None; size=Coord(69, 69); italic=true; bold=false; kolor=None})
-    ; ("(font (size 1.7526 1.7526) bold)", {font=None; size=Coord(69, 69); italic=false; bold=true; kolor=None})
-    ; ("(font (size 1.7526 1.7526) italic bold)", {font=None; size=Coord(69, 69); italic=true; bold=true; kolor=None})
-    ; ("(font (size 1.7526 1.7526) italic bold (color 0 0 0 0))", {font=None; size=Coord(69, 69); italic=true; bold=true; kolor=Some{red=0; green=0; blue=0; alpha=0}})
-    ; ("(font (size 1.7526 1.7526)    (color 0 0 0 0))", {font=None; size=Coord(69, 69); italic=false; bold=false; kolor=Some{red=0; green=0; blue=0; alpha=0}})
+      ("(font (size 1.7526 1.7526))", {font=None; size=Coord(175, 175); italic=false; bold=false; kolor=None})
+    ; ("(font (size 1.7526 1.7526) italic)", {font=None; size=Coord(175, 175); italic=true; bold=false; kolor=None})
+    ; ("(font (size 1.7526 1.7526) bold)", {font=None; size=Coord(175, 175); italic=false; bold=true; kolor=None})
+    ; ("(font (size 1.7526 1.7526) italic bold)", {font=None; size=Coord(175, 175); italic=true; bold=true; kolor=None})
+    ; ("(font (size 1.7526 1.7526) italic bold (color 0 0 0 0))", {font=None; size=Coord(175, 175); italic=true; bold=true; kolor=Some{red=0; green=0; blue=0; alpha=0}})
+    ; ("(font (size 1.7526 1.7526)    (color 0 0 0 0))", {font=None; size=Coord(175, 175); italic=false; bold=false; kolor=Some{red=0; green=0; blue=0; alpha=0}})
     ]
-;;
+
 ;;
 
 let check_property (p1: property) (p2: property)  =
@@ -134,12 +144,12 @@ let test_property = create_test property_expr check_property
 let property_tests = List.map ~f:(fun (expr, p) -> (expr >:: (fun _ -> test_property expr p)))
     [
       ("(property \"Reference\" \"U\" (id 0) (at -4.6228 10.0584 0)
-        (effects (font (size 1.7526 1.7526)) (justify left bottom)))", {name="Reference"; value="U"; id=0; at=(Coord(-182, 396)); effects=Some {font={font=None; size=Coord(69, 69); italic=false; bold=false; kolor=None}; justify=Some {horiz=J_left; vert=J_bottom}; hide=false}})
-    ; ("(property \"Reference\" \"U\" (id 0) (at -4.6228 10.0584 0))", {name="Reference"; value="U"; id=0; at=(Coord(-182, 396)); effects=Some {font={font=None; size=Coord(69, 69); italic=false; bold=false; kolor=None}; justify=Some {horiz=J_left; vert=J_bottom}; hide=false}})
+        (effects (font (size 1.7526 1.7526)) (justify left bottom)))", {name="Reference"; value="U"; id=0; at=(Coord(-182, 396)); rot =0; effects=Some {font={font=None; size=Coord(69, 69); italic=false; bold=false; kolor=None}; justify=Some {horiz=Some J_left; vert=Some J_bottom}; hide=false}})
+    ; ("(property \"Reference\" \"U\" (id 0) (at -4.6228 10.0584 0))", {name="Reference"; value="U"; id=0; at=(Coord(-182, 396)); rot =0; effects=Some {font={font=None; size=Coord(69, 69); italic=false; bold=false; kolor=None}; justify=Some {horiz=Some J_left; vert=Some J_bottom}; hide=false}})
       ; ("(property \"Footprint\" \"\" (id 2) (at 0 0 0)
         (effects (font (size 1.27 1.27)) hide)
       )",
-         {name="Footprint"; value=""; id=2; at=(Coord(0, 0)); effects=Some {font={font=None; size=Coord(50, 50); italic=false; bold=false; kolor=None}; justify=None; hide=true}})
+         {name="Footprint"; value=""; id=2; at=(Coord(0, 0)); rot=0; effects=Some {font={font=None; size=Coord(50, 50); italic=false; bold=false; kolor=None}; justify=None; hide=true}})
 
         ]
 
@@ -165,7 +175,7 @@ let rectangle_tests = test_list test_rectangle
     [
       ("(rectangle (start 178.7652 0) (end 179.3748 20.32)
           (stroke (width 0)) (fill (type outline))
-        )", Polygon (0, [ RelCoord(7038, 0); RelCoord(7038, 800); RelCoord(7062, 800); RelCoord(7062, 0); RelCoord(7038, 0)]))
+        )", Polygon (0, [ RelCoord(17876, 0); RelCoord(17876, 2032); RelCoord(17937, 2032); RelCoord(17937, 0); RelCoord(17876, 0)]))
     ]
 
 ;;
@@ -187,31 +197,31 @@ let pin_tests = test_list test_pin
       ({|(pin output line (at 17.78 2.54 180) (length 5.08)
           (name "S1" (effects (font (size 1.27 1.27))))
           (number "1" (effects (font (size 1.27 1.27))))
-        )|}, Pin {name=("S1", Size 50); number=("1", Size 50); length=Size 200; contact=RelCoord(700, 100); orient=P_L});
+        )|}, Pin {name=("S1", Size 127); number=("1", Size 127); length=Size 508; contact=RelCoord(1778, 254); orient=P_L});
       ({|(pin input line (at -17.78 -5.08 0) (length 5.08)
           (name "G1" (effects (font (size 1.27 1.27))))
           (number "2" (effects (font (size 1.27 1.27))))
         )
-|}, Pin {name=("G1", Size 50); number=("2", Size 50); length=Size 200; contact=RelCoord(-700, -200); orient=P_R});
+|}, Pin {name=("G1", Size 127); number=("2", Size 127); length=Size 508; contact=RelCoord(-1778, -508); orient=P_R});
       ({|(pin bidirectional line (at 20.32 10.16 90) (length 5.08)
           (name "VCC" (effects (font (size 1.27 1.27))))
           (number "8" (effects (font (size 1.27 1.27))))
         )
-|}, Pin {name=("VCC", Size 50); number=("8", Size 50); length=Size 200; contact=RelCoord(800, 400); orient=P_U});
+|}, Pin {name=("VCC", Size 127); number=("8", Size 127); length=Size 508; contact=RelCoord(2032, 1016); orient=P_U});
       ({|(pin passive line (at 5.08 2.54 180) (length 3.81)
           (name "Pin_1" (effects (font (size 1.27 1.27))))
           (number "1" (effects (font (size 1.27 1.27))))
         )
-|}, Pin {name=("Pin_1", Size 50); number=("1", Size 50); length=Size 150; contact=RelCoord(200, 100); orient=P_L});
+|}, Pin {name=("Pin_1", Size 127); number=("1", Size 127); length=Size 381; contact=RelCoord(508, 254); orient=P_L});
        ({|(pin passive line (at 5.08 0 180) (length 3.81)
           (name "Pin_2" (effects (font (size 1.27 1.27))))
           (number "2" (effects (font (size 1.27 1.27))))
         )
-|}, Pin {name=("Pin_2", Size 50); number=("2", Size 50); length=Size 150; contact=RelCoord(200, 0); orient=P_L});
+|}, Pin {name=("Pin_2", Size 127); number=("2", Size 127); length=Size 381; contact=RelCoord(508, 0); orient=P_L});
      ({|(pin passive line (at 5.08 -2.54 180) (length 3.81)
           (name "Pin_3" (effects (font (size 1.27 1.27))))
           (number "3" (effects (font (size 1.27 1.27))))
-        ) |}, Pin {name=("Pin_3", Size 50); number=("3", Size 50); length=Size 150; contact=RelCoord(200, -100); orient=P_L})
+        ) |}, Pin {name=("Pin_3", Size 127); number=("3", Size 127); length=Size 381; contact=RelCoord(508, -254); orient=P_L})
     ]
 
 ;;
@@ -238,7 +248,7 @@ let test_radius = create_test radius_expr check_radius
 
 let radius_tests = test_list test_radius
     [({|(radius (at -6.985 -3.81) (length 1.905) (angles -180.0 0.0)) |},
-      (RelCoord(-275, -150), 75, (-180.0, 0.0)))
+      (RelCoord(-698, -381), 190, (-180.0, 0.0)))
     ]
 ;;
 
@@ -258,11 +268,11 @@ let arc_tests = test_list test_arc
     [ ({|(arc (start -8.89 -3.81) (end -5.08 -3.81) (radius (at -6.985 -3.81) (length 1.905) (angles -179.9 -0.1))
           (stroke (width 0.508)) (fill (type none))
         ) |},
-       Arc {s=Size 20; radius=75; sp=RelCoord(-350, -150); ep=RelCoord(-200, -150); center=RelCoord(-275, -150)})
+       Arc {s=Size 50; radius=190; sp=RelCoord(-889, -381); ep=RelCoord(-508, -381); center=RelCoord(-698, -381)})
      ; ({|(arc (start -1.016 1.016) (end -1.016 -1.016) (radius (at -1.016 0) (length 1.016) (angles 90.1 -90.1))
           (stroke (width 0)) (fill (type outline))
         )|},
-        Arc {s=Size 0; radius=40; sp=RelCoord(-40, 40); ep=RelCoord(-40, -40); center=RelCoord(-40, 0)})
+        Arc {s=Size 0; radius=101; sp=RelCoord(-101, 101); ep=RelCoord(-101, -101); center=RelCoord(-101, 0)})
     ]
 ;;
 
@@ -278,11 +288,11 @@ let bezier_tests = test_list test_bezier
     [ ({|(gr_curve
           (pts
             (xy 1.27 2.54)
-            (xy 0.8636 2.54)
+            (xy 0.86 2.54)
           )
           (stroke (width 0.1524)) (fill (type none))
         )
-|}, Bezier(6, [RelCoord(50, 100); RelCoord(34, 100)]))
+|}, Bezier(15, [RelCoord(127, 254); RelCoord(86, 254)]))
     ]
 ;;
 
@@ -299,10 +309,10 @@ let test_circle = create_test circle_expr check_circles
 let circle_tests = test_list test_circle
     [ ({|(circle (center 0 1.27) (radius 1.27) (stroke (width 1.27)) (fill (type none)))
         |},
-       Circle (50, {center=RelCoord(0, 50); radius=50}))
+       Circle (127, {center=RelCoord(0, 127); radius=127}))
     ; ({|(circle (center 0 1.27) (radius 1.27))
         |},
-       Circle (10, {center=RelCoord(0, 50); radius=50}))
+       Circle (10, {center=RelCoord(0, 127); radius=127}))
     ]
 ;;
 
@@ -320,7 +330,7 @@ let text_tests = test_list test_text
     [ ({|(text "mnt" (at 1.27 6.35 0)
           (effects (font (size 1.27 1.27)))
         ) |},
-       Text {c=RelCoord(50, 250); text="mnt"; s=Size 50})
+       Text {c=RelCoord(127, 635); text="mnt"; s=Size 127})
     ]
 
 ;;
@@ -486,19 +496,19 @@ let component_tests = test_list test_component
 
 ;;
 
-let test_junction = create_test junction_expr check_at
+let test_junction = create_test junction_expr check_paper
 
 let junction_tests = test_list test_junction
-    [ ("(junction (at 254 0) (diameter 0.9144) (color 0 0 0 0))", Coord (10_000, 0))
-    ; ("(junction (at 49.53 151.13) (diameter 0) (color 0 0 0 0))", Coord (1950, 5950))
+    [ ("(junction (at 254 0) (diameter 0.9144) (color 0 0 0 0))", Coord (25400, 0))
+    ; ("(junction (at 49.53 151.13) (diameter 0) (color 0 0 0 0))", Coord (4953, 15113))
     ]
 
 ;;
-let test_no_connect = create_test no_connect_expr check_at
+let test_no_connect = create_test no_connect_expr check_paper
 
 let no_connect_tests = test_list test_no_connect
-    [ ("(no_connect (at 254 0) (uuid e8352a79-c40d-4cf1-97a7-2bb649ced79a))", Coord (10_000, 0))
-    ; ("(no_connect (at 49.53 151.13) (uuid e8352a79-c40d-4cf1-97a7-2bb649ced79a))", Coord (1950, 5950))
+    [ ("(no_connect (at 254 0) (uuid e8352a79-c40d-4cf1-97a7-2bb649ced79a))", Coord (25400, 0))
+    ; ("(no_connect (at 49.53 151.13) (uuid e8352a79-c40d-4cf1-97a7-2bb649ced79a))", Coord (4953, 15113))
     ]
 
 ;;
@@ -542,10 +552,30 @@ let sch_symbol_tests = test_list test_sch_symbol
     ]
 ;;
 
+let test_pts = create_test pts_expr (fun l1 l2 -> List.iter2 ~f:(fun (Coord(x1, y1)) (Coord(x2, y2)) -> assert_equal x1 x2; assert_equal y1 y2) l1 l2)
+
+let pts_tests = test_list test_pts
+    [ ("(pts (xy 29.21 68.58) (xy 59.69 68.58))", [Coord(2921, 6858); Coord(5969, 6858)])
+    ]
+
+;;
+
+let test_wire = create_test wire_expr (fun _ _ -> ())
+
+let wire_tests = test_list test_wire
+
+  [ ({|(wire (pts (xy 29.21 68.58) (xy 59.69 68.58))
+    (stroke (width 0) (type default) (color 0 0 0 0))
+    (uuid 78aef266-32d4-439c-9762-afe709cb660f)
+  )|}, ())
+  ]
+
+
 let suite = "OUnit for " >:::
             List.concat
               [ yesno_tests
               ; uuid_tests
+              ; paper_tests
               ; at_tests
               ; fill_tests
               ; justif_tests
@@ -566,6 +596,7 @@ let suite = "OUnit for " >:::
               ; no_connect_tests
               ; sch_pin_tests
               ; sch_symbol_tests
+              ; wire_tests
             ]
 
 let _ =

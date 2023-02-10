@@ -7,14 +7,10 @@ open Decode
 open! StdLabels
 
 
-(* let mm_size x = int_of_float (x *. 1000.) *)
-let wx_size x = int_of_float (x *. (1000. /. 25.4))
+let mm_size x = int_of_float (x *. 100.)
+let wx_size x = int_of_float (x *. 100.)
 
 let coords = float <*> float >>| (fun (x, y) -> Coord (wx_size x, wx_size y))
-
-
-let mm_size x = int_of_float (x *. 1000.)
-let wx_size x = int_of_float (x *. (1000. /. 25.4))
 
 
 let dist_expr s =
@@ -33,38 +29,41 @@ let kolor_args =
 let kolor_expr = field "color" kolor_args
 
 
+let uuid_args = (string ~escaped:false) >>= (fun s -> match Uuidm.of_string s with Some u -> return u | None -> failwith "Not a uuid")
 let gen_uuid_expr s =
-  field s (string ~escaped:false) >>= (fun s -> match Uuidm.of_string s with Some u -> return u | None -> failwith "Not a uuid")
+  field s uuid_args
 
 let uuid_expr = gen_uuid_expr "uuid"
 let page_UUID_expr = gen_uuid_expr "uuid"
 let page_expr = field "page" (string ~escaped:false)
 ;;
 
-let paper_size = variant
-    [ ("A5" , return (Coord ((mm_size 210.), (mm_size 148.))))
-    ; ("A4" , return (Coord ((mm_size 297.), (mm_size 210.))))
-    ; ("A5" , return (Coord((mm_size  210.  ), (mm_size 148.  ))))
-    ; ("A4" , return (Coord((mm_size  297.  ), (mm_size 210.  ))))
-    ; ("A3" , return (Coord((mm_size  420.  ), (mm_size 297.  ))))
-    ; ("A2" , return (Coord((mm_size  594.  ), (mm_size 420.  ))))
-    ; ("A1" , return (Coord((mm_size  841.  ), (mm_size 594.  ))))
-    ; ("A0" , return (Coord((mm_size  1189. ), (mm_size 841.  ))))
-    ; ("A"  , return (Coord((wx_size  11000.), (wx_size  8500.))))
-    ; ("B"  , return (Coord((wx_size  17000.), (wx_size 11000.))))
-    ; ("C"  , return (Coord((wx_size  22000.), (wx_size 17000.))))
-    ; ("D"  , return (Coord((wx_size  34000.), (wx_size 22000.))))
-    ; ("E"  , return (Coord((wx_size  44000.), (wx_size 34000.))))
-    ; ("GERBER",  coords)
-    ; ("User",  coords)
-    ; ("USLetter", return (Coord((wx_size  11000.), (wx_size 8500.))))
-    ; ("USLegal" , return (Coord((wx_size  14000.), (wx_size 8500.))))
-    ; ("USLedger", return (Coord((wx_size  17000.), (wx_size 11000.))))
-    ] <*> option (tag "portrait") >>|(fun (Coord(x, y) as c, p) -> match p with Some _ -> c | None ->  (Coord(y, x)))
+let paper_size_args =
+  let* s = string ~escaped:true in
+  let+ p = maybe (tag "portrait") in
+  let Coord(x, y) as c = match s with
+    | "A5" -> (Coord ((mm_size 210.), (mm_size 148.)))
+    | "A4" -> (Coord ((mm_size 297.), (mm_size 210.)))
+    | "A3" -> (Coord((mm_size  420.  ), (mm_size 297.  )))
+    | "A2" -> (Coord((mm_size  594.  ), (mm_size 420.  )))
+    | "A1" -> (Coord((mm_size  841.  ), (mm_size 594.  )))
+    | "A0" -> (Coord((mm_size  1189. ), (mm_size 841.  )))
+    | "A"  -> (Coord((wx_size  11000.), (wx_size  8500.)))
+    | "B"  -> (Coord((wx_size  17000.), (wx_size 11000.)))
+    | "C"  -> (Coord((wx_size  22000.), (wx_size 17000.)))
+    | "D"  -> (Coord((wx_size  34000.), (wx_size 22000.)))
+    | "E"  -> (Coord((wx_size  44000.), (wx_size 34000.)))
+(*  | "GERBER" ->  coords
+    | "User" ->  coords *)
+    | "USLetter" -> (Coord((wx_size  11000.), (wx_size 8500.)))
+    | "USLegal"  -> (Coord((wx_size  14000.), (wx_size 8500.)))
+    | "USLedger" -> (Coord((wx_size  17000.), (wx_size 11000.)))
+    | s -> failwith ("unknown paper size " ^ s) in
+  match p with Some _ -> (Coord(y, x)) | None -> c
 
 ;;
 let paper_expr =
-  field "paper" paper_size
+  field "paper" paper_size_args
 ;;
 let xy_expr =
   field "xy" coords
@@ -212,16 +211,18 @@ let effects_expr = field "effects" effects_args
 
 let style_args =
   atom >>= fun s -> match s with
-   | "solid"
-   | "dash"
-   | "dot"
-   | "dash-dot" -> return s
-   | _ -> error
+  | "default"
+  | "solid"
+  | "dash"
+  | "dot"
+  | "dash_dot"
+  | "dash_dot_dot"  -> return s
+  | _ -> error
 
 
 
 let line_style_expr =
-  field "style" style_args
+  field "type" style_args
 
 let optional_line_style_expr = maybe @@ field "solid" line_style_expr
 
@@ -237,8 +238,8 @@ type stroke =
   }
 
 let stroke_args =
-  let* style = maybe line_style_expr in
   let* width = maybe width_expr in
+  let* style = maybe line_style_expr in
   let+ kolor = maybe kolor_expr in
    {kolor; style; width}
 
@@ -316,12 +317,16 @@ let property_expr = field "property" property_args
 
 ;;
 
-let text_args =
+let text_gen_args =
   let* text = string ~escaped:true in
-  let* coords, _rot = pin_at_coord_expr in
-  let+ effects = effects_expr in
+  let* coords, rot = pin_at_coord_expr in
+  let* effects = effects_expr in
+  let+ _uuid = maybe uuid_expr in
   let Coord (size, _) = effects.font.size in
-  Text {c=make_rel coords; text; s=Size size }
+  coords, text, Size size, rot
+
+let text_args = text_gen_args >>| (fun (coords, text, size, _rot) ->
+  Text {c=make_rel coords; text; s=size })
 
 let text_expr = field "text" text_args
 
@@ -520,7 +525,7 @@ let unit_args =
   match List.rev (String.split_on_char ~sep:'_' name) with
   | _style::part_str::_ -> let parts=int_of_string part_str in
     List.map ~f:(fun prim -> {parts; prim}) graphics
-  | _ -> failwith "malformed unit"
+  | _ -> failwith ("malformed unit: " ^ name)
 
 let unit_expr = field "symbol" unit_args
 
@@ -579,7 +584,7 @@ let no_connect_expr = field "no_connect" no_connect_args
 
 let bus_entry_args =
   let* position = at_expr in
-  let* size = field "size" (tuple2 float float) in
+  let* size = field "size" (tuple2 float float) >>| (fun (s1, s2) -> mm_size s1, mm_size s2) in
   let* _stroke = stroke_expr in
   let+ _uuid = maybe uuid_expr in
   position, size
@@ -603,19 +608,22 @@ let wire_expr = field "wire" bus_wire_args
 let label_args =
   let* text = string ~escaped:true in
   let* coords, rot = pin_at_coord_expr in
-  let+ effects = effects_expr in
+  let* _autoplaced = maybe (field "fields_autoplaced" no_more) in
+  let* effects = effects_expr in
+  let+ _uuid = maybe uuid_expr in
   let Coord (size, _) = effects.font.size in
   (coords, rot, text, Size size, justify_of_justification effects.justify)
 
 ;;
 
-let shape_args = variant
-    [ ("input", return InputPort)
-    ; ("output", return OutputPort)
-    ; ("bidirectional", return BiDiPort)
-    ; ("tri_state", return ThreeStatePort)
-    ; ("passive", return ThreeStatePort)
-    ]
+let shape_args = string ~escaped:false >>| (function
+    | "input" -> InputPort
+    | "output" -> OutputPort
+    | "bidirectional" -> BiDiPort
+    | "tri_state" -> ThreeStatePort
+    | "passive" -> ThreeStatePort
+    | s -> failwith ("unknown shape " ^ s)
+  )
 
 ;;
 
@@ -623,9 +631,14 @@ let hierarchical_label_args =
   let* text = string ~escaped:true in
   let* shape = field "shape" shape_args in
   let* coords, rot = pin_at_coord_expr in
-  let+ effects = effects_expr in
+  let* _autoplace = maybe (field "fieds_autoplaced" no_more) in
+  let* effects = effects_expr in
+  let* _uuid = maybe uuid_expr in
+  let+ _prop = maybe property_expr in
   let Coord (size, _) = effects.font.size in
   (coords, rot, text, Size size, shape, justify_of_justification effects.justify)
+
+let global_label_expr = field "global_label" hierarchical_label_args
 
 ;;
 
@@ -661,6 +674,7 @@ let sch_symbol_args =
       ; ("unit", int  >>| (fun unit_nr args -> {args with unit_nr}))
       ; ("in_bom", atom >>| (fun _ args -> args))
       ; ("on_board", atom >>| (fun _ args -> args))
+      ; ("fields_autoplaced", no_more >>| (fun _ args -> args))
       ; ("uuid", atom >>|  (fun _ args -> args))
       ; ("property", property_args >>| (fun prop args -> {args with properties=prop::args.properties}))
       ; ("pin", sch_pin_args >>| (fun _ args -> args))

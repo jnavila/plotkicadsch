@@ -1,7 +1,7 @@
 open OUnit
 open StdLabels
 
-module MUT = Kicadsch.MakeSchPainter(StubPainter)
+module MUT = Kicadsch.V5.MakeSchPainter(StubPainter)
 let initial_sheet = {|EESchema Schematic File Version 4
 EELAYER 26 0
 EELAYER END

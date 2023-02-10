@@ -33,19 +33,27 @@ module MakeSchPainter (P : Painter) :
         (fields
            ~default:initctx
            [
-             ("version", float >>| fun _ args -> args)
+             ("version", int >>| fun _ args -> args)
            ; ("generator", string ~escaped:false  >>| fun _ args -> args)
-           ; ("paper", paper_size >>| fun s args -> {args with canevas=EltPainter.draw_page_frame s args.canevas})
+           ; ("paper", paper_size_args >>| fun s args -> {args with canevas=EltPainter.draw_page_frame s args.canevas})
+           ; ("uuid", uuid_args >>| fun _ args -> args)
            ; ("title_block", float >>| fun _s args -> args) (* TODO *)
            ; ("lib_symbols", lib_symbols_args >>| (fun s args -> {args with lib=List.fold_left ~init:args.lib ~f:(fun alib comp -> KicadLib_sigs.add_component comp alib) s}))
            ; ("junction", junction_args >>| (fun c args -> {args with canevas=EltPainter.draw_junction c args.canevas}))
            ; ("no_connect", no_connect_args >>| (fun c args -> {args with canevas=EltPainter.draw_no_connect c args.canevas}))
            ; ("wire", bus_wire_args >>| (fun l args -> {args with canevas=EltPainter.draw_wire l false args.canevas}))
            ; ("bus", bus_wire_args >>| (fun l args -> {args with canevas=EltPainter.draw_bus l false args.canevas}))
+           ; ("text", text_gen_args >>| (fun (c, text, size, rot) args ->
+               let orient = match rot with | 0 -> J_left
+                                           | 90 -> J_bottom
+                                           | 180 -> J_right
+                                           | 270 -> J_top
+                                           | s -> failwith ("unknown angle " ^ string_of_int s) in
+               let l={c; size; orient;labeltype=TextLabel TextNote} in {args with canevas=EltPainter.draw_text_line text l args.canevas}))
            ; ("bus_entry", bus_entry_args >>|
               (fun ((Coord (xs, ys) as c), (xe, ye)) args ->
-                 let end_point = Coord (xs+int_of_float xe, ys+int_of_float ye) in
-                 {args with canevas=EltPainter.draw_bus [c; end_point] true args.canevas}))
+                 let end_point = Coord (xs+xe, ys+ye) in
+                 {args with canevas=EltPainter.draw_wire [c; end_point] true args.canevas}))
            ; ("label", label_args >>| (fun (c, _rot, text, size, orient) args ->
                let label = {c; size; orient;labeltype=TextLabel WireLabel} in
                {args with canevas=EltPainter.draw_label text label args.canevas}))
@@ -72,7 +80,7 @@ module MakeSchPainter (P : Painter) :
     in
     match Decode.run sch_expr content_tree with
     | Some res -> res
-    | None -> initctx
+    | None -> (print_endline "decode failed!";initctx)
 
   let add_lib _content ctxt = ctxt
 
