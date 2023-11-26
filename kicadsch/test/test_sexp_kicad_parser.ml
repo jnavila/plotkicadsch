@@ -151,7 +151,16 @@ let property_tests = List.map ~f:(fun (expr, p) -> (expr >:: (fun _ -> test_prop
          {name="Footprint"; value=""; id=2; at=(Coord(0, 0)); rot=0; effects=Some {font={font=None; size=Coord(50, 50); italic=false; bold=false; kolor=None}; justify=None; hide=true}})
         ; ({|    (property "Références Inter-Feuilles" "${INTERSHEET_REFS}" (id 0) (at 71.6583 87.5506 0)
       (effects (font (size 1.27 1.27)) (justify left) hide)
-    )|},          {name="Références Inter-Feuilles"; value="${INTERSHEET_REFS}"; id=0; at=(Coord(716583, 875506)); rot=0; effects=Some {font={font=None; size=Coord(50, 50); italic=false; bold=false; kolor=None}; justify=None; hide=true}})
+    )|},
+           {name="Références Inter-Feuilles"; value="${INTERSHEET_REFS}"; id=0; at=(Coord(716583, 875506)); rot=0; effects=Some {font={font=None; size=Coord(50, 50); italic=false; bold=false; kolor=None}; justify=None; hide=true}})
+        ; ({|       (property "ki_description" "Power symbol creates a global label with name \"GNDPWR\" , global ground" (id 5) (at 0 0 0)) |},
+           {name="ki_description"; value={|Power symbol creates a global label with name "GNDPWR" , global ground|}; id=5; at=(Coord(0, 0)); rot=0; effects=None})
+        ; ({|      (property "Reference" "#PWR" (at 0 -6.35 0) (effects (font (size 1.27 1.27)) hide)) |},
+           {name="Reference"; value="#PWR"; id=0; at=(Coord(0, -635)); rot=0; effects=Some {font={font=None; size=Coord(50, 50); italic=false; bold=false; kolor=None}; justify=None; hide=true}})
+        ; ({|    (property "Références Inter-Feuilles" "${INTERSHEET_REFS}" (at 124.5394 76.3269 90)
+      (effects (font (size 1.27 1.27)) (justify left) hide)
+    ) |},
+           {name="Références Inter-Feuilles"; value="${INTERSHEET_REFS}"; id=0; at=(Coord(1245394, 763269)); rot=90; effects=Some {font={font=None; size=Coord(50, 50); italic=false; bold=false; kolor=None}; justify=Some {horiz=Some J_left; vert=Some J_bottom}; hide=true}})
 
         ]
 
@@ -184,12 +193,12 @@ let rectangle_tests = test_list test_rectangle
 
 let check_pins p1 p2 =   match (p1, p2) with
   | ((Pin {name; number; length; contact=RelCoord (x1, y1); orient}), (Pin {name=name1; number=number1; length=length1; contact=RelCoord(x2, y2); orient=orient1})) ->(
-      assert_equal name name1;
-      assert_equal number number1;
-      assert_equal length length1;
-      assert_equal x1 x2;
-      assert_equal y1 y2;
-      assert_equal orient orient1)
+      assert_equal name name1 ~printer:(fun (s, _) -> s);
+      assert_equal number number1 ~printer:(fun (s, _) -> s);
+      assert_equal length length1 ~printer:(fun (Size s) -> string_of_int s);
+      assert_equal x1 x2 ~printer:string_of_int;
+      assert_equal y1 y2 ~printer:string_of_int;
+      assert_equal orient orient1 ~printer:show_pin_orientation)
   | _, _ -> assert_failure "pins should be Pins"
 
 let test_pin = create_test pin_expr check_pins
@@ -215,7 +224,7 @@ let pin_tests = test_list test_pin
           (number "1" (effects (font (size 1.27 1.27))))
         )
 |}, Pin {name=("Pin_1", Size 127); number=("1", Size 127); length=Size 381; contact=RelCoord(508, 254); orient=P_L});
-       ({|(pin passive line (at 5.08 0 180) (length 3.81)
+       ({|(pin power_in line (at 5.08 0 180) (length 3.81)
           (name "Pin_2" (effects (font (size 1.27 1.27))))
           (number "2" (effects (font (size 1.27 1.27))))
         )
@@ -223,7 +232,13 @@ let pin_tests = test_list test_pin
      ({|(pin passive line (at 5.08 -2.54 180) (length 3.81)
           (name "Pin_3" (effects (font (size 1.27 1.27))))
           (number "3" (effects (font (size 1.27 1.27))))
-        ) |}, Pin {name=("Pin_3", Size 127); number=("3", Size 127); length=Size 381; contact=RelCoord(508, -254); orient=P_L})
+        ) |}
+        , Pin {name=("Pin_3", Size 127); number=("3", Size 127); length=Size 381; contact=RelCoord(508, -254); orient=P_L})
+      ; ({|(pin power_in line (at 0 0 270) (length 0) hide
+          (name "GND" (effects (font (size 1.27 1.27))))
+          (number "1" (effects (font (size 1.27 1.27))))) |}
+        , Pin {name=("GND", Size 127); number=("1", Size 127); length=Size 0; contact=RelCoord(0, 0); orient=P_D})
+
     ]
 
 ;;
@@ -511,7 +526,7 @@ let component_tests = test_list test_component
       (property "ki_keywords" "global power" (id 4) (at 0 0 0)
         (effects (font (size 1.27 1.27)) hide)
       )
-      (property "ki_description" "Power symbol creates a global label with name \"GND\" , ground" (id 5) (at 0 0 0)
+      (property "ki_description" "Power symbol creates a global label with name GND , ground" (id 5) (at 0 0 0)
         (effects (font (size 1.27 1.27)) hide)
       )
       (symbol "GND_0_1"
@@ -600,7 +615,55 @@ let sch_symbol_tests = test_list test_sch_symbol
   )|}, ())
     ]
 ;;
+let test_lib_symbols = create_test lib_symbols_expr (fun _ _ -> ())
 
+let lib_symbols_tests = test_list test_lib_symbols
+ [ ({|   (lib_symbols
+    (symbol "power:GND" (power) (pin_names (offset 0)) (in_bom yes) (on_board yes)
+      (property "Reference" "#PWR" (at 0 -6.35 0)
+        (effects (font (size 1.27 1.27)) hide)
+      )
+      (property "Value" "GND" (at 0 -3.81 0)
+        (effects (font (size 1.27 1.27)))
+      )
+      (property "Footprint" "" (at 0 0 0)
+        (effects (font (size 1.27 1.27)) hide)
+      )
+      (property "Datasheet" "" (at 0 0 0)
+        (effects (font (size 1.27 1.27)) hide)
+      )
+      (property "ki_keywords" "global power" (at 0 0 0)
+        (effects (font (size 1.27 1.27)) hide)
+      )
+      (property "ki_description" "Power symbol creates a global label with name GND , ground" (at 0 0 0)
+        (effects (font (size 1.27 1.27)) hide)
+      )
+      (symbol "GND_0_1"
+        (polyline
+          (pts
+            (xy 0 0)
+            (xy 0 -1.27)
+            (xy 1.27 -1.27)
+            (xy 0 -2.54)
+            (xy -1.27 -1.27)
+            (xy 0 -1.27)
+          )
+          (stroke (width 0) (type default))
+          (fill (type none))
+        )
+      )
+      (symbol "GND_1_1"
+        (pin power_in line (at 0 0 270) (length 0) hide
+          (name "GND" (effects (font (size 1.27 1.27))))
+          (number "1" (effects (font (size 1.27 1.27))))
+        )
+      )
+    )
+  ) |}, ())
+ ]
+
+
+;;
 let test_pts = create_test pts_expr (fun l1 l2 -> List.iter2 ~f:(fun (Coord(x1, y1)) (Coord(x2, y2)) -> assert_equal x1 x2; assert_equal y1 y2) l1 l2)
 
 let pts_tests = test_list test_pts
@@ -615,6 +678,10 @@ let wire_tests = test_list test_wire
 
   [ ({|(wire (pts (xy 29.21 68.58) (xy 59.69 68.58))
     (stroke (width 0) (type default) (color 0 0 0 0))
+    (uuid 78aef266-32d4-439c-9762-afe709cb660f)
+  )|}, ())
+  ; ({|(wire (pts (xy 29.21 68.58) (xy 59.69 68.58))
+    (stroke (width 0) (type default))
     (uuid 78aef266-32d4-439c-9762-afe709cb660f)
   )|}, ())
   ]
@@ -633,6 +700,17 @@ let global_label_tests = test_list test_global_test
       (effects (font (size 1.27 1.27)) (justify left) hide)
     )
   )|}, (Coord(6350, 8763), 0, "test 1", (Size 127), InputPort, J_left))
+    ; {|   (global_label "GO3" (shape output) (at 124.46 82.55 90) (fields_autoplaced)
+    (effects (font (size 1.27 1.27)) (justify left))
+    (uuid 10c8ec0b-9471-485f-995e-5254544feb64)
+    (property "Intersheetrefs" "${INTERSHEET_REFS}" (at 124.46 82.55 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Références Inter-Feuilles" "${INTERSHEET_REFS}" (at 124.5394 76.3269 90)
+      (effects (font (size 1.27 1.27)) (justify left) hide)
+    )
+  ) |}, (Coord(12446, 8255), 90, "GO3", (Size 127), OutputPort, J_left)
+
         ]
 
 
@@ -661,6 +739,7 @@ let suite = "OUnit for " >:::
               ; no_connect_tests
               ; sch_pin_tests
               ; sch_symbol_tests
+              ; lib_symbols_tests
               ; wire_tests
               ; global_label_tests
             ]

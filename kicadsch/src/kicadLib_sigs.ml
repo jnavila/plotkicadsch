@@ -4,7 +4,7 @@ type relcoord = RelCoord of int * int
 
 type circle = {center: relcoord; radius: int}
 
-type pin_orientation = P_L | P_R | P_U | P_D
+type pin_orientation = P_L | P_R | P_U | P_D [@@deriving show]
 
 type pin_tag = string * size
 

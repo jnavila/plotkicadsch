@@ -34,7 +34,7 @@ module MakeSchPainter (P : Painter) :
     | 270 -> J_bottom
     | s -> failwith ("unknown angle " ^ string_of_int s)
 
-  let parse_schematics initctx content_tree =
+  let parse_schematics initctx (content_tree, pos) =
     let sch_expr =
       field "kicad_sch"
         (fields
@@ -72,11 +72,19 @@ module MakeSchPainter (P : Painter) :
                {args with canevas=EltPainter.draw_label text label args.canevas}))
            ; ("polyline", polyline_args >>| (fun (_s, l) args -> {args with canevas=EltPainter.draw_line l args.canevas}))
            ; ("symbol", sch_symbol_args >>| (fun sym args ->
+               let Coord (x, y) = sym.pos in
+               Format.printf "about to print component %s at %d, %d\n" sym.lib_id x y;
                let transfo =
-                 let angle_rad = float_of_int sym.rot /. 180. *. Float.pi in
-                 let cos_val = int_of_float (cos angle_rad) in
-                 let sin_val = int_of_float (sin angle_rad) in
-                 ((cos_val, sin_val), (-sin_val, cos_val)) in
+                 match sym.rot with
+                 | 0 -> ((-1, 0), (0, -1))
+                 | 90 -> ((0, 1), (-1, 0))
+                 | 180 -> ((1, 0), (0, 1))
+                 | 270 -> ((0, -1), (1, 0))
+                 | s ->
+                   let angle_rad = float_of_int s /. 180. *. Float.pi in
+                   let cos_val = int_of_float (cos angle_rad) in
+                   let sin_val = int_of_float (sin angle_rad) in
+                   ((cos_val, sin_val), (-sin_val, cos_val)) in
                let cpaint = CPainter.plot_comp args.lib sym.lib_id sym.unit_nr sym.pos transfo args.allow_missing_component in
                let new_canevas, is_multi = EltPainter.modify_canevas cpaint args.canevas in
                let canevas = List.fold_left ~f:(fun canevas prop -> EltPainter.draw_field sym.pos transfo is_multi [] canevas (field_build prop)) ~init:new_canevas sym.properties in
@@ -85,14 +93,17 @@ module MakeSchPainter (P : Painter) :
            ]
         )
     in
-    match Decode.run sch_expr content_tree with
-    | Some res -> res
-    | None -> (print_endline "decode failed!";initctx)
+    match Decode.run_with_result sch_expr content_tree with
+    | Ok res -> res
+    | Error sub ->
+      (match Parsexp.Positions.find_sub_sexp_phys  pos content_tree ~sub:sub with
+       | Some err_range -> failwith (Format.sprintf "%d:%d: Decode failed for %s" err_range.start_pos.line  err_range.start_pos.col (Sexplib0.Sexp.to_string sub))
+       | None -> failwith "decode failed!")
 
   let add_lib _content ctxt = ctxt
 
   let parse_sheet initctx content =
-    let tree_opt = Parsexp.Single.parse_string content in
+    let tree_opt = Parsexp.Single_and_positions.parse_string content in
     match tree_opt with
     | Ok tree -> parse_schematics initctx tree
     | Error _error -> failwith ("content is not correct sexp: ") (* TODO *)

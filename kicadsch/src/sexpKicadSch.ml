@@ -39,7 +39,7 @@ let page_expr = field "page" (string ~escaped:false)
 ;;
 
 let paper_size_args =
-  let* s = string ~escaped:true in
+  let* s = string ~escaped:false in
   let+ p = maybe (tag "portrait") in
   let Coord(x, y) as c = match s with
     | "A5" -> (Coord ((mm_size 210.), (mm_size 148.)))
@@ -178,7 +178,7 @@ let opt_to_bool = function
   | None -> false
 
 let font_args =
-  let* font = maybe @@ string ~escaped:true in
+  let* font = maybe @@ string ~escaped:false in
   let* size = size_expr in
   let* italic_opt = maybe italic_atom in
   let* bold_opt = maybe bold_atom in
@@ -219,8 +219,6 @@ let style_args =
   | "dash_dot_dot"  -> return s
   | _ -> error
 
-
-
 let line_style_expr =
   field "type" style_args
 
@@ -228,7 +226,6 @@ let optional_line_style_expr = maybe @@ field "solid" line_style_expr
 
 let width_expr = float_expr "width" >>| (fun w -> let width = wx_size w in Width width)
 let optional_width_expr = maybe width_expr
-
 
 type stroke =
   {
@@ -306,11 +303,12 @@ let field_build {name; value; id; at; rot; effects} =
   {nb; text; co; o; s; j; stl}
 
 let property_args =
-  let* name = string ~escaped:true in
-  let* value = string ~escaped:true in
-  let* id = field "id" int in
+  let* name = string ~escaped:false in
+  let* value = string ~escaped:false in
+  let* id_opt = maybe (field "id" int) in
   let* at, rot = pin_at_coord_expr in
   let+ effects = maybe effects_expr in
+  let id = Option.value ~default:0 id_opt in
   {name; value; id; at; rot; effects}
 
 let property_expr = field "property" property_args
@@ -318,7 +316,7 @@ let property_expr = field "property" property_args
 ;;
 
 let text_gen_args =
-  let* text = string ~escaped:true in
+  let* text = string ~escaped:false in
   let* coords, rot = pin_at_coord_expr in
   let* effects = effects_expr in
   let+ _uuid = maybe uuid_expr in
@@ -341,8 +339,6 @@ let polyline_args =
 
 let polyline_expr =
    field "polyline" polyline_args
-;;
-
 
 ;;
 
@@ -370,7 +366,7 @@ let rectangle_expr = field
     "rectangle" rectangle_args
 ;;
 
-let pin_tag_expr s = field s (string ~escaped:true <*>effects_expr)
+let pin_tag_expr s = field s (string ~escaped:false <*>effects_expr)
 
 let pin_type_atom =
   atom >>|
@@ -408,6 +404,7 @@ let pin_args =
   let* _ = pin_shape_atom in
   let* c, a = pin_at_coord_expr in
   let* s = field "length" float in
+  let* _hide = maybe (tag "hide") in
   let* (name_str, name_effect) = pin_tag_expr "name" in
   let+ (number_str, number_effect) = pin_tag_expr "number" in
   let contact = make_rel c in
@@ -521,7 +518,7 @@ let primitive =
 let extend_expr = string_expr "extends"
 
 let unit_args =
-  let* name = string ~escaped:true in
+  let* name = string ~escaped:false in
   let+ graphics = repeat_full_list primitive in
   match List.rev (String.split_on_char ~sep:'_' name) with
   | _style::part_str::_ -> let parts=int_of_string part_str in
@@ -542,7 +539,8 @@ let in_bom_expr = yesno_expr "in_bom"
 let on_board_expr = yesno_expr "on_board"
 
 let symbol_args =
-  let* name = string ~escaped:true in
+  let* name = string ~escaped:false in
+  let* _pwr = maybe (field "power" no_more) in
   let* _extends = maybe extend_expr in
   let* hide_pin_numbers = pin_number_hide_expr in
   let* draw_pname = pin_names_expr in
@@ -607,7 +605,7 @@ let wire_expr = field "wire" bus_wire_args
 ;;
 
 let label_args =
-  let* text = string ~escaped:true in
+  let* text = string ~escaped:false in
   let* coords, rot = pin_at_coord_expr in
   let* _autoplaced = maybe (field "fields_autoplaced" no_more) in
   let* effects = effects_expr in
@@ -629,13 +627,13 @@ let shape_args = string ~escaped:false >>| (function
 ;;
 
 let hierarchical_label_args =
-  let* text = string ~escaped:true in
+  let* text = string ~escaped:false in
   let* shape = field "shape" shape_args in
   let* coords, rot = pin_at_coord_expr in
   let* _autoplace = maybe (field "fields_autoplaced" no_more) in
   let* effects = effects_expr in
   let* _uuid = maybe uuid_expr in
-  let+ _prop = maybe property_expr in
+  let+ _prop = repeat_full_list property_expr in
   let Coord (size, _) = effects.font.size in
   (coords, rot, text, Size size, shape, justify_of_justification effects.justify)
 
@@ -644,24 +642,39 @@ let global_label_expr = field "global_label" hierarchical_label_args
 ;;
 
 let sch_pin_args =
-  let* name = string ~escaped:true in
+  let* name = string ~escaped:false in
   let+ _id = uuid_expr in
   name
 
 let sch_pin_expr = field "pin" sch_pin_args
 ;;
-
+(*
 let path_instance_args =
-  let* _project_name = string ~escaped:true in
+  let* _path_name = string ~escaped:false in
   let* _reference = string_expr "reference" in
   let* _unit_v = int_expr "unit" in
   let* _value = string_expr "value" in
   let+ _footprint = string_expr "footprint" in
   ()
+*)
+let path_instance_args =
+  let* _path_name = string ~escaped:false in
+  let* _reference = string_expr "reference" in
+  let+ _unit_v = int_expr "unit" in
+  ()
 
-let path_instance_expr = field "project" path_instance_args
 
-let instances_args = repeat1_full_list path_instance_expr >>| (fun _ -> () )
+let path_instance_expr = field "path" path_instance_args
+
+
+let project_args =
+  let* _project_name = string ~escaped:false in
+  let+ _paths = (repeat1_full_list path_instance_expr) in
+  ()
+
+let project_instance_expr = field "project" project_args
+
+let instances_args = repeat1_full_list project_instance_expr >>| (fun _ -> () )
 
 let instances_expr = field "instances" instances_args
 
@@ -676,6 +689,7 @@ let sch_symbol_args =
       ; ("in_bom", atom >>| (fun _ args -> args))
       ; ("on_board", atom >>| (fun _ args -> args))
       ; ("fields_autoplaced", no_more >>| (fun _ args -> args))
+      ; ("dnp", atom >>| (fun _ args -> args))
       ; ("uuid", atom >>|  (fun _ args -> args))
       ; ("property", property_args >>| (fun prop args -> {args with properties=prop::args.properties}))
       ; ("pin", sch_pin_args >>| (fun _ args -> args))
