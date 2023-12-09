@@ -9,6 +9,7 @@
     uuidm
     sexp_decode
     parsexp
+    base64
     )
    (flags (:standard -w -3 -safe-string))
   )

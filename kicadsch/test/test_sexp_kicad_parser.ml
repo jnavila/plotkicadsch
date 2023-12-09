@@ -9,11 +9,14 @@ module Decode = Sexp_decode.Make(Base.Sexp)
 
 let create_test parser checker =
   fun parse_expr expected_value ->
-  let t = Parsexp.Single.parse_string parse_expr in
+  let t = Parsexp.Single_and_positions.parse_string parse_expr in
   match t with
-  | Ok res -> (match Decode.run parser res with
-      | Some r -> checker expected_value r
-      | None -> assert_failure "expression not correctly structured"
+  | Ok (res, pos) -> (match Decode.run_with_result parser res with
+      | Ok r -> checker expected_value r
+      | Error sub ->
+        (match Parsexp.Positions.find_sub_sexp_phys  pos res ~sub:sub with
+         | Some err_range -> assert_failure (Format.sprintf "%d:%d: Decode failed for %s" err_range.start_pos.line  err_range.start_pos.col (Sexplib0.Sexp.to_string sub))
+         | None -> assert_failure "decode failed!")
     )
   | Error e -> assert_failure ( "not valid sexp " ^ (Parsexp__Parse_error.message e))
 
@@ -50,8 +53,8 @@ let test_kolor = create_test kolor_expr check_kolor
 
 let color_tests = test_list test_kolor
     [
-      ("(color 1 2 3 4)", {red=1; green=2; blue=3; alpha=4})
-    ; ("(color 4 3 2 1)", {red=4; green=3; blue=2; alpha=1})
+      ("(color 1 2 3 4)", {red=1; green=2; blue=3; alpha=4.})
+    ; ("(color 4 3 2 1)", {red=4; green=3; blue=2; alpha=1.})
     ]
 ;;
 
@@ -82,9 +85,10 @@ let check_fill f1 f2 =
 let test_fill = create_test fill_expr check_fill
 
 let fill_tests = test_list test_fill
-    [ ("(fill (type outline))", {fill_type=Outline_fill; kolor=None})
-    ; ("(fill (type none))", {fill_type=No_fill; kolor=None})
-    ; ("(fill (type background))", {fill_type=Background_fill; kolor=None})
+    [ ("(fill (type outline))", {fill_type=Some Outline_fill; kolor=None})
+    ; ("(fill (type none))", {fill_type=Some No_fill; kolor=None})
+    ; ("(fill (type background))", {fill_type=Some Background_fill; kolor=None})
+    ; ("(fill (color 0 1 2 3.0))", {fill_type=None; kolor=Some {red=0; green=1; blue=2; alpha=3.}})
     ]
 
 ;;
@@ -127,8 +131,8 @@ let font_tests =
     ; ("(font (size 1.7526 1.7526) italic)", {font=None; size=Coord(175, 175); italic=true; bold=false; kolor=None})
     ; ("(font (size 1.7526 1.7526) bold)", {font=None; size=Coord(175, 175); italic=false; bold=true; kolor=None})
     ; ("(font (size 1.7526 1.7526) italic bold)", {font=None; size=Coord(175, 175); italic=true; bold=true; kolor=None})
-    ; ("(font (size 1.7526 1.7526) italic bold (color 0 0 0 0))", {font=None; size=Coord(175, 175); italic=true; bold=true; kolor=Some{red=0; green=0; blue=0; alpha=0}})
-    ; ("(font (size 1.7526 1.7526)    (color 0 0 0 0))", {font=None; size=Coord(175, 175); italic=false; bold=false; kolor=Some{red=0; green=0; blue=0; alpha=0}})
+    ; ("(font (size 1.7526 1.7526) italic bold (color 0 0 0 0))", {font=None; size=Coord(175, 175); italic=true; bold=true; kolor=Some{red=0; green=0; blue=0; alpha=0.}})
+    ; ("(font (size 1.7526 1.7526)    (color 0 0 0 0))", {font=None; size=Coord(175, 175); italic=false; bold=false; kolor=Some{red=0; green=0; blue=0; alpha=0.}})
     ]
 
 ;;
@@ -426,9 +430,9 @@ let check_component c1 c2 =
       ; multi = multi2
       ; graph = graph2
       } = c2 in
-  assert_equal draw_pname1 draw_pname2;
-  assert_equal draw_pnum1 draw_pnum2;
-  assert_equal multi1 multi2;
+  assert_bool "print name not equal" (Bool.equal draw_pname1 draw_pname2);
+  assert_bool "print number not equal" (Bool.equal draw_pnum1 draw_pnum2);
+  assert_bool "multi not equal" (Bool.equal multi1 multi2);
   assert_list_equal names1 names2;
   assert_equal (List.length graph1) (List.length graph2)
 
@@ -556,6 +560,83 @@ let component_tests = test_list test_component
         ; draw_pname=false
         ; multi=false
         ; graph=List.init ~len:2 ~f:(fun _ -> {parts=1; prim=Field})})
+    ; ( {|
+(symbol "Analog_ADC:ADS1015IDGS" (in_bom yes) (on_board yes)
+      (property "Reference" "U" (id 0) (at 2.54 13.97 0)
+        (effects (font (size 1.27 1.27)))
+      )
+      (property "Value" "ADS1015IDGS" (id 1) (at 7.62 11.43 0)
+        (effects (font (size 1.27 1.27)))
+      )
+      (property "Footprint" "Package_SO:TSSOP-10_3x3mm_P0.5mm" (id 2) (at 0 -12.7 0)
+        (effects (font (size 1.27 1.27)) hide)
+      )
+      (property "Datasheet" "http://www.ti.com/lit/ds/symlink/ads1015.pdf" (id 3) (at -1.27 -22.86 0)
+        (effects (font (size 1.27 1.27)) hide)
+      )
+      (property "ki_keywords" "12 bit 4 channel I2C ADC" (id 4) (at 0 0 0)
+        (effects (font (size 1.27 1.27)) hide)
+      )
+      (property "ki_description" "Ultra-Small, Low-Power, I2C-Compatible, 3.3-kSPS, 12-Bit ADCs With Internal Reference, Oscillator, and Programmable Comparator, VSSOP-10" (id 5) (at 0 0 0)
+        (effects (font (size 1.27 1.27)) hide)
+      )
+      (property "ki_fp_filters" "TSSOP*3x3mm*P0.5mm*" (id 6) (at 0 0 0)
+        (effects (font (size 1.27 1.27)) hide)
+      )
+      (symbol "ADS1015IDGS_0_1"
+        (rectangle (start -7.62 10.16) (end 7.62 -7.62)
+          (stroke (width 0.254) (type default) (color 0 0 0 0))
+          (fill (type background))
+        )
+      )
+      (symbol "ADS1015IDGS_1_1"
+        (pin input line (at 10.16 -5.08 180) (length 2.54)
+          (name "ADDR" (effects (font (size 1.27 1.27))))
+          (number "1" (effects (font (size 1.27 1.27))))
+        )
+        (pin input line (at 10.16 0 180) (length 2.54)
+          (name "SCL" (effects (font (size 1.27 1.27))))
+          (number "10" (effects (font (size 1.27 1.27))))
+        )
+        (pin output line (at 10.16 5.08 180) (length 2.54)
+          (name "ALERT/RDY" (effects (font (size 1.27 1.27))))
+          (number "2" (effects (font (size 1.27 1.27))))
+        )
+        (pin power_in line (at 0 -10.16 90) (length 2.54)
+          (name "GND" (effects (font (size 1.27 1.27))))
+          (number "3" (effects (font (size 1.27 1.27))))
+        )
+        (pin input line (at -10.16 2.54 0) (length 2.54)
+          (name "AIN0" (effects (font (size 1.27 1.27))))
+          (number "4" (effects (font (size 1.27 1.27))))
+        )
+        (pin input line (at -10.16 0 0) (length 2.54)
+          (name "AIN1" (effects (font (size 1.27 1.27))))
+          (number "5" (effects (font (size 1.27 1.27))))
+        )
+        (pin input line (at -10.16 -2.54 0) (length 2.54)
+          (name "AIN2" (effects (font (size 1.27 1.27))))
+          (number "6" (effects (font (size 1.27 1.27))))
+        )
+        (pin input line (at -10.16 -5.08 0) (length 2.54)
+          (name "AIN3" (effects (font (size 1.27 1.27))))
+          (number "7" (effects (font (size 1.27 1.27))))
+        )
+        (pin power_in line (at 0 12.7 270) (length 2.54)
+          (name "VDD" (effects (font (size 1.27 1.27))))
+          (number "8" (effects (font (size 1.27 1.27))))
+        )
+        (pin bidirectional line (at 10.16 -2.54 180) (length 2.54)
+          (name "SDA" (effects (font (size 1.27 1.27))))
+          (number "9" (effects (font (size 1.27 1.27))))
+        )
+      )
+    ) |},
+          { names=["Analog_ADC:ADS1015IDGS"]
+          ; draw_pnum=true
+          ; draw_pname=true
+          ; multi=false
+          ; graph=List.init ~len:11 ~f:(fun _ -> {parts=1; prim=Field})})
     ]
 
 ;;
@@ -713,6 +794,22 @@ let global_label_tests = test_list test_global_test
 
         ]
 
+;;
+
+let check_sheet_project _ _ = ()
+
+let test_sheet_project = create_test sheet_instances_expr check_sheet_project
+
+let sheet_project_tests = test_list test_sheet_project    [
+      ({|
+    (instances
+      (project "test"
+        (path "/011bafac-76a0-4e40-aeda-a97ad2c79980" (page "2"))
+      )
+    )
+        |}
+      , () )
+    ]
 
 let suite = "OUnit for " >:::
             List.concat
@@ -742,6 +839,7 @@ let suite = "OUnit for " >:::
               ; lib_symbols_tests
               ; wire_tests
               ; global_label_tests
+              ; sheet_project_tests
             ]
 
 let _ =

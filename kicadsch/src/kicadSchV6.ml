@@ -71,6 +71,8 @@ module MakeSchPainter (P : Painter) :
                let label = {c; size; orient; labeltype=PortLabel (Glabel, shape)} in
                {args with canevas=EltPainter.draw_label text label args.canevas}))
            ; ("polyline", polyline_args >>| (fun (_s, l) args -> {args with canevas=EltPainter.draw_line l args.canevas}))
+           ; ("image", image_args >>| (fun b args ->
+                 {args with canevas=EltPainter.draw_bitmap b args.canevas}))
            ; ("symbol", sch_symbol_args >>| (fun sym args ->
                let Coord (x, y) = sym.pos in
                Format.printf "about to print component %s at %d, %d\n" sym.lib_id x y;
@@ -89,7 +91,13 @@ module MakeSchPainter (P : Painter) :
                let new_canevas, is_multi = EltPainter.modify_canevas cpaint args.canevas in
                let canevas = List.fold_left ~f:(fun canevas prop -> EltPainter.draw_field sym.pos transfo is_multi [] canevas (field_build prop)) ~init:new_canevas sym.properties in
                {args with canevas}))
-
+           ; ("sheet", sheet_args >>| ( fun (at, size, properties, hierachical_pins) args ->
+               let cnv = EltPainter.draw_sheet_rect at size args.canevas in
+               let cnv1 = List.fold_left ~init: cnv ~f:(fun cv {value; id; at; effects; _} -> EltPainter.draw_sheet_field value id (Size (Option.fold ~none:10 ~some:fontsize_of_effect effects)) at size cv) properties in
+               let canevas = List.fold_left ~init:cnv1 ~f:(fun cv (name, port_type, justif, pos, s) -> EltPainter.draw_port name port_type justif pos s cv) hierachical_pins in
+               {args with canevas}))
+           ; ("sheet_instances", repeat1_full_list sheet_path_instance_expr >>| (fun _ args -> args))
+           ; ("bus_alias", string  ~escaped:true <*> skip >>| (fun _ args -> args))
            ]
         )
     in

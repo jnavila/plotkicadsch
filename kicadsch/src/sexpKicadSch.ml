@@ -18,11 +18,11 @@ let dist_expr s =
 let length_expr =
   dist_expr "length"
 
-type kolor = {red: int; green: int; blue: int; alpha: int}
+type kolor = {red: int; green: int; blue: int; alpha: float}
 type width = Width of int
 
 let kolor_args =
-  let+ colors = tuple4 int  int  int  int in
+  let+ colors = tuple4 int  int  int  float in
   let red, green, blue, alpha = colors in
   {red; green; blue; alpha}
 
@@ -104,7 +104,7 @@ type fill_type =
   | Background_fill
   | Outline_fill
 
-let fill_type_atom = atom >>= fun s -> match s with
+let fill_type_atom = atom >>= function
     | "none" -> return No_fill
     | "background" -> return Background_fill
     | "outline" -> return Outline_fill
@@ -114,12 +114,18 @@ let fill_type_expr = field "type" fill_type_atom
 
 type fill =
   {
-    fill_type: fill_type
+    fill_type: fill_type option
   ; kolor: kolor option
   }
 
-let fill_expr =
-  field "fill" (fill_type_expr <*> maybe kolor_expr >>| (fun (fill_type, kolor) -> {fill_type; kolor}))
+let fill_expr: fill decoder =
+  field "fill"
+  (fields ~default:({fill_type=None; kolor=None}:fill)
+     [
+       ("type", fill_type_atom >>| (fun fill_t arg -> {arg with fill_type=Some fill_t}))
+     ; ("color", kolor_args >>| (fun color arg -> {arg with kolor=Some color}))
+     ]
+  )
 
 ;;
 
@@ -207,6 +213,13 @@ let effects_args =
 
 let effects_expr = field "effects" effects_args
 
+    let justify_of_justification j =
+  let justify = Option.value j ~default:{horiz=None; vert=None} in
+  Option.value ~default:J_left justify.horiz
+
+let justify_of_effect e = justify_of_justification e.justify
+let fontsize_of_effect e = let Coord (_x, y) = e.font.size in y
+
 ;;
 
 let style_args =
@@ -271,12 +284,6 @@ let property_build _name _ text _id at effects =
   | _ -> Some (
       let c = make_rel at in
       Text {text; c; s=Size 1})
-
-let justify_of_justification j =
-  let justify = Option.value j ~default:{horiz=None; vert=None} in
-  Option.value ~default:J_left justify.horiz
-
-let justify_of_effect e = justify_of_justification e.justify
 
 let field_build {name; value; id; at; rot; effects} =
   let _ = name in
@@ -382,6 +389,7 @@ let pin_type_atom =
     | "emitter_follower"
     | "source_follower"
     | "unconnected"
+    | "no_connect"
     | "tristate"
     | "unspecified" -> true
     | s -> failwith (Printf.sprintf "no match for pin atom (%s)" s)
@@ -485,11 +493,8 @@ let bezier_expr =
 
 ;;
 
-
 let center_expr =
   field "center" coords >>| make_rel
-
-
 
 let circle_args =
   let* center = center_expr in
@@ -533,7 +538,7 @@ let unit_peek expr = peek expr >>= function | Some _ -> return () | _ -> error
 
 let pin_number_hide_expr = maybe_with_default false @@ ((field "pin_numbers" skip) >>= (fun _ -> return true))
 let offset_expr = maybe_with_default 0 @@ dist_expr "offset"
-let pin_names_expr = maybe_with_default true @@ ((offset_expr <*> skip) >>= fun _ -> return false)
+let pin_names_expr = maybe_with_default true @@ (field "pin_names" (offset_expr <*> maybe skip) >>= fun _ -> return false)
 
 let in_bom_expr = yesno_expr "in_bom"
 let on_board_expr = yesno_expr "on_board"
@@ -657,15 +662,14 @@ let path_instance_args =
   let+ _footprint = string_expr "footprint" in
   ()
 *)
+
 let path_instance_args =
   let* _path_name = string ~escaped:false in
   let* _reference = string_expr "reference" in
   let+ _unit_v = int_expr "unit" in
   ()
 
-
 let path_instance_expr = field "path" path_instance_args
-
 
 let project_args =
   let* _project_name = string ~escaped:false in
@@ -674,22 +678,25 @@ let project_args =
 
 let project_instance_expr = field "project" project_args
 
-let instances_args = repeat1_full_list project_instance_expr >>| (fun _ -> () )
+let instances_args = repeat1_full_list project_instance_expr >>| (fun _ -> 0 )
 
 let instances_expr = field "instances" instances_args
 
 type lib_sym = {lib_id: string; pos: coord; rot: int; unit_nr: int; properties: property list}
 
 let sch_symbol_args =
+  let* _lib_name = maybe (string_expr "lib_name") in
   let* lib_id =  string_expr "lib_id" in
   let+ lib_sym = fields
       ~default: {lib_id; pos= Coord(0,0); rot=0; unit_nr=1; properties=[]}
-      [ ("at", pin_at_coord_args >>| (fun (pos, rot) args -> {args with pos; rot}))
+      [
+        ("at", pin_at_coord_args >>| (fun (pos, rot) args -> {args with pos; rot}))
       ; ("unit", int  >>| (fun unit_nr args -> {args with unit_nr}))
       ; ("in_bom", atom >>| (fun _ args -> args))
       ; ("on_board", atom >>| (fun _ args -> args))
       ; ("fields_autoplaced", no_more >>| (fun _ args -> args))
       ; ("dnp", atom >>| (fun _ args -> args))
+      ; ("mirror", atom >>| (fun _ args -> args))
       ; ("uuid", atom >>|  (fun _ args -> args))
       ; ("property", property_args >>| (fun prop args -> {args with properties=prop::args.properties}))
       ; ("pin", sch_pin_args >>| (fun _ args -> args))
@@ -700,3 +707,75 @@ let sch_symbol_args =
 let sch_symbol_expr = field "symbol" sch_symbol_args
 
 ;;
+let parse_list ?(cond = fun _ -> true) form s =
+  let stream = Scanf.Scanning.from_string s in
+  let rec do_parse acc =
+    try
+      let new_val = Scanf.bscanf stream form (fun x -> x) in
+      if cond new_val then do_parse (new_val :: acc) else acc
+    with
+    | Scanf.Scan_failure _ ->
+        acc
+    | End_of_file ->
+        acc
+  in
+  do_parse []
+
+let image_args = fields
+    ~default: {pos=None; scale=None; data=Some (Buffer.create 1000)}
+    [ ("at", pin_at_coord_args >>| (fun (apos, _) (args:bitmapContext) -> {args with pos=(Some apos)}))
+    ; ("uuid", atom >>| (fun _ args -> args))
+    ; ("scale", float >>| (fun scale args -> {args with scale=Some scale}))
+    ; ("data", repeat1_full_list (string ~escaped:false) >>| (fun (strings: string list) args ->
+           let d = Buffer.create 1000 in
+           List.iter ~f:(Buffer.add_string d) strings;
+           match Base64.decode (Buffer.contents d) with
+           | Ok st -> let databuf = Buffer.create (String.length st) in Buffer.add_string databuf st; {args with data=(Some databuf)}
+           | Error `Msg msg -> Format.print_string msg; args
+         ))
+    ]
+
+;;
+
+let sheet_pin_args =
+  let* name= string ~escaped:false in
+  let* port_type = shape_args in
+  let* pos, _angle = pin_at_coord_expr in
+  let* effects = effects_expr in
+  let+ _uuid = uuid_expr in
+  let justif = justify_of_effect effects in
+  let sz = fontsize_of_effect effects in
+  (name, port_type, justif, pos, (Size sz))
+
+let sheet_pin_expr = field "pin" sheet_pin_args
+
+let sheet_path_instance_args =
+  let* _path_name = string ~escaped:false in
+  let+ _page = field "page" (string ~escaped:false) in
+  ()
+
+let sheet_path_instance_expr = field "path" sheet_path_instance_args
+
+let sheet_project_args =
+  let* _project_name = string ~escaped:false in
+  let+ _paths = (repeat1_full_list sheet_path_instance_expr) in
+  ()
+
+let sheet_project_instance_expr = field "project" sheet_project_args
+
+let sheet_instances_args = repeat1_full_list sheet_project_instance_expr >>| (fun _ -> 0 )
+
+let sheet_instances_expr = field "instances" sheet_instances_args
+
+
+let sheet_args =
+  let* at, _angle = pin_at_coord_expr in
+  let* size = size_expr in
+  let* _fields_autoplaced = maybe (field "fields_autoplaced" no_more) in
+  let* _stroke = maybe stroke_expr in
+  let* _fill = maybe fill_expr in
+  let* _uuid = maybe uuid_expr in
+  let* properties = repeat_list ~until:(unit_peek ( (sheet_pin_expr >>| (fun _ -> ())) |+> (sheet_instances_expr >>| (fun _ -> ())))) property_expr in
+  let* hierarchical_pins = repeat_list ~until:(unit_peek sheet_instances_expr) sheet_pin_expr in
+  let+ _instances = sheet_instances_expr in
+  (at, size, properties, hierarchical_pins)
