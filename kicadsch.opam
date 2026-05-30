@@ -17,6 +17,10 @@ build: [
   ["dune" "runtest" "-p" name "-j" jobs] {with-test}
 ]
 depends: [
+  "ppx_inline_test" {with-test}
+  "uuidm"
+  "parsexp"
+  "ppx_deriving"
   "dune" {>= "1.0"}
   "ounit" {with-test}
   "ocaml" {>="4.07"}

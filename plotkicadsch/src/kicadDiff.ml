@@ -44,7 +44,7 @@ module FSPainter (S : SchPainter) (F : Simple_FS) : sig
   val context_from : S.schContext Lwt.t -> S.schContext Lwt.t
 end = struct
 
-  let find_schematics () = F.list_files (is_suffix ~suffix:".sch")
+  let find_schematics () = F.list_files (is_suffix ~suffix:S.file_extension)
 
   let process_file initctx filename =
     let%lwt init = initctx in

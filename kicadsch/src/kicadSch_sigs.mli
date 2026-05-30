@@ -124,6 +124,9 @@ module type SchPainter = sig
   (** the underlying context *)
   type painterContext
 
+  val file_extension : string
+  (** [file_extension] is the extension of the file format ("sch" for v5, "kicad_sch" for v6/v7*)
+
   val initial_context : ?allow_missing_component:bool -> revision -> schContext
   (** [initial_context allow_missing_component revision]
       is an new empty context *)

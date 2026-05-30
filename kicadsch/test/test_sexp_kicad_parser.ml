@@ -31,6 +31,7 @@ let test_yesno = create_test (yesno_expr "foo") check_yesno
 let yesno_tests = test_list test_yesno
     [ ({|(foo yes) |}, true)
     ; ({|(foo no)|}, false)
+      ; ({|(foo) |}, true)
     ]
 ;;
 let make_uuid u =   match Uuidm.of_string u with
@@ -171,7 +172,7 @@ let property_tests = List.map ~f:(fun (expr, p) -> (expr >:: (fun _ -> test_prop
 ;;
 
 let assert_array_equal points1 points2 =
-  List.iter ~f:(fun ((RelCoord (x1, y1)), (RelCoord(x2, y2))) -> assert_equal x1 x2; assert_equal y1 y2) (List.combine points1 points2)
+  List.iter ~f:(fun ((RelCoord (x1, y1)), (RelCoord(x2, y2))) -> assert_equal ~cmp:Int.equal ~printer:string_of_int x1 x2; assert_equal ~cmp:Int.equal ~printer:string_of_int y1 y2) (List.combine points1 points2)
 
 let assert_list_equal list1 list2 =
   List.iter ~f:(fun (elt1, elt2) -> assert_equal elt1 elt2) (List.combine list1 list2)
@@ -180,17 +181,22 @@ let assert_list_equal list1 list2 =
 let check_rectangle shape1 shape2  =
   match shape1, shape2 with
   | (Polygon (width1, points1)), (Polygon (width2, points2)) ->
-      assert_equal width1 width2;
+      assert_equal ~cmp:Int.equal ~printer:string_of_int width1 width2;
       assert_array_equal points1 points2
   | _, _ -> assert_failure "rectangle should be a polygon"
 
-let test_rectangle = create_test rectangle_expr check_rectangle
+let test_rectangle = create_test rectangle_prim_expr check_rectangle
 
 let rectangle_tests = test_list test_rectangle
     [
       ("(rectangle (start 178.7652 0) (end 179.3748 20.32)
           (stroke (width 0)) (fill (type outline))
         )", Polygon (0, [ RelCoord(17876, 0); RelCoord(17876, 2032); RelCoord(17937, 2032); RelCoord(17937, 0); RelCoord(17876, 0)]))
+        ; (  "(rectangle (start 100.33 153.67) (end 106.68 160.02)
+    (stroke (width 0) (type default))
+    (fill (type none))
+    (uuid ae7453a5-3aa5-41db-95cd-dcabca1a7701)
+  )", Polygon(0, [RelCoord(10033, 15366); RelCoord(10033, 16002); RelCoord(10668, 16002); RelCoord(10668, 15366); RelCoord(10033, 15366)]))
     ]
 
 ;;
@@ -769,7 +775,12 @@ let wire_tests = test_list test_wire
 
 ;;
 
-let check_global_label (Coord(x1, y1), r1, text1, (Size s1), shape1, j1) (Coord (x2, y2), r2, text2, (Size s2), shape2, j2) = assert_equal x1 x2 ~printer:string_of_int; assert_equal y1 y2 ~printer:string_of_int; assert_equal r1 r2 ~printer:string_of_int; assert_equal text1 text2 ~printer:(fun c->c); assert_equal s1 s2 ~printer:string_of_int
+let check_global_label (Coord(x1, y1), r1, text1, (Size s1), shape1, j1) (Coord (x2, y2), r2, text2, (Size s2), shape2, j2) =
+  assert_equal x1 x2 ~printer:string_of_int;
+  assert_equal y1 y2 ~printer:string_of_int;
+  assert_equal r1 r2 ~printer:string_of_int;
+  assert_equal text1 text2 ~printer:(fun c->c);
+  assert_equal s1 s2 ~printer:string_of_int
 
 let test_global_test = create_test global_label_expr check_global_label
 

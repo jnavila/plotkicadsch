@@ -12,6 +12,8 @@ module MakeSchPainter (P : Painter) :
 
   type painterContext = P.t
 
+  let file_extension = ".sch"
+
   type rect = {c: coord; dim: coord}
 
   type linetype = Wire | Bus | Line | WireEntry | BusEntry

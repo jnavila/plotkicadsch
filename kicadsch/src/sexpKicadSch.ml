@@ -40,7 +40,9 @@ let page_expr = field "page" (string ~escaped:false)
 
 let paper_size_args =
   let* s = string ~escaped:false in
+  let* size = maybe (coords) in
   let+ p = maybe (tag "portrait") in
+
   let Coord(x, y) as c = match s with
     | "A5" -> (Coord ((mm_size 210.), (mm_size 148.)))
     | "A4" -> (Coord ((mm_size 297.), (mm_size 210.)))
@@ -53,8 +55,9 @@ let paper_size_args =
     | "C"  -> (Coord((wx_size  22000.), (wx_size 17000.)))
     | "D"  -> (Coord((wx_size  34000.), (wx_size 22000.)))
     | "E"  -> (Coord((wx_size  44000.), (wx_size 34000.)))
-(*  | "GERBER" ->  coords
-    | "User" ->  coords *)
+(*  | "GERBER" ->  coords *)
+    | "User" ->  (match size with  Some coords -> coords | None -> failwith "User paper size requires a size")
+
     | "USLetter" -> (Coord((wx_size  11000.), (wx_size 8500.)))
     | "USLegal"  -> (Coord((wx_size  14000.), (wx_size 8500.)))
     | "USLedger" -> (Coord((wx_size  17000.), (wx_size 11000.)))
@@ -85,8 +88,9 @@ let int_expr s =
 let float_expr s =
   field s float
 
+  (* (s yes) (s no) or (s) *)
 let yesno_expr s =
-  field s atom >>= (function | "yes" -> return true | "no" -> return false | _ -> error)
+  field s (maybe atom) >>= (function | Some "yes" -> return true | Some "no" -> return false | _ -> return true)
 
 ;;
 
@@ -174,23 +178,25 @@ type font_def =
   ; kolor: kolor option
   }
 
-let italic_atom = tag "italic" >>| fun _ -> true
-let bold_atom = tag "bold" >>| fun _ -> true
-
 let size_expr = field "size" coords
 
 let opt_to_bool = function
   | Some _ -> true
   | None -> false
 
+(* Accept either a yes/no field form "(name yes|no)" (V8) or a bare tag atom "name" (V6/V7).
+   Both produce a bool; bare tag always means true. *)
+let bool_or_tag name =
+  (yesno_expr name) |+> (tag name >>| fun _ -> true)
+
 let font_args =
-  let* font = maybe @@ string ~escaped:false in
+  let* font = maybe (field "face" (string ~escaped:false)) in
   let* size = size_expr in
-  let* italic_opt = maybe italic_atom in
-  let* bold_opt = maybe bold_atom in
+  let* _line_spacing = maybe (field "line_spacing" float) in
+  let* _thickness = maybe (field "thickness" coords) in
+  let* italic = maybe (bool_or_tag "italic") >>| opt_to_bool in
+  let* bold   = maybe (bool_or_tag "bold")   >>| opt_to_bool in
   let+ kolor = maybe kolor_expr in
-  let italic = opt_to_bool italic_opt in
-  let bold = opt_to_bool bold_opt in
   {font; size; italic; bold; kolor}
 
 let font_expr = field "font" font_args
@@ -208,14 +214,15 @@ type effects =
 let effects_args =
   let* font = font_expr in
   let* justify = maybe justify_expr in
-  let+ hide = optional_hide_atom in
-  {font; justify; hide}
+  let+ hide = maybe (bool_or_tag "hide") >>| opt_to_bool in
+  (* If both are set, we take the first one, so we can use the "hide" tag in the font definition *)
+  {font; justify; hide }
 
 let effects_expr = field "effects" effects_args
 
-    let justify_of_justification j =
+let justify_of_justification j =
   let justify = Option.value j ~default:{horiz=None; vert=None} in
-  Option.value ~default:J_left justify.horiz
+  Option.value ~default:J_center justify.horiz
 
 let justify_of_effect e = justify_of_justification e.justify
 let fontsize_of_effect e = let Coord (_x, y) = e.font.size in y
@@ -295,8 +302,8 @@ let field_build {name; value; id; at; rot; effects} =
     | 0 | 180 -> Orient_H
     | 90 | 270 -> Orient_V
     | _ -> raise Not_found in
-  let s, j, stl = match effects with
-    | None -> Size default_width, J_left, NoStyle
+  let s, j, stl, hide = match effects with
+    | None -> Size default_width, J_left, NoStyle, false
     | Some ef ->
       let j = justify_of_effect ef in
       let Coord (_, y)= ef.font.size in
@@ -306,8 +313,8 @@ let field_build {name; value; id; at; rot; effects} =
         | false, true -> Bold
         | true, true -> BoldItalic
         | false, false -> NoStyle
-      in s, j, style in
-  {nb; text; co; o; s; j; stl}
+      in s, j, style, ef.hide in
+  if hide then None else Some {nb; text; co; o; s; j; stl}
 
 let property_args =
   let* name = string ~escaped:false in
@@ -324,13 +331,15 @@ let property_expr = field "property" property_args
 
 let text_gen_args =
   let* text = string ~escaped:false in
+  let* _exclude_from_sim = maybe (yesno_expr "exclude_from_sim") in
   let* coords, rot = pin_at_coord_expr in
   let* effects = effects_expr in
   let+ _uuid = maybe uuid_expr in
   let Coord (size, _) = effects.font.size in
-  coords, text, Size size, rot
+  let justify = justify_of_justification effects.justify in
+  coords, text, Size size, rot, justify
 
-let text_args = text_gen_args >>| (fun (coords, text, size, _rot) ->
+let text_args = text_gen_args >>| (fun (coords, text, size, _rot, _justify) ->
   Text {c=make_rel coords; text; s=size })
 
 let text_expr = field "text" text_args
@@ -350,27 +359,35 @@ let polyline_expr =
 ;;
 
 let start_point_expr =
-  field "start" coords >>| make_rel
+  field "start" coords
 
 let end_point_expr =
-  field "end" coords >>| make_rel
+  field "end" coords
 
-let rect_to_polyline (RelCoord(xs, ys)) (RelCoord(xe, ye)) s _ =
+let rect_to_polyline ((Coord(xs, ys)), (Coord(xe, ye)), s, _) =
   let points = [RelCoord(xs, ys); RelCoord(xs, ye); RelCoord (xe, ye); RelCoord(xe, ys); RelCoord(xs, ys)] in
   let width = optional_stroke_to_width s
- in
-  Polygon (width, points)
+ in Polygon (width, points)
 
-let rectangle_args =
+let rect_to_sheet_rec ((Coord(xs, ys)), (Coord(xe, ye)), _s, _) =
+  (Coord(xs, ys), Coord(xe -xs, ye - ys))
+let gen_rectangle_args =
   let* start_point = start_point_expr in
   let* end_point = end_point_expr in
   let* s = maybe stroke_expr in
-  let+ fill = maybe fill_expr in
-  rect_to_polyline start_point end_point s fill
+  let* fill = maybe fill_expr in
+  let+ _uuid = maybe uuid_expr in
+  (start_point, end_point, s, fill)
 
+let rectangle_prim_args = gen_rectangle_args >>| rect_to_polyline
+
+let rectangle_args = gen_rectangle_args >>| rect_to_sheet_rec
 
 let rectangle_expr = field
     "rectangle" rectangle_args
+
+let rectangle_prim_expr = field
+    "rectangle" rectangle_prim_args
 ;;
 
 let pin_tag_expr s = field s (string ~escaped:false <*>effects_expr)
@@ -390,9 +407,9 @@ let pin_type_atom =
     | "source_follower"
     | "unconnected"
     | "no_connect"
-    | "tristate"
+    | "tri_state"
     | "unspecified" -> true
-    | s -> failwith (Printf.sprintf "no match for pin atom (%s)" s)
+    | s -> failwith (Printf.sprintf "no match for pin type (%s)" s)
 
 let pin_shape_atom =
   atom >>| function
@@ -459,9 +476,9 @@ let mid_point_expr =
   field "mid" coords >>| make_rel
 
 let arc_args =
-  let* sp = start_point_expr in
-  let* _mid_point = maybe mid_point_expr in
-  let* ep = end_point_expr in
+  let* sp = start_point_expr >>| make_rel in
+  let* _mid_point = maybe mid_point_expr  in
+  let* ep = end_point_expr >>| make_rel in
   let* radius_group = maybe radius_expr in
   let* stroke = maybe stroke_expr in
   let+ _fill = maybe fill_expr in
@@ -517,7 +534,7 @@ let primitive =
           ; ("bezier", bezier_args)
           ; ("pin", pin_args)
           ; ("text", text_args)
-          ; ("rectangle", rectangle_args)
+          ; ("rectangle", rectangle_prim_args)
           ]
 
 let extend_expr = string_expr "extends"
@@ -539,7 +556,7 @@ let unit_peek expr = peek expr >>= function | Some _ -> return () | _ -> error
 let pin_number_hide_expr = maybe_with_default false @@ ((field "pin_numbers" skip) >>= (fun _ -> return true))
 let offset_expr = maybe_with_default 0 @@ dist_expr "offset"
 let pin_names_expr = maybe_with_default true @@ (field "pin_names" (offset_expr <*> maybe skip) >>= fun _ -> return false)
-
+let exclude_from_sim_expr = maybe (yesno_expr "exclude_from_sim")    
 let in_bom_expr = yesno_expr "in_bom"
 let on_board_expr = yesno_expr "on_board"
 
@@ -549,6 +566,7 @@ let symbol_args =
   let* _extends = maybe extend_expr in
   let* hide_pin_numbers = pin_number_hide_expr in
   let* draw_pname = pin_names_expr in
+  let* _exclude = exclude_from_sim_expr in
   let* _in_bom = in_bom_expr in
   let* _on_board = on_board_expr in
   let* _properties = repeat_list ~until:(unit_peek unit_expr) property_expr in
@@ -611,6 +629,7 @@ let wire_expr = field "wire" bus_wire_args
 
 let label_args =
   let* text = string ~escaped:false in
+  let* _exclude_from_sim = maybe (yesno_expr "exclude_from_sim") in
   let* coords, rot = pin_at_coord_expr in
   let* _autoplaced = maybe (field "fields_autoplaced" no_more) in
   let* effects = effects_expr in
@@ -638,7 +657,7 @@ let hierarchical_label_args =
   let* _autoplace = maybe (field "fields_autoplaced" no_more) in
   let* effects = effects_expr in
   let* _uuid = maybe uuid_expr in
-  let+ _prop = repeat_full_list property_expr in
+  let+ _prop = maybe (repeat_full_list property_expr) in
   let Coord (size, _) = effects.font.size in
   (coords, rot, text, Size size, shape, justify_of_justification effects.justify)
 
@@ -682,21 +701,27 @@ let instances_args = repeat1_full_list project_instance_expr >>| (fun _ -> 0 )
 
 let instances_expr = field "instances" instances_args
 
-type lib_sym = {lib_id: string; pos: coord; rot: int; unit_nr: int; properties: property list}
+type lib_sym = {lib_id: string; pos: coord; rot: int; unit_nr: int; properties: property list; mirror_x: bool; mirror_y: bool}
 
 let sch_symbol_args =
   let* _lib_name = maybe (string_expr "lib_name") in
   let* lib_id =  string_expr "lib_id" in
   let+ lib_sym = fields
-      ~default: {lib_id; pos= Coord(0,0); rot=0; unit_nr=1; properties=[]}
+      ~default: {lib_id; pos= Coord(0,0); rot=0; unit_nr=1; properties=[]; mirror_x=false; mirror_y=false}
       [
         ("at", pin_at_coord_args >>| (fun (pos, rot) args -> {args with pos; rot}))
       ; ("unit", int  >>| (fun unit_nr args -> {args with unit_nr}))
+      ; ("body_style", int  >>| (fun _ args -> args))
       ; ("in_bom", atom >>| (fun _ args -> args))
       ; ("on_board", atom >>| (fun _ args -> args))
-      ; ("fields_autoplaced", no_more >>| (fun _ args -> args))
+      ; ("in_pos_files", atom >>| (fun _ args -> args))
+      ; ("exclude_from_sim", atom >>| (fun _ args -> args))
+      ; ("fields_autoplaced", maybe atom >>| (fun _ args -> args))
       ; ("dnp", atom >>| (fun _ args -> args))
-      ; ("mirror", atom >>| (fun _ args -> args))
+      ; ("mirror", atom >>| (fun axis args -> match axis with
+          | "x" -> {args with mirror_x=true}
+          | "y" -> {args with mirror_y=true}
+          | _ -> failwith "unknown mirror axis"))
       ; ("uuid", atom >>|  (fun _ args -> args))
       ; ("property", property_args >>| (fun prop args -> {args with properties=prop::args.properties}))
       ; ("pin", sch_pin_args >>| (fun _ args -> args))
@@ -779,3 +804,13 @@ let sheet_args =
   let* hierarchical_pins = repeat_list ~until:(unit_peek sheet_instances_expr) sheet_pin_expr in
   let+ _instances = sheet_instances_expr in
   (at, size, properties, hierarchical_pins)
+
+;;
+
+let title_block_args =
+  let* title = field "title" (string ~escaped:false) in
+  let* date = field "date" (string ~escaped:false) in
+  let* rev = field "rev" (string ~escaped:false) in
+  let* company = field "company" (string ~escaped:false) in
+  let+ comments = repeat_full_list (field "comment" (int <*> string ~escaped:false)) in
+  (title, date, rev, company, comments)
