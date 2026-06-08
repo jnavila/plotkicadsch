@@ -13,7 +13,7 @@ let process_files lib_files sch_files outdir =
     if String.ends_with ~suffix:".sch" sch then
       (module Kicadsch.V5: Kicadsch.Sigs.KicadSchHandler)
     else if String.ends_with ~suffix:".kicad_sch" sch then
-      (module Kicadsch.V6: Kicadsch.Sigs.KicadSchHandler)
+      (module Kicadsch.V8: Kicadsch.Sigs.KicadSchHandler)
     else
       failwith ("unknown file extenstion for " ^ sch) in
   let module SchPainter = (val schHandler) in

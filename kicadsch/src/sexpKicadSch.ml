@@ -193,7 +193,7 @@ let font_args =
   let* font = maybe (field "face" (string ~escaped:false)) in
   let* size = size_expr in
   let* _line_spacing = maybe (field "line_spacing" float) in
-  let* _thickness = maybe (field "thickness" coords) in
+  let* _thickness = maybe (field "thickness" skip) in
   let* italic = maybe (bool_or_tag "italic") >>| opt_to_bool in
   let* bold   = maybe (bool_or_tag "bold")   >>| opt_to_bool in
   let+ kolor = maybe kolor_expr in
@@ -321,6 +321,7 @@ let property_args =
   let* value = string ~escaped:false in
   let* id_opt = maybe (field "id" int) in
   let* at, rot = pin_at_coord_expr in
+  let* _ = maybe (bool_or_tag "do_not_autoplace") in
   let+ effects = maybe effects_expr in
   let id = Option.value ~default:0 id_opt in
   {name; value; id; at; rot; effects}
@@ -429,7 +430,7 @@ let pin_args =
   let* _ = pin_shape_atom in
   let* c, a = pin_at_coord_expr in
   let* s = field "length" float in
-  let* _hide = maybe (tag "hide") in
+  let* _hide = maybe (bool_or_tag "hide") in
   let* (name_str, name_effect) = pin_tag_expr "name" in
   let+ (number_str, number_effect) = pin_tag_expr "number" in
   let contact = make_rel c in
@@ -570,7 +571,7 @@ let symbol_args =
   let* _in_bom = in_bom_expr in
   let* _on_board = on_board_expr in
   let* _properties = repeat_list ~until:(unit_peek unit_expr) property_expr in
-  let+ units = repeat_full_list unit_expr in
+  let+ units = repeat_full_list (unit_expr |+> (field "embedded_fonts" (skip >>| fun _ -> []))) in
   let graph =  List.flatten units in
   {names=[name]; draw_pnum= not hide_pin_numbers; draw_pname; multi=false; graph}
 
@@ -631,7 +632,7 @@ let label_args =
   let* text = string ~escaped:false in
   let* _exclude_from_sim = maybe (yesno_expr "exclude_from_sim") in
   let* coords, rot = pin_at_coord_expr in
-  let* _autoplaced = maybe (field "fields_autoplaced" no_more) in
+  let* _autoplaced = maybe (field "fields_autoplaced" skip_all) in
   let* effects = effects_expr in
   let+ _uuid = maybe uuid_expr in
   let Coord (size, _) = effects.font.size in
@@ -654,7 +655,7 @@ let hierarchical_label_args =
   let* text = string ~escaped:false in
   let* shape = field "shape" shape_args in
   let* coords, rot = pin_at_coord_expr in
-  let* _autoplace = maybe (field "fields_autoplaced" no_more) in
+  let* _autoplace = maybe (field "fields_autoplaced" skip_all) in
   let* effects = effects_expr in
   let* _uuid = maybe uuid_expr in
   let+ _prop = maybe (repeat_full_list property_expr) in
@@ -701,13 +702,13 @@ let instances_args = repeat1_full_list project_instance_expr >>| (fun _ -> 0 )
 
 let instances_expr = field "instances" instances_args
 
-type lib_sym = {lib_id: string; pos: coord; rot: int; unit_nr: int; properties: property list; mirror_x: bool; mirror_y: bool}
+type lib_sym = {lib_id: string; lib_name: string option; pos: coord; rot: int; unit_nr: int; properties: property list; mirror_x: bool; mirror_y: bool}
 
 let sch_symbol_args =
-  let* _lib_name = maybe (string_expr "lib_name") in
+  let* lib_name = maybe (string_expr "lib_name") in
   let* lib_id =  string_expr "lib_id" in
   let+ lib_sym = fields
-      ~default: {lib_id; pos= Coord(0,0); rot=0; unit_nr=1; properties=[]; mirror_x=false; mirror_y=false}
+      ~default: {lib_id; lib_name; pos= Coord(0,0); rot=0; unit_nr=1; properties=[]; mirror_x=false; mirror_y=false}
       [
         ("at", pin_at_coord_args >>| (fun (pos, rot) args -> {args with pos; rot}))
       ; ("unit", int  >>| (fun unit_nr args -> {args with unit_nr}))
@@ -766,8 +767,9 @@ let sheet_pin_args =
   let* name= string ~escaped:false in
   let* port_type = shape_args in
   let* pos, _angle = pin_at_coord_expr in
+  let* _uuid = maybe uuid_expr in
   let* effects = effects_expr in
-  let+ _uuid = uuid_expr in
+  let+ _uuid = maybe uuid_expr in
   let justif = justify_of_effect effects in
   let sz = fontsize_of_effect effects in
   (name, port_type, justif, pos, (Size sz))
@@ -814,3 +816,158 @@ let title_block_args =
   let* company = field "company" (string ~escaped:false) in
   let+ comments = repeat_full_list (field "comment" (int <*> string ~escaped:false)) in
   (title, date, rev, company, comments)
+
+(* V8: all title-block fields are optional *)
+let title_block_v8_args =
+  let* title   = maybe (field "title"   (string ~escaped:false)) >>| Option.value ~default:"" in
+  let* date    = maybe (field "date"    (string ~escaped:false)) >>| Option.value ~default:"" in
+  let* rev     = maybe (field "rev"     (string ~escaped:false)) >>| Option.value ~default:"" in
+  let* company = maybe (field "company" (string ~escaped:false)) >>| Option.value ~default:"" in
+  let+ comments = repeat_full_list (field "comment" (int <*> string ~escaped:false)) in
+  (title, date, rev, company, comments)
+
+(* V8 sheet instances: path entries may have variant sub-blocks, which we skip *)
+let sheet_path_instance_args_v8 =
+  let* _path_name = string ~escaped:false in
+  let* _page = field "page" (string ~escaped:false) in
+  let+ _ = skip_all in
+  ()
+
+let sheet_path_instance_expr_v8 = field "path" sheet_path_instance_args_v8
+
+let sheet_project_args_v8 =
+  let* _project_name = string ~escaped:false in
+  let+ _paths = repeat1_full_list sheet_path_instance_expr_v8 in
+  ()
+
+let sheet_project_instance_expr_v8 = field "project" sheet_project_args_v8
+
+let sheet_instances_args_v8 = repeat1_full_list sheet_project_instance_expr_v8 >>| (fun _ -> 0)
+
+let sheet_instances_expr_v8 = field "instances" sheet_instances_args_v8
+
+(* V8 sheet: adds exclude_from_sim/in_bom/on_board/dnp/locked; instances is optional *)
+let sheet_args_v8 =
+  let* at, _angle = pin_at_coord_expr in
+  let* size = size_expr in
+  let* _excl     = maybe (yesno_expr "exclude_from_sim") in
+  let* _in_bom   = maybe (yesno_expr "in_bom") in
+  let* _on_board = maybe (yesno_expr "on_board") in
+  let* _dnp      = maybe (yesno_expr "dnp") in
+  let* _locked   = maybe (yesno_expr "locked") in
+  let* _fields_autoplaced = maybe (field "fields_autoplaced" skip_all) in
+  let* _stroke = maybe stroke_expr in
+  let* _fill   = maybe fill_expr in
+  let* _uuid   = maybe uuid_expr in
+  let* properties =
+    repeat_list
+      ~until:(unit_peek ((sheet_pin_expr >>| (fun _ -> ())) |+>
+                         (sheet_instances_expr_v8 >>| (fun _ -> ()))))
+      property_expr in
+  let* hierarchical_pins =
+    repeat_list ~until:(unit_peek sheet_instances_expr_v8) sheet_pin_expr in
+  let+ _instances = maybe sheet_instances_expr_v8 in
+  (at, size, properties, hierarchical_pins)
+
+(* ── V8 schematic-level shape decoders ─────────────────────────────── *)
+
+(* Compute circumscribed circle center and radius from three arc points.
+   Returns None when the three points are collinear (degenerate arc). *)
+let sch_arc_center_radius (Coord (ax, ay)) (Coord (bx, by)) (Coord (cx, cy)) =
+  let ax = float_of_int ax and ay = float_of_int ay in
+  let bx = float_of_int bx and by = float_of_int by in
+  let cx = float_of_int cx and cy = float_of_int cy in
+  let d = 2.0 *. ((bx -. ax) *. (cy -. by) -. (cx -. bx) *. (by -. ay)) in
+  if Float.abs d < 1e-3 then None
+  else
+    let ab2 = bx *. bx +. by *. by -. ax *. ax -. ay *. ay in
+    let bc2 = cx *. cx +. cy *. cy -. bx *. bx -. by *. by in
+    let ux = (ab2 *. (cy -. by) -. bc2 *. (by -. ay)) /. d in
+    let uy = ((bx -. ax) *. bc2 -. (cx -. bx) *. ab2) /. d in
+    let r  = Float.sqrt ((ux -. ax) *. (ux -. ax) +. (uy -. ay) *. (uy -. ay)) in
+    Some (Coord (Float.to_int (Float.round ux), Float.to_int (Float.round uy)),
+          Float.to_int (Float.round r))
+
+(* V8 schematic arc: (start ...) (mid ...) (end ...) — three points on arc *)
+let sch_arc_args =
+  let* start_pt = start_point_expr in
+  let* mid_pt   = field "mid" coords in
+  let* end_pt   = end_point_expr in
+  let* _stroke  = maybe stroke_expr in
+  let* _fill    = maybe fill_expr in
+  let* _uuid    = maybe uuid_expr in
+  let+ _locked  = maybe (yesno_expr "locked") in
+  match sch_arc_center_radius start_pt mid_pt end_pt with
+  | Some (center, radius) -> Some (center, start_pt, end_pt, radius)
+  | None -> None
+
+(* V8 schematic circle: (center x y) (radius r) *)
+let sch_circle_args =
+  let* center = field "center" coords in
+  let* radius = field "radius" float >>| (fun r -> Float.to_int (Float.round (r *. 100.0))) in
+  let* _stroke = maybe stroke_expr in
+  let* _fill   = maybe fill_expr in
+  let* _uuid   = maybe uuid_expr in
+  let+ _locked = maybe (yesno_expr "locked") in
+  (center, radius)
+
+(* Sample a cubic Bézier at n+1 evenly-spaced t values in [0,1].
+   B(t) = (1-t)³P0 + 3(1-t)²tP1 + 3(1-t)t²P2 + t³P3 *)
+let sch_bezier_sample p0 p1 p2 p3 n =
+  let fx (Coord (x, _)) = float_of_int x
+  and fy (Coord (_, y)) = float_of_int y in
+  let cubic t =
+    let mt = 1.0 -. t in
+    let x = mt*.mt*.mt*.(fx p0) +. 3.*.mt*.mt*.t*.(fx p1)
+           +. 3.*.mt*.t*.t*.(fx p2) +. t*.t*.t*.(fx p3) in
+    let y = mt*.mt*.mt*.(fy p0) +. 3.*.mt*.mt*.t*.(fy p1)
+           +. 3.*.mt*.t*.t*.(fy p2) +. t*.t*.t*.(fy p3) in
+    Coord (Float.to_int (Float.round x), Float.to_int (Float.round y))
+  in
+  List.init ~len:(n + 1) ~f:(fun i -> cubic (float_of_int i /. float_of_int n))
+
+(* V8 schematic bezier: (pts (xy ...) ...) — 4 control points *)
+let sch_bezier_args =
+  let* pts     = pts_expr in
+  let* _stroke = maybe stroke_expr in
+  let* _fill   = maybe fill_expr in
+  let* _uuid   = maybe uuid_expr in
+  let+ _locked = maybe (yesno_expr "locked") in
+  match pts with
+  | [p0; p1; p2; p3] -> sch_bezier_sample p0 p1 p2 p3 16
+  | _ -> pts   (* fallback: draw the control polygon *)
+
+(* V8 text_box position: either (at + size) or legacy (start + end) *)
+let text_box_position_args =
+  (let* at, _angle = pin_at_coord_expr in
+   let+ Coord (w, h) = size_expr in
+   let Coord (x, y) = at in
+   (Coord (x, y), Coord (w, h)))
+  |+>
+  (let* s = start_point_expr in
+   let+ Coord (xe, ye) = end_point_expr in
+   let Coord (xs, ys) = s in
+   (s, Coord (xe - xs, ye - ys)))
+
+(* V8 schematic text_box *)
+let sch_text_box_args =
+  let* text    = string ~escaped:false in
+  let* _excl   = maybe (yesno_expr "exclude_from_sim") in
+  let* corner, dim = text_box_position_args in
+  let* _marg   = maybe (field "margins" skip_all) in
+  let* _stroke = maybe stroke_expr in
+  let* _fill   = maybe fill_expr in
+  let* effects = maybe effects_expr in
+  let* _uuid   = maybe uuid_expr in
+  let+ _locked = maybe (yesno_expr "locked") in
+  (corner, dim, text, effects)
+
+(* V8 rule_area: flags + embedded polyline *)
+let sch_rule_area_args =
+  let* _locked   = maybe (yesno_expr "locked") in
+  let* _excl     = maybe (yesno_expr "exclude_from_sim") in
+  let* _in_bom   = maybe (yesno_expr "in_bom") in
+  let* _on_board = maybe (yesno_expr "on_board") in
+  let* _dnp      = maybe (yesno_expr "dnp") in
+  let+ (_w, pts) = polyline_expr in
+  pts

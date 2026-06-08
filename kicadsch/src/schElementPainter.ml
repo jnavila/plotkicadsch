@@ -28,6 +28,12 @@ sig
 
   val draw_line: coord list -> t -> t
 
+  val draw_circle: coord -> int -> t -> t
+  (** [draw_circle center radius ctx] draws a circle outline *)
+
+  val draw_arc: coord -> coord -> coord -> int -> t -> t
+  (** [draw_arc center start_pt end_pt radius ctx] draws an arc *)
+
   val draw_title_field: coord -> string -> string -> t -> t
 
   val draw_text_line: string -> label -> t -> t
@@ -97,7 +103,7 @@ struct
       else o
     in
     let text =
-      if nb != 0 then text
+      if nb != 0 || refs = [] then text
       else
         String.concat "/"
           (List.map
@@ -281,6 +287,12 @@ struct
       let canevas = List.fold_left append_and_memo ctx.canevas tail in
       {ctx with canevas}
       | _ -> raise Not_found     (* TODO: find better exception *)
+;;
+  let draw_circle center radius ctx =
+    {ctx with canevas = P.paint_circle ~kolor:`Black center radius ctx.canevas}
+
+  let draw_arc center start_pt end_pt radius ctx =
+    {ctx with canevas = P.paint_arc ~kolor:`Black center start_pt end_pt radius ctx.canevas}
 ;;
   let draw_title_field (Coord (x, y)) field content ctx =
     let cvs = ctx.canevas in

@@ -1,11 +1,36 @@
+(library
+ (name stub_painter_lib)
+ (modules stubPainter)
+ (wrapped false)
+ (libraries kicadsch)
+ (flags (:standard -w -27))
+ )
+
 (tests
- (names test test_sexp_kicad_parser)
+ (names test test_sexp_kicad_parser test_kicadsch_v8_parser)
+ (modules test test_sexp_kicad_parser test_kicadsch_v8_parser)
  (libraries
   kicadsch
+  stub_painter_lib
   oUnit
   csexp
   sexp_decode
   parsexp
   )
  (flags (:standard -w -27 ))
+ )
+
+(test
+ (name test_real_v8_sch)
+ (modules test_real_v8_sch)
+ (libraries
+  kicadsch
+  stub_painter_lib
+  oUnit
+  csexp
+  sexp_decode
+  parsexp
+  )
+ (flags (:standard -w -27 ))
+ (deps (file "Non-Isolated AC-DC Power Module.kicad_sch"))
  )

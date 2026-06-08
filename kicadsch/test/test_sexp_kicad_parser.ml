@@ -31,7 +31,7 @@ let test_yesno = create_test (yesno_expr "foo") check_yesno
 let yesno_tests = test_list test_yesno
     [ ({|(foo yes) |}, true)
     ; ({|(foo no)|}, false)
-      ; ({|(foo) |}, true)
+    ; ({|(foo) |}, true)
     ]
 ;;
 let make_uuid u =   match Uuidm.of_string u with

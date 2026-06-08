@@ -5,3 +5,4 @@ module Lib_sigs = KicadLib_sigs
 
 module V6 = KicadSchV6
 module V5 = KicadSchV5
+module V8 = KicadSchV8
