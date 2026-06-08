@@ -248,6 +248,14 @@ let pin_tests = test_list test_pin
           (name "GND" (effects (font (size 1.27 1.27))))
           (number "1" (effects (font (size 1.27 1.27))))) |}
         , Pin {name=("GND", Size 127); number=("1", Size 127); length=Size 0; contact=RelCoord(0, 0); orient=P_D})
+      ; ({|(pin bidirectional line (at -17.78 27.94 0) (length 2.54)
+          (name "PG10" (effects (font (size 1.27 1.27))))
+          (number "7" (effects (font (size 1.27 1.27))))
+          (alternate "DAC1_EXTI10" bidirectional line)
+          (alternate "DAC3_EXTI10" bidirectional line)
+          (alternate "RCC_MCO" bidirectional line)
+        )|}
+        , Pin {name=("PG10", Size 127); number=("7", Size 127); length=Size 254; contact=RelCoord(-1778, 2794); orient=P_R})
 
     ]
 
@@ -664,6 +672,15 @@ let no_connect_tests = test_list test_no_connect
 
 ;;
 
+let check_alternate () () = ()
+
+let test_alternate = create_test pin_alternate_args check_alternate
+
+let alternate_tests = test_list test_alternate
+    [ ({|(alternate "VREFBUF_OUT" bidirectional line)|}, ())
+    ; ({|(alternate "ADC1_IN10" bidirectional line)|}, ())
+    ]
+
 let test_sch_pin = create_test sch_pin_expr (fun _ _ -> ())
 
 let sch_pin_tests = test_list test_sch_pin
@@ -824,7 +841,8 @@ let sheet_project_tests = test_list test_sheet_project    [
 
 let suite = "OUnit for " >:::
             List.concat
-              [ yesno_tests
+              [ alternate_tests
+              ; yesno_tests
               ; uuid_tests
               ; paper_tests
               ; at_tests

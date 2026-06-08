@@ -425,6 +425,10 @@ let pin_shape_atom =
     | "non_logic" -> true
     | s -> failwith (Printf.sprintf "no match for pin shape (%s)" s)
 
+let pin_alternate_args =
+  field "alternate"
+    (string ~escaped:false >>> pin_type_atom >>> pin_shape_atom >>| fun _ -> ())
+
 let pin_args =
   let* _ = pin_type_atom in
   let* _ = pin_shape_atom in
@@ -432,7 +436,8 @@ let pin_args =
   let* s = field "length" float in
   let* _hide = maybe (bool_or_tag "hide") in
   let* (name_str, name_effect) = pin_tag_expr "name" in
-  let+ (number_str, number_effect) = pin_tag_expr "number" in
+  let* (number_str, number_effect) = pin_tag_expr "number" in
+  let+ _alts = repeat_full_list pin_alternate_args in
   let contact = make_rel c in
   let orient = match a with
     | 0 -> P_R
