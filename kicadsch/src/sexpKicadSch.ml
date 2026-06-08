@@ -404,6 +404,7 @@ let pin_type_atom =
     | "power_out"
     | "open_collector"
     | "open_drain"
+    | "open_emitter"
     | "emitter_follower"
     | "source_follower"
     | "unconnected"

@@ -256,7 +256,25 @@ let pin_tests = test_list test_pin
           (alternate "RCC_MCO" bidirectional line)
         )|}
         , Pin {name=("PG10", Size 127); number=("7", Size 127); length=Size 254; contact=RelCoord(-1778, 2794); orient=P_R})
-
+; ({|	(pin open_collector line
+					(at 10.16 5.08 180)
+					(length 2.54)
+					(name "ALERT"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+)|}
+     , Pin {name=("ALERT", Size 127); number=("3", Size 127); length=Size 254; contact=RelCoord(1016, 508);orient=P_L})
     ]
 
 ;;
