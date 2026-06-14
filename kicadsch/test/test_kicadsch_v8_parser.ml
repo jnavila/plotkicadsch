@@ -36,6 +36,8 @@ let filter_tag tag out =
 
 let lines_of   = filter_tag "Line"
 let circles_of = filter_tag "Circle"
+let ellipses_of = filter_tag "Ellipse"
+let ellipses_arc_of = filter_tag "EllipseArc"
 let arcs_of    = filter_tag "Arc"
 let rects_of   = filter_tag "Rect"
 let texts_of   = filter_tag "Text"
@@ -263,26 +265,35 @@ let test_label_value () =
     (List.mem "Text Red NET1 Orient_H 0 0 127 J_left NoStyle"
        ~set:(texts_of out))
 
-(* ── Metadata-only items: parse and produce no drawn output ───────────── *)
+(* ── Ellipse ──────────────────────────────────────────────────────────── *)
 
-let test_ellipse_no_output () =
+(* center=(100,100) → Coord(wx_size 100, wx_size 100) = Coord(10000,10000)
+   major_radius=50 → round(50*100) = 5000
+   minor_radius=30 → round(30*100) = 3000
+   rotation_angle=0 → 0
+   Expected: "Ellipse 10000 10000 5000 3000 0" *)
+let test_ellipse_value () =
   let out = output {|(ellipse
     (center 100 100) (major_radius 50) (minor_radius 30) (rotation_angle 0)
     (stroke (width 0) (type default))
     (uuid "ffffffff-ffff-ffff-ffff-fffffffffffe")
   )|} in
-  assert_equal ~msg:"ellipse produces no Arc/Circle/Line/Rect/Text" []
-    (arcs_of out @ circles_of out @ lines_of out)
+  assert_bool "Ellipse drawn with correct center/radii/angle"
+    (List.mem "Ellipse 10000 10000 5000 3000 0" ~set:(ellipses_of out))
 
-let test_ellipse_arc_no_output () =
+(* center=(100,100) → Coord(10000,10000)
+   major_radius=50 → 5000, minor_radius=30 → 3000
+   rotation_angle=0, start_angle=0, end_angle=90
+   Expected: "EllipseArc 10000 10000 5000 3000 0 0 90" *)
+let test_ellipse_arc_value () =
   let out = output {|(ellipse_arc
     (center 100 100) (major_radius 50) (minor_radius 30) (rotation_angle 0)
     (start_angle 0) (end_angle 90)
     (stroke (width 0) (type default))
     (uuid "ffffffff-ffff-ffff-ffff-fffffffffffd")
   )|} in
-  assert_equal ~msg:"ellipse_arc produces no drawn output" []
-    (arcs_of out @ circles_of out @ lines_of out)
+  assert_bool "EllipseArc drawn with correct parameters"
+    (List.mem "EllipseArc 10000 10000 5000 3000 0 0 90" ~set:(ellipses_arc_of out))
 
 let test_embedded_fonts_no_output () =
   let out = output "(embedded_fonts no)" in
@@ -326,9 +337,9 @@ let suite = "KiCad V8 schematic parser" >:::
   ; "text_box (start+end): text and rect values"   >:: test_text_box_start_end_value
   (* Labels *)
   ; "label: text value and coordinates"            >:: test_label_value
-  (* Skipped metadata *)
-  ; "ellipse: no drawn output"                     >:: test_ellipse_no_output
-  ; "ellipse_arc: no drawn output"                 >:: test_ellipse_arc_no_output
+  (* Ellipse *)
+  ; "ellipse: correct center/radii/angle"          >:: test_ellipse_value
+  ; "ellipse_arc: correct parameters"              >:: test_ellipse_arc_value
   ; "embedded_fonts: no drawn output"              >:: test_embedded_fonts_no_output
   ; "net_chain: no drawn output"                   >:: test_net_chain_no_output
   ; "group: no drawn output"                       >:: test_group_no_output

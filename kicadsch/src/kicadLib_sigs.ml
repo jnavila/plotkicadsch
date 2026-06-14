@@ -4,6 +4,17 @@ type relcoord = RelCoord of int * int
 
 type circle = {center: relcoord; radius: int}
 
+type ellipse = {center: relcoord; major_radius: int; minor_radius: int; rotation_angle: int}
+
+type ellipse_arc =
+  { center: relcoord
+  ; major_radius: int
+  ; minor_radius: int
+  ; rotation_angle: int
+  ; start_angle: int
+  ; end_angle: int
+  }
+
 type pin_orientation = P_L | P_R | P_U | P_D [@@deriving show]
 
 type pin_tag = string * size
@@ -20,6 +31,8 @@ type primitive =
   | Field
   | Polygon of int * relcoord list
   | Circle of int * circle
+  | Ellipse of int * ellipse
+  | EllipseArc of int * ellipse_arc
   | Pin of pin
   | Text of {c: relcoord; text: string; s: size}
   | Arc of

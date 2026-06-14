@@ -533,10 +533,65 @@ let circle_expr =
 
 ;;
 
+(* V8 schematic ellipse: (center x y) (major_radius r) (minor_radius r) (rotation_angle deg) *)
+let ellipse_common_args =
+  let* center = field "center" coords in
+  let* major_radius = field "major_radius" float >>| (fun r -> Float.to_int (Float.round (r *. 100.0))) in
+  let* minor_radius = field "minor_radius" float >>| (fun r -> Float.to_int (Float.round (r *. 100.0))) in
+  let+ rotation_angle = field "rotation_angle" float >>| Float.round >>| int_of_float in
+  (center, major_radius, minor_radius, rotation_angle)
+
+let sch_ellipse_args =
+  let* (center, ma, mi, rot) = ellipse_common_args in
+  let* _stroke = maybe stroke_expr in
+  let* _fill   = maybe fill_expr in
+  let* _uuid   = maybe uuid_expr in
+  let+ _locked = maybe (yesno_expr "locked") in
+  (center, ma, mi, rot)
+
+let sch_ellipse_arc_args =
+  let* (center, ma, mi, rot) = ellipse_common_args in
+  let* start_angle = field "start_angle" float >>| Float.round >>| int_of_float in
+  let* end_angle   = field "end_angle" float >>| Float.round >>| int_of_float in
+  let* _stroke = maybe stroke_expr in
+  let* _fill   = maybe fill_expr in
+  let* _uuid   = maybe uuid_expr in
+  let+ _locked = maybe (yesno_expr "locked") in
+  (center, ma, mi, rot, start_angle, end_angle)
+
+;;
+
+(* Library symbol ellipse primitive: (center x y) (major_radius r) (minor_radius r) (rotation_angle deg) *)
+let ellipse_prim_args =
+  let* center = center_expr in
+  let* major_radius = dist_expr "major_radius" in
+  let* minor_radius = dist_expr "minor_radius" in
+  let* rotation_angle = field "rotation_angle" float >>| Float.round >>| int_of_float in
+  let* stroke = maybe stroke_expr in
+  let+ _fill = maybe fill_expr in
+  let width = optional_stroke_to_width stroke in
+  Ellipse (width, {center; major_radius; minor_radius; rotation_angle})
+
+let ellipse_arc_prim_args =
+  let* center = center_expr in
+  let* major_radius = dist_expr "major_radius" in
+  let* minor_radius = dist_expr "minor_radius" in
+  let* rotation_angle = field "rotation_angle" float >>| Float.round >>| int_of_float in
+  let* start_angle = field "start_angle" float >>| Float.round >>| int_of_float in
+  let* end_angle   = field "end_angle" float >>| Float.round >>| int_of_float in
+  let* stroke = maybe stroke_expr in
+  let+ _fill = maybe fill_expr in
+  let width = optional_stroke_to_width stroke in
+  EllipseArc (width, {center; major_radius; minor_radius; rotation_angle; start_angle; end_angle})
+
+;;
+
 let primitive =
         variant
           [ ("polyline", polyline_args >>| (fun (s,l) -> Polygon (s, make_rel_pts l)))
           ; ("circle", circle_args)
+          ; ("ellipse", ellipse_prim_args)
+          ; ("ellipse_arc", ellipse_arc_prim_args)
           ; ("arc", arc_args)
           ; ("bezier", bezier_args)
           ; ("pin", pin_args)

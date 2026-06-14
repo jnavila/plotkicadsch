@@ -40,6 +40,12 @@ let paint_rect ?(kolor=`NoColor) ?(fill=`NoColor) (Coord(x, y)) (Coord (dim_x, d
 let paint_circle ?(kolor=`NoColor) ?(fill=`NoColor) (Coord(x, y)) radius c =
   (Printf.sprintf "Circle %d %d %d" x y radius) :: c
 
+let paint_ellipse ?(kolor=`NoColor) ?(fill=`NoColor) (Coord(x, y)) major_radius minor_radius rotation_angle c =
+  (Printf.sprintf "Ellipse %d %d %d %d %d" x y major_radius minor_radius rotation_angle) :: c
+
+let paint_ellipse_arc ?(kolor=`NoColor) ?(fill=`NoColor) (Coord(x, y)) major_radius minor_radius rotation_angle start_angle end_angle c =
+  (Printf.sprintf "EllipseArc %d %d %d %d %d %d %d" x y major_radius minor_radius rotation_angle start_angle end_angle) :: c
+
 let paint_arc ?(kolor=`NoColor) ?(fill=`NoColor)
     (Coord(cx, cy)) (Coord(sx, sy)) (Coord(ex, ey)) r c =
   (Printf.sprintf "Arc %d %d %d %d %d %d %d" cx cy sx sy ex ey r) :: c

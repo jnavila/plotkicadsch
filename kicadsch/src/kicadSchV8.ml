@@ -152,9 +152,10 @@ module MakeSchPainter (P : Painter) :
                  | Some e -> justify_of_effect e in
                let label = {c=corner; size=sz; orient; labeltype=TextLabel TextNote} in
                {args with canevas=EltPainter.draw_text_line text label cnv}))
-           (* items with no Painter interface at the moment *)
-           ; ("ellipse",      skip_all >>| fun _ args -> args)
-           ; ("ellipse_arc",  skip_all >>| fun _ args -> args)
+            ; ("ellipse", sch_ellipse_args >>| fun (center, ma, mi, rot) args ->
+                {args with canevas=EltPainter.draw_ellipse center ma mi rot args.canevas})
+            ; ("ellipse_arc", sch_ellipse_arc_args >>| fun (center, ma, mi, rot, sa, ea) args ->
+                {args with canevas=EltPainter.draw_ellipse_arc center ma mi rot sa ea args.canevas})
            ; ("table",        skip_all >>| fun _ args -> args)
            ; ("net_chain",    skip_all >>| fun _ args -> args)
            ; ("group",        skip_all >>| fun _ args -> args)

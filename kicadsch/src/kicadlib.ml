@@ -17,6 +17,13 @@ struct
       coord =
     origin +$ (rotation *$ relpoint)
 
+  let adjust_angle ((a, b), (c, d)) angle =
+    let x_angle = atan2 (float_of_int c) (float_of_int a) in
+    let det = a * d - b * c in
+    let sign = if det > 0 then 1.0 else -1.0 in
+    let rad = x_angle +. sign *. (float_of_int angle *. Float.pi /. 180.0) in
+    Float.to_int (Float.round (rad *. 180.0 /. Float.pi))
+
   let rec plot_poly rotfun thickness points ctx =
     match points with
     | [] | [_] ->
@@ -62,13 +69,21 @@ struct
         pname_ctx
     else pname_ctx
 
-  let plot_elt rotfun comp part ctx {parts; prim} =
+  let plot_elt rotfun transfo comp part ctx {parts; prim} =
     if parts = 0 || parts = part then
       match prim with
       | Polygon (t, pts) ->
           plot_poly rotfun t pts ctx
       | Circle (_, {center; radius}) ->
           P.paint_circle (rotfun center) radius ctx
+      | Ellipse (_, {center; major_radius; minor_radius; rotation_angle}) ->
+        let new_angle = adjust_angle transfo rotation_angle in
+        P.paint_ellipse (rotfun center) major_radius minor_radius new_angle ctx
+      | EllipseArc (_, {center; major_radius; minor_radius; rotation_angle; start_angle; end_angle}) ->
+        let new_rot = adjust_angle transfo rotation_angle in
+        let new_sa  = adjust_angle transfo start_angle in
+        let new_ea  = adjust_angle transfo end_angle in
+        P.paint_ellipse_arc (rotfun center) major_radius minor_radius new_rot new_sa new_ea ctx
       | Field ->
           ctx
       | Pin p ->
@@ -88,7 +103,7 @@ struct
     match get_comp lib comp_name with
     | Some thecomp ->
       let rot = rotate rotation origin in
-      ( List.fold_left (plot_elt rot thecomp part) ctx thecomp.graph
+      ( List.fold_left (fun ctx elt -> plot_elt rot origin thecomp part ctx elt) ctx thecomp.graph
     , thecomp.multi )
     | None -> if allow_missing then (ctx, false) else raise (Component_Not_Found comp_name)
 end

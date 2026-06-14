@@ -100,6 +100,17 @@ module type Painter = sig
   (** [paint_image corner scale png canvas] paints a [png] image
       filled at [corner], scaled at [scale] on [canvas]. *)
 
+  val paint_ellipse : ?kolor:kolor -> ?fill:kolor -> coord -> int -> int -> int -> t -> t
+  (** [paint_ellipse center major_radius minor_radius rotation_angle canvas]
+      paints an ellipse with the given [kolor] and [fill] defined by [center],
+      [major_radius], [minor_radius], and [rotation_angle] on [canvas]. *)
+
+  val paint_ellipse_arc :
+    ?kolor:kolor -> ?fill:kolor -> coord -> int -> int -> int -> int -> int -> t -> t
+  (** [paint_ellipse_arc center major_radius minor_radius rotation_angle
+      start_angle end_angle canvas] paints an elliptical arc filled with
+      [kolor] defined by [center], radii, [rotation_angle], [start_angle]
+      and [end_angle] on [canvas]. *)
 
   val paint_arc :
     ?kolor:kolor -> ?fill:kolor -> coord -> coord -> coord -> int -> t -> t

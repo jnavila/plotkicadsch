@@ -31,6 +31,14 @@ sig
   val draw_circle: coord -> int -> t -> t
   (** [draw_circle center radius ctx] draws a circle outline *)
 
+  val draw_ellipse: coord -> int -> int -> int -> t -> t
+  (** [draw_ellipse center major_radius minor_radius rotation_angle ctx]
+      draws an ellipse *)
+
+  val draw_ellipse_arc: coord -> int -> int -> int -> int -> int -> t -> t
+  (** [draw_ellipse_arc center major_radius minor_radius rotation_angle
+      start_angle end_angle ctx] draws an elliptical arc *)
+
   val draw_arc: coord -> coord -> coord -> int -> t -> t
   (** [draw_arc center start_pt end_pt radius ctx] draws an arc *)
 
@@ -290,6 +298,12 @@ struct
 ;;
   let draw_circle center radius ctx =
     {ctx with canevas = P.paint_circle ~kolor:`Black center radius ctx.canevas}
+
+  let draw_ellipse center major_radius minor_radius rotation_angle ctx =
+    {ctx with canevas = P.paint_ellipse ~kolor:`Black center major_radius minor_radius rotation_angle ctx.canevas}
+
+  let draw_ellipse_arc center major_radius minor_radius rotation_angle start_angle end_angle ctx =
+    {ctx with canevas = P.paint_ellipse_arc ~kolor:`Black center major_radius minor_radius rotation_angle start_angle end_angle ctx.canevas}
 
   let draw_arc center start_pt end_pt radius ctx =
     {ctx with canevas = P.paint_arc ~kolor:`Black center start_pt end_pt radius ctx.canevas}
