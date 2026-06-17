@@ -482,9 +482,25 @@ let radius_expr =
 let mid_point_expr =
   field "mid" coords >>| make_rel
 
+let arc_center_radius_from_rel_points
+    (RelCoord (ax, ay)) (RelCoord (bx, by)) (RelCoord (cx, cy)) =
+  let ax = float_of_int ax and ay = float_of_int ay in
+  let bx = float_of_int bx and by = float_of_int by in
+  let cx = float_of_int cx and cy = float_of_int cy in
+  let d = 2.0 *. ((bx -. ax) *. (cy -. by) -. (cx -. bx) *. (by -. ay)) in
+  if Float.abs d < 1e-3 then None
+  else
+    let ab2 = bx *. bx +. by *. by -. ax *. ax -. ay *. ay in
+    let bc2 = cx *. cx +. cy *. cy -. bx *. bx -. by *. by in
+    let ux = (ab2 *. (cy -. by) -. bc2 *. (by -. ay)) /. d in
+    let uy = ((bx -. ax) *. bc2 -. (cx -. bx) *. ab2) /. d in
+    let r  = Float.sqrt ((ux -. ax) *. (ux -. ax) +. (uy -. ay) *. (uy -. ay)) in
+    Some (RelCoord (Float.to_int (Float.round ux), Float.to_int (Float.round uy)),
+          Float.to_int (Float.round r))
+
 let arc_args =
   let* sp = start_point_expr >>| make_rel in
-  let* _mid_point = maybe mid_point_expr  in
+  let* mid = maybe mid_point_expr in
   let* ep = end_point_expr >>| make_rel in
   let* radius_group = maybe radius_expr in
   let* stroke = maybe stroke_expr in
@@ -493,8 +509,14 @@ let arc_args =
   let s = Size width in
   let center, radius =
     match radius_group with
-    | None -> RelCoord (0, 0), 0 (* TODO: use mid_point to compute center and radius: https://github.com/KiCad/kicad-source-mirror/blob/f353fc448b3c8e86818b52f66020f31d671ae048/libs/kimath/src/trigo.cpp#L386 *)
-     | Some (at, length, _angles) -> at, length
+    | Some (at, length, _angles) -> at, length
+    | None ->
+      (match mid with
+       | Some mid_pt ->
+         (match arc_center_radius_from_rel_points sp mid_pt ep with
+          | Some (c, r) -> c, r
+          | None -> failwith "arc: start, mid, end points are collinear")
+       | None -> failwith "arc: either radius or mid point must be specified")
   in Arc { sp; ep; s; radius; center}
 
 
