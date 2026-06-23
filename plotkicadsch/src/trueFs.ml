@@ -38,11 +38,11 @@ let make rootname relative =
     let dir_contents dir pattern =
       let rec loop result = function
         | f::fs when Sys.is_directory f ->
-          Sys.readdir f
+          let contents =Sys.readdir f
           |> Array.to_list
           |> List.map ~f:(Filename.concat f)
           |> List.append fs
-          |> loop result
+            in loop result (List.rev_append fs contents)
         | f::fs when pattern f -> loop (f::result) fs
         | _::fs -> loop result fs
         | []    -> result
