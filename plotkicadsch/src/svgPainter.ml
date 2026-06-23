@@ -1,9 +1,10 @@
 open Tyxml.Svg
+open Kicadsch.Defs
 open Kicadsch.Sigs
 
 type diff_colors = {old_ver: string; new_ver: string; fg: string; bg: string}
 
-type content = [`Polyline | `Text | `Svg | `Rect | `Circle | `Path | `Image]
+type content = [`Polyline | `Text | `Svg | `Rect | `Circle | `Ellipse | `Path | `Image]
 
 type dim = int * int
 
@@ -136,6 +137,62 @@ let paint_circle ?(kolor = `Black) ?(fill = `NoColor) (Coord (x, y)) radius
           [ a_r (coord_of_int radius)
           ; a_cx (coord_of_int x)
           ; a_cy (coord_of_int y)
+          ; a_fill (color_of_kolor fill ctxt)
+          ; a_stroke_width (10., Some `Px)
+          ; a_stroke (color_of_kolor kolor ctxt) ]
+        []
+      :: c }
+
+let paint_ellipse ?(kolor = `Black) ?(fill = `NoColor) (Coord (cx, cy))
+    major_radius minor_radius rotation_angle ({c; _} as ctxt) =
+  let rot = float_of_int rotation_angle in
+  { ctxt with
+    c=
+      ellipse
+        ~a:
+          [ a_cx (coord_of_int cx)
+          ; a_cy (coord_of_int cy)
+          ; a_rx (coord_of_int major_radius)
+          ; a_ry (coord_of_int minor_radius)
+          ; a_transform [`Rotate ((rot, None), Some (float_of_int cx, float_of_int cy))]
+          ; a_fill (color_of_kolor fill ctxt)
+          ; a_stroke_width (10., Some `Px)
+          ; a_stroke (color_of_kolor kolor ctxt) ]
+        []
+      :: c }
+
+let paint_ellipse_arc ?(kolor = `Black) ?(fill = `NoColor)
+    (Coord (cx, cy)) major_radius minor_radius rotation_angle start_angle end_angle
+    ({c; _} as ctxt) =
+  let rot = float_of_int rotation_angle *. Float.pi /. 180.0 in
+  let sa  = float_of_int start_angle   *. Float.pi /. 180.0 in
+  let ea  = float_of_int end_angle     *. Float.pi /. 180.0 in
+  let rx  = float_of_int major_radius in
+  let ry  = float_of_int minor_radius in
+  let fcx = float_of_int cx in
+  let fcy = float_of_int cy in
+  let cos_rot = cos rot in
+  let sin_rot = sin rot in
+  let ellipse_point ang =
+    let x = rx *. cos ang in
+    let y = ry *. sin ang in
+    (fcx +. x *. cos_rot -. y *. sin_rot,
+     fcy +. x *. sin_rot +. y *. cos_rot)
+  in
+  let sx, sy = ellipse_point sa in
+  let ex, ey = ellipse_point ea in
+  let diff = end_angle - start_angle in
+  let large_arc = if diff > 180 || diff < -180 then 1 else 0 in
+  let sweep = if diff > 0 then 1 else 0 in
+  { ctxt with
+    c=
+      path
+        ~a:
+          [ a_d
+              (Printf.sprintf "M%d,%d A%d,%d %d %d,%d %d,%d"
+                 (Float.to_int sx) (Float.to_int sy)
+                 major_radius minor_radius rotation_angle
+                 large_arc sweep (Float.to_int ex) (Float.to_int ey))
           ; a_fill (color_of_kolor fill ctxt)
           ; a_stroke_width (10., Some `Px)
           ; a_stroke (color_of_kolor kolor ctxt) ]

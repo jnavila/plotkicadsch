@@ -1,3 +1,4 @@
+open Kicadsch.Defs
 open Kicadsch.Sigs
 
 type image_data = Buffer.t
@@ -7,6 +8,8 @@ type t =
   | Line of kolor * size * coord * coord
   | Rect of kolor * kolor * coord * coord
   | Circle of kolor * kolor * coord * int
+  | Ellipse of kolor * kolor * coord * int * int * int
+  | EllipseArc of kolor * kolor * coord * int * int * int * int * int
   | Arc of kolor * kolor * coord * coord * coord * int
   | Image of coord * float * image_data
   | Format of coord
@@ -30,6 +33,14 @@ module L = struct
 
   let paint_circle ?(kolor = `Black) ?(fill = `NoColor) center radius ctx =
     Circle (kolor, fill, center, radius) :: ctx
+
+  let paint_ellipse ?(kolor = `Black) ?(fill = `NoColor) center major_radius
+      minor_radius rotation_angle ctx =
+    Ellipse (kolor, fill, center, major_radius, minor_radius, rotation_angle) :: ctx
+
+  let paint_ellipse_arc ?(kolor = `Black) ?(fill = `NoColor) center major_radius
+      minor_radius rotation_angle start_angle end_angle ctx =
+    EllipseArc (kolor, fill, center, major_radius, minor_radius, rotation_angle, start_angle, end_angle) :: ctx
 
   let paint_arc ?(kolor = `Black) ?(fill = `NoColor) pt_center pt_start pt_stop
       radius ctx =

@@ -5,7 +5,7 @@ let doc = "use compare (ImageMagick) between bitmaps"
 
 type pctx = SvgPainter.t
 
-module SVG = Kicadsch.MakeSchPainter (SvgPainter)
+module SVG = Kicadsch.V8.MakeSchPainter (SvgPainter)
 module SP = struct
   include SVG
 

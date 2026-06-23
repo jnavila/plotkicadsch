@@ -1,10 +1,11 @@
 open! StdLabels
 open Lwt.Infix
+open Kicadsch.Defs
 open Kicadsch.Sigs
 
 include DiffTool
 
-module L = Kicadsch.MakeSchPainter(ListPainter.L)
+module L = Kicadsch.V8.MakeSchPainter(ListPainter.L)
 
 module LP = struct
   include L
@@ -43,6 +44,10 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) (z: string op
         O.paint_rect ~kolor c1 c2 out_ctx
       | Circle (_, _, center, radius) ->
         O.paint_circle ~kolor center radius out_ctx
+      | Ellipse (_, _, center, major_radius, minor_radius, rotation_angle) ->
+        O.paint_ellipse ~kolor center major_radius minor_radius rotation_angle out_ctx
+      | EllipseArc (_, _, center, major_radius, minor_radius, rotation_angle, start_angle, end_angle) ->
+        O.paint_ellipse_arc ~kolor center major_radius minor_radius rotation_angle start_angle end_angle out_ctx
       | Arc (_, _, center, start_, end_, radius) ->
         O.paint_arc ~kolor center start_ end_ radius out_ctx
       | Image (corner, scale, data) ->
@@ -83,9 +88,17 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) (z: string op
       | Circle (_, _, center, radius) ->
         let Coord(x,y) = center in
         BB.create_from_limits (Coord(x-radius, y-radius)) (Coord(x+radius,y+radius))
+      | Ellipse (_, _, center, major_radius, minor_radius, _) ->
+        let Coord(x,y) = center in
+        let mr = max major_radius minor_radius in
+        BB.create_from_limits (Coord(x-mr, y-mr)) (Coord(x+mr,y+mr))
+      | EllipseArc (_, _, center, major_radius, minor_radius, _, _, _) ->
+        let Coord(x,y) = center in
+        let mr = max major_radius minor_radius in
+        BB.create_from_limits (Coord(x-mr, y-mr)) (Coord(x+mr,y+mr))
       | Arc (_ , _, center, _, _, radius) ->
         (* TODO: take into count partial angle *)
-        let Coord(x,y) = center in
+        let Coord(x, y) = center in
         BB.create_from_limits (Coord(x-radius, y-radius)) (Coord(x+radius,y+radius))
       | Image (corner, _, data) ->
         let w, h = SvgPainter.get_png_dims data in
@@ -135,6 +148,8 @@ let internal_diff (d : string) (c : SvgPainter.diff_colors option) (z: string op
         | Rect _, Rect _ -> 0
         | Line (_, _ , c1, c2), Line(_, _, c1', c2') -> refine_segments (c1, c2) (c1', c2')
         | Circle _, Circle _ -> 0
+        | Ellipse _, Ellipse _ -> 0
+        | EllipseArc _, EllipseArc _ -> 0
         | Arc _, Arc _ -> 0
         | Image _, Image _ -> 0
         | Zone _, Zone _ -> 0

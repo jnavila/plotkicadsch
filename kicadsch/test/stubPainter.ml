@@ -1,3 +1,4 @@
+open Kicadsch.Defs
 open Kicadsch.Sigs
 
 type t = string list
@@ -34,13 +35,20 @@ let paint_line ?(kolor=`NoColor) ?(width=Size 1) (Coord (x1, y1)) (Coord (x2, y2
   (Printf.sprintf "Line %d %d - %d %d" x1 y1 x2 y2) :: c
 
 let paint_rect ?(kolor=`NoColor) ?(fill=`NoColor) (Coord(x, y)) (Coord (dim_x, dim_y)) c =
-  c
+  (Printf.sprintf "Rect %d %d %d %d" x y dim_x dim_y) :: c
 
 let paint_circle ?(kolor=`NoColor) ?(fill=`NoColor) (Coord(x, y)) radius c =
-  c
+  (Printf.sprintf "Circle %d %d %d" x y radius) :: c
 
-let paint_arc ?(kolor=`NoColor) ?(fill=`NoColor) c1 c2 c3 r c =
-  c
+let paint_ellipse ?(kolor=`NoColor) ?(fill=`NoColor) (Coord(x, y)) major_radius minor_radius rotation_angle c =
+  (Printf.sprintf "Ellipse %d %d %d %d %d" x y major_radius minor_radius rotation_angle) :: c
+
+let paint_ellipse_arc ?(kolor=`NoColor) ?(fill=`NoColor) (Coord(x, y)) major_radius minor_radius rotation_angle start_angle end_angle c =
+  (Printf.sprintf "EllipseArc %d %d %d %d %d %d %d" x y major_radius minor_radius rotation_angle start_angle end_angle) :: c
+
+let paint_arc ?(kolor=`NoColor) ?(fill=`NoColor)
+    (Coord(cx, cy)) (Coord(sx, sy)) (Coord(ex, ey)) r c =
+  (Printf.sprintf "Arc %d %d %d %d %d %d %d" cx cy sx sy ex ey r) :: c
 
 let paint_image co s b c =
   c
