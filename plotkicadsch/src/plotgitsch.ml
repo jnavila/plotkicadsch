@@ -55,7 +55,7 @@ let internal_diff =
     "use an internal diff algorithm and use the $(docv) to display the result."
   in
   let docv = "BROWSER" in
-  let env = Arg.env_var ~doc:"Default viewer for internal diff. Defining this env var forces internal diff." "PLOTGITSCH_VIEWER" in
+  let env = Cmd.Env.info ~doc:"Default viewer for internal diff. Defining this env var forces internal diff." "PLOTGITSCH_VIEWER" in
   Arg.(
     value
     & opt ~vopt:(Internal (SysAbst.default_opener ())) differ Image_Diff
@@ -127,7 +127,7 @@ let colors =
      the default colors are FF0000:00FF00:000000:FFFFFFFF"
   in
   let docv = "old:new:foreground:background" in
-  let env = Arg.env_var ~doc:"Colors for plotting the diff" "PLOTGITSCH_COLORS" in
+  let env = Cmd.Env.info ~doc:"Colors for plotting the diff" "PLOTGITSCH_COLORS" in
 
   Arg.(value & opt get_colors None & info ["c"; "colors"] ~env ~doc ~docv)
 
@@ -155,7 +155,7 @@ let zone_color =
     "color of the frame around changed zones in hex RGB format, if specified"
   in
   let docv = "RGB, eg: #rrggbb" in
-  let env = Arg.env_var ~doc:"Color for plotting frames around changes" "PLOTGITSCH_CHANGE_COLOR" in
+  let env = Cmd.Env.info ~doc:"Color for plotting frames around changes" "PLOTGITSCH_CHANGE_COLOR" in
   Arg.(value & opt get_zone_color None & info ["z"; "zone"] ~env ~doc ~docv)
 
 let relative_path =
@@ -178,7 +178,9 @@ let info =
     [ `S Manpage.s_bugs
     ; `P "Open issues to https://github.com/jnavila/plotkicadsch/issues" ]
   in
-  Term.info "plotgitsch" ~version:"%%VERSION%%" ~doc ~exits:Term.default_exits
-    ~man
+  Cmd.info "plotgitsch" ~version:"%%VERSION%%" ~doc ~man
 
-let () = Term.exit @@ Term.eval (plotgitsch_t, info)
+let command = Cmd.make info plotgitsch_t
+
+let main () =  Cmd.eval command
+let () = if !Sys.interactive then () else exit (main ())
