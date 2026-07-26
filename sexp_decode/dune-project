@@ -1,0 +1,20 @@
+(lang dune 2.9)
+
+(name sexp_decode)
+(generate_opam_files true)
+
+(package
+ (name sexp_decode)
+ (synopsis "A library to decode S-expression into structured data")
+ (description "A library of monadic combinators that help translating S-expressions (as provided by the Csexp library) into structured data")
+ (authors "Benoît Montagu <benoit.montagu@inria.fr>")
+ (maintainers "Benoît Montagu <benoit.montagu@inria.fr>")
+ (bug_reports "https://gitlab.inria.fr/bmontagu/sexp_decode/-/issues")
+ (version 0.7)
+ (homepage "https://gitlab.inria.fr/bmontagu/sexp_decode")
+ (source (uri "git+https://gitlab.inria.fr/bmontagu/sexp_decode"))
+ (license LGPL-3.0-or-later)
+ (depends
+  (csexp (>= 1.5.1))
+  (ppx_inline_test (>= v0.14.1))
+  (ocaml (>= 4.08))))

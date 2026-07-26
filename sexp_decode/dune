@@ -1,0 +1,8 @@
+(documentation)
+
+(library
+ (public_name sexp_decode)
+ (libraries csexp)
+ (inline_tests)
+ (preprocess
+  (pps ppx_inline_test)))

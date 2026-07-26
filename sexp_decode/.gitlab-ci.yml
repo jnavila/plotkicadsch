@@ -1,0 +1,354 @@
+# This reusable CI script is licensed under the MIT license.
+# See the complete license text at the end.
+
+### Configuration section
+
+# The versions of the compiler to test the project against.
+.build-matrix:
+  parallel:
+    # https://docs.gitlab.com/ee/ci/yaml/README.html#parallel-matrix-jobs
+    matrix:
+    # - OCAML_COMPILER: "4.00.1"
+    # - OCAML_COMPILER: "4.01.0"
+    # - OCAML_COMPILER: "4.02.1"
+    # - OCAML_COMPILER: "4.02.3"
+    # - OCAML_COMPILER: "4.03.0"
+    # - OCAML_COMPILER: "4.04.2"
+    # - OCAML_COMPILER: "4.05.0"
+    # - OCAML_COMPILER: "4.06.1"
+    # - OCAML_COMPILER: "4.07.1"
+    - OCAML_COMPILER: "4.08.1"
+    - OCAML_COMPILER: "4.09.1"
+    - OCAML_COMPILER: "4.10.2"
+    - OCAML_COMPILER: "4.11.2"
+    - OCAML_COMPILER: "4.12.1"
+    - OCAML_COMPILER: "4.13.1"
+    - OCAML_COMPILER: "4.14.0"
+    - OCAML_COMPILER: "5.0.0"
+
+variables:
+  CLEAN_OPAM_CACHE: "false"
+  CLEAN_DUNE_CACHE: "false"
+  # If CLEAN_OPAM_CACHE is set to "true", the opam switch from previous CI jobs
+  # will not be reused.
+  # If CLEAN_DUNE_CACHE is set to "true", the dune _build directory
+  # from previous CI jobs will not be reused.
+
+  # In particular, you can run a manual pipeline
+  # with either variable set to "true" to purge a faulty cache.
+
+  # To run a manual gitlab pipeline, on your project go to
+  # "CI/CD" > pipelines, click "Run pipeline", the interface
+  # then offers to override variables, so you can change the
+  # value of any variable defined here.
+
+  DUNE_BUILD_TARGETS: "@all"
+  DUNE_TEST_TARGETS: "@runtest"
+  DUNE_DOC_TARGETS: "@doc"
+  # If you make one of these variables empty (: ""),
+  # the corresponding build step will be skipped.
+  # Setting them to other values can refine the build
+  # process, for example "@foo/runtest @bar/runtest" would only
+  # run the tests inside directories 'foo/' and 'bar/'
+  # (see Dune documentation on target aliases).
+
+
+# This CI script is written to be portable across projects.
+# None of the code below hardcodes project filenames,
+# OCaml versions or other project-specific details.
+#
+# If you want to add new behavior for your project, we recommend
+# trying to factorize it with project-agnostic code below,
+# and project-specific or manually-overridable choices in the
+# 'variables' section above.
+
+
+### Hacking advice
+#
+# Reference documentation for Gitlab CI configuration files:
+#  https://docs.gitlab.com/ee/ci/yaml/
+#
+# If you edit this file and make syntax errors, the default
+# error messages will not help you, but Gitlab offers a "CI Lint"
+# service that provides very nice error messages:
+#   https://docs.gitlab.com/ee/ci/lint.html
+#
+# To use this linter, go to "CI/CD > Pipelines", click the "CI Lint"
+# button in the top right, copy-paste your .gitlab-ci.yml file in
+# the form and click "Validate".
+#
+# We recommend systematically using the CI Lint whenever you change
+# this file, it can save you from wasted time and frustration.
+
+
+### Stages
+
+stages:
+  - build        # build the project and run its tests
+  - deploy       # deploys a website to Pages from the 'pages' branch
+
+
+### Build stage
+#
+# build the project and run its tests
+
+build:
+  tags:
+  - ci.inria.fr
+  - small
+
+  stage: build
+
+  extends: .build-matrix # defines OCAML_COMPILER
+
+  variables:
+    ARTIFACTS: "artifacts/$OCAML_COMPILER"
+    # a local shortcut for the per-compiler artifact repository
+
+    FF_USE_FASTZIP: "true"
+    # A workaround against a bug in gitlab-runner's default
+    # unzipping implementation, which partially breaks caching for the dune _build cache.
+    # See https://gitlab.com/gitlab-org/gitlab-runner/-/issues/27496 for more details.
+
+  artifacts:
+    paths:
+      - artifacts/$OCAML_COMPILER
+
+  # run this job only if a 'dune-project' file exists;
+  # (In particular, this will not run in your "pages" branch
+  # if it does not itself use Dune.)
+  rules:
+    # https://docs.gitlab.com/ee/ci/yaml/#rules
+    - exists:
+        - dune-project
+
+  # This CI script uses a local switch, so we don't need
+  # a docker image with a pre-installed OCaml version, just opam.
+  # See https://hub.docker.com/r/ocaml/opam/ for other images.
+  image: ocaml/opam:debian-testing-opam
+
+  # We use a local opam switch in `./_opam` that is cached
+  # by Gitlab, and reused across all branches and pull requests.
+  cache:
+    # https://docs.gitlab.com/ee/ci/yaml/#cache
+    key: $OCAML_COMPILER
+    # keep a distinct cache for each compiler version
+    paths:
+      - _opam
+      # Reusing the same opam environment over a long time might result into
+      # unnatural choice of dependencies: repeatedly installing and updating
+      # dependencies may result in a different solver choices than doing
+      # a fresh setup.
+      #
+      # You can manually clean the _opam cache by running a manual pipeline
+      # with the variable CLEAN_OPAM_CACHE set to "true".
+
+      - _build
+      # You can manually clean the dune _build cache by running a manual pipeline
+      # with the variable CLEAN_DUNE_CACHE set to "true".
+
+  script:
+    - if [ "$CLEAN_OPAM_CACHE" == "true" ]; then echo "we clean the _opam cache as explicitly requested"; rm -fR _opam; fi
+    - if [ "$CLEAN_DUNE_CACHE" == "true" ]; then echo "we clean the dune _build cache as explicitly requested"; rm -fR _build; fi
+    # Note: Gitlab supports multi-line scripts with "- |" or "- >", but the
+    # display in the logs does not show the whole script being run, reducing
+    # understandability. We only use multi-line scripts for "echo" line,
+    # and otherwise keep long one-liners.
+    #   https://docs.gitlab.com/ee/ci/yaml/script.html#split-long-commands
+
+    # see https://docs.gitlab.com/ee/ci/jobs/index.html#custom-collapsible-sections
+    # to understand the "section_{start,end}:`date +%s`:<name>\r\e[0K human-readable text" pattern
+    - echo -e "section_start:`date +%s`:setup_switch\r\e[0K setup opam switch"
+    - if [ -d _opam ]; then echo "we reuse the local opam switch from the CI cache"; fi
+
+    - if [ ! -d _opam ]; then echo "no local switch in the CI cache, we setup a new switch"; opam switch create --yes --no-install . $OCAML_COMPILER; fi
+    # --no-install prevents installing the package or its dependencies.
+    # we want to setup the external dependencies (depext) first, see below.
+    - echo -e "section_end:`date +%s`:setup_switch\r\e[0K"
+
+    - echo -e "section_start:`date +%s`:setup_deps\r\e[0K setup the package dependencies"
+    # (Note: when opam 2.1 will be available with native depext integration,
+    # the complex dance below will be replaceable by just
+    #   opam install . --deps-only --locked --with-test --with-doc --yes
+    # which should start by installing depexts
+    # (possibly we will need to set some explicit environment variable first).
+    - opam install depext --yes
+    - sudo apt-get update
+    - opam install . --dry-run --deps-only --locked --with-test --with-doc --yes | awk '/-> installed/{print $3}' | xargs opam depext -iy
+    # the magical command above comes from https://github.com/ocaml/opam/issues/3790
+    # it installs both external dependencies and opam dependencies
+    - echo "(we used --locked to honor any lockfiles if present)"
+    - echo -e "section_end:`date +%s`:setup_deps\r\e[0K"
+
+    - echo -e "section_start:`date +%s`:project_build\r\e[0K build the project"
+    - eval $(opam env)
+    - if [ "$DUNE_BUILD_TARGETS" != "" ]; then dune build $DUNE_BUILD_TARGETS --display short; else echo "skipped (DUNE_BUILD_TARGETS is empty)"; fi
+    - echo -e "section_end:`date +%s`:project_build\r\e[0K"
+
+    - echo -e "section_start:`date +%s`:project_tests\r\e[0K run the tests"
+    - if [ "$DUNE_TEST_TARGETS" != "" ]; then dune build $DUNE_TEST_TARGETS --display short; else echo "skipped (DUNE_TEST_TARGETS is empty)"; fi
+    - echo -e "section_end:`date +%s`:project_tests\r\e[0K"
+
+    - echo -e "section_start:`date +%s`:project_doc\r\e[0K build the documentation"
+    - if [ "$DUNE_DOC_TARGETS" != "" ]; then dune build $DUNE_DOC_TARGETS --display short; else echo "skipped (DUNE_DOC_TARGETS is empty)"; fi
+    - echo -e "section_end:`date +%s`:project_doc\r\e[0K"
+
+    - echo -e "section_start:`date +%s`:artifacts\r\e[0K populating the artifacts"
+    - mkdir -p $ARTIFACTS
+    - >
+      echo "Build artifacts will be available at
+              $CI_JOB_URL/artifacts/browse/$ARTIFACTS
+            Note: by default Gitlab only keeps them for a few weeks."
+    - >
+      if [ "$DUNE_DOC_TARGETS" != "" ]; then
+        cp -r _build/default/_doc/_html $ARTIFACTS/doc;
+        echo "Documentation:
+              $CI_JOB_URL/artifacts/browse/$ARTIFACTS/doc/index.html";
+      fi
+    - >
+      if [ -f _build/log ];
+      then
+        mkdir -p $ARTIFACTS/_build;
+        cp _build/log $ARTIFACTS/_build/log
+        echo "Dune build log:
+              $CI_JOB_URL/artifacts/browse/$ARTIFACTS/_build/log";
+      fi
+    - echo -e "section_end:`date +%s`:artifacts\r\e[0K"
+
+
+### CI performance
+
+# Performance analysis of one 'build' job on a small, simple library project
+# (the project build/test/doc time is basically neglectible) on gitlab.com:
+#
+# (To get those numbers for your project, just look at a passing build and fold all
+#  log sections.)
+#
+# 2m total
+#   56s preparing the docker image and CI environment
+#   14s restoring the _opam cache
+#   10s installing the project dependencies
+#       (external dependencies are not cached, opam dependencies are cached)
+#    3s project build, tests, doc
+#   31s saving the _opam cache
+#    6s uploading artifacts
+#
+# When running with CLEAN_OPAM_CACHE=true, the costs are similar, except for
+#  7m30s building the local opam switch
+#  2m07s building the project dependencies (external and opam)
+# This shows that caching the local _opam switch is very important, as
+# its setup time dominates the build (for a small project).
+#
+# Another thing that is clear from these numbers is that splitting
+# your CI in several jobs could be fairly expensive: for each job you
+# pay 56s seconds of docker setup, plus 14s to restore the _opam
+# cache. (The 31s to save the cache afterwards can be avoided by using
+# a "policy: pull" setting if the job uses the _opam in a read-only
+# way.)
+#
+# This is why this CI script does everything in a single 'build' step.
+
+
+### Deploy stage
+#
+# pushing some project artifacts to the web.
+
+# The "pages" rule uploads a custom website whenever someones
+# pushes a commit to the "pages" branch of the repository.
+#
+# The content of the website is the sub-filesystem
+# located in the "docs/" subdirectory of the branch index.
+#
+# This behavior emulates the way per-repository Github pages work.
+#
+# If the repository is at
+#   https://gitlab.com/<group>/<project>,
+# then the published website will be at
+#   https://<group>.gitlab.io/<project>
+# In general see
+#   https://docs.gitlab.com/ee/user/project/pages/getting_started_part_one.html#gitlab-pages-default-domain-names
+#
+# We previously used a setup where the documentation was pushed to
+# Gitlab Pages automatically when pushing a tag (a new release). This
+# was much less flexible, with no easy way for users to publish web
+# content *other* than the documentation, or to control when the
+# content should be refreshed.
+#
+# It is fairly simple to publish the documentation
+# from any branch with the current interface.
+# Here is an example script:
+#
+#    # compute the current commit hash and branch name
+#    git rev-parse --short HEAD > /tmp/commit
+#    git rev-parse --abbrev-ref HEAD > /tmp/branch
+#    cat .gitlab-ci.yml /tmp
+#
+#    # move to the 'pages' branch and commit the documentation there
+#    git checkout pages
+#    mkdir -p docs
+#    git rm --ignore-unmatch -r docs > /dev/null
+#    cp -r ${DOC_PATH} docs
+#    git add docs
+#    # we ensure that the CI configuration is present on the 'pages' branch,
+#    # otherwise pushing from there may not deploy as expected.
+#    cp /tmp/.gitlab-ci.yml .
+#    git add .gitlab-ci.yml
+#    git commit -m "documentation for $(cat /tmp/branch) ($(cat /tmp/commit))" \
+#    && git checkout $(cat /tmp/branch) \
+#    || git checkout $(cat /tmp/branch)
+#
+#    echo
+#    echo "The documentation was committed to the 'pages' branch."
+#    echo "You can now push it with"
+#    echo "    git push origin pages"
+#
+pages:
+  # Hardcoded values in the job:
+  # (for Gitlab to understand that this job builds the Pages)
+  # - the job name must be 'pages'
+  # - the stage must be 'deploy'
+  # - the artifacts must be a 'public' directory
+
+  stage: deploy
+
+  # no need for an OCaml environment
+  image: alpine:latest
+
+  # no cache
+
+  # run this job only in the 'pages' branch
+  rules:
+    # https://docs.gitlab.com/ee/ci/yaml/#rules
+    - if: '$CI_COMMIT_REF_NAME == "pages"'
+      when: on_success
+  artifacts:
+    paths:
+      - public
+  script:
+    - rm -fR public/
+    - mkdir -p docs
+    - cp -r docs public
+
+
+## MIT License
+#
+# Copyright 2021 Gabriel Scherer
+#
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files
+# (the "Software"), to deal in the Software without restriction,
+# including without limitation the rights to use, copy, modify, merge,
+# publish, distribute, sublicense, and/or sell copies of the Software,
+# and to permit persons to whom the Software is furnished to do so,
+# subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
