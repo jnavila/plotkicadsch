@@ -8,7 +8,7 @@ type content = [`Polyline | `Text | `Svg | `Rect | `Circle | `Ellipse | `Path | 
 
 type dim = int * int
 
-type t = {d: dim; c: content elt list; colors: diff_colors option; zone_color: string option} [@@inline]
+type t = {d: dim; c: content elt list; colors: diff_colors option; zone_color: string option}
 
 let style_attr_of_style = function
   | Italic ->
