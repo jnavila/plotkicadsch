@@ -2,13 +2,11 @@ open StdLabels
 open KicadDiff
 open Cmdliner
 
-
-let pp_fs out fs =
-  Format.fprintf out "%s" (doc fs)
+let pp_fs out fs = Format.fprintf out "%s" (doc fs)
 
 let get_fs s =
-  if String.length s > 4 && String.equal (String.sub s ~pos:0 ~len:4) "dir:" then
-    true_fs (String.sub s ~pos:4 ~len:(String.length s - 4))
+  if String.length s > 4 && String.equal (String.sub s ~pos:0 ~len:4) "dir:"
+  then true_fs (String.sub s ~pos:4 ~len:(String.length s - 4))
   else git_fs s
 
 let reference =
@@ -17,8 +15,8 @@ let reference =
 
 let from_ref =
   let doc =
-    "reference from which the diff is performed. If it starts with 'dir:' \
-     it's a file system dir."
+    "reference from which the diff is performed. If it starts with 'dir:' it's \
+     a file system dir."
   in
   let docv = "FROM_REF" in
   Arg.(value & pos 0 reference (git_fs "HEAD") & info [] ~doc ~docv)
@@ -34,10 +32,8 @@ let to_ref =
 let pp_differ out differ =
   let s =
     match differ with
-    | Internal p ->
-        "internal with viewer " ^ p
-    | Image_Diff ->
-        "external"
+    | Internal p -> "internal with viewer " ^ p
+    | Image_Diff -> "external"
   in
   Format.fprintf out "%s" s
 
@@ -48,18 +44,24 @@ let differ =
 let diff_of_file =
   let doc = "diff only selected file $(docv)." in
   let docv = "FILENAME" in
-  Arg.(value & opt (some file) None & info ["f"; "file"] ~doc ~docv)
+  Arg.(value & opt (some file) None & info [ "f"; "file" ] ~doc ~docv)
 
 let internal_diff =
   let doc =
     "use an internal diff algorithm and use the $(docv) to display the result."
   in
   let docv = "BROWSER" in
-  let env = Cmd.Env.info ~doc:"Default viewer for internal diff. Defining this env var forces internal diff." "PLOTGITSCH_VIEWER" in
+  let env =
+    Cmd.Env.info
+      ~doc:
+        "Default viewer for internal diff. Defining this env var forces \
+         internal diff."
+      "PLOTGITSCH_VIEWER"
+  in
   Arg.(
     value
     & opt ~vopt:(Internal (SysAbst.default_opener ())) differ Image_Diff
-    & info ["i"; "internal"] ~env ~doc ~docv)
+    & info [ "i"; "internal" ] ~env ~doc ~docv)
 
 let preloaded_libs =
   let doc =
@@ -67,34 +69,34 @@ let preloaded_libs =
      can be used several times on command line."
   in
   let docv = "LIB" in
-  Arg.(value & opt_all file [] & info ["l"; "lib"] ~doc ~docv)
+  Arg.(value & opt_all file [] & info [ "l"; "lib" ] ~doc ~docv)
 
 let textual_diff =
   let doc =
     "fall back to show a text diff if files are different but generate no \
      visual diffs"
   in
-  Arg.(value & flag & info ["t"; "textdiff"] ~doc)
+  Arg.(value & flag & info [ "t"; "textdiff" ] ~doc)
 
 let continue_on_missing_component =
   let doc =
-    "by default, a missing component aborts the comparison. With this option, a missing component is skipped and the process continues."
+    "by default, a missing component aborts the comparison. With this option, \
+     a missing component is skipped and the process continues."
   in
-  Arg.(value & flag & info ["m"; "allow_missing"] ~doc)
+  Arg.(value & flag & info [ "m"; "allow_missing" ] ~doc)
 
 let keep_files =
   let doc =
     "by default, the svg diff files are deleted after launching the viewer; \
      this option lets the files in place after viewing them. "
   in
-  Arg.(value & flag & info ["k"; "keep"] ~doc)
+  Arg.(value & flag & info [ "k"; "keep" ] ~doc)
 
 let pp_colors out c =
   let open SvgPainter in
   match c with
-  | None ->
-      Format.fprintf out "default colors"
-  | Some {old_ver; new_ver; fg; bg} ->
+  | None -> Format.fprintf out "default colors"
+  | Some { old_ver; new_ver; fg; bg } ->
       Format.fprintf out "%s:%s:%s:%s" old_ver new_ver fg bg
 
 let extract_colors s =
@@ -106,16 +108,13 @@ let extract_colors s =
   in
   let col_re = Re.Posix.compile_pat cols_exp in
   match Re.all col_re s with
-  | [m] -> (
-    match Re.Group.all m with
-    | [|_; o; n; f; b; _|]
-    | [|_; o; n; f; b|] ->
-        let e c = "#" ^ c in
-        Result.Ok (Some {old_ver= e o; new_ver= e n; fg= e f; bg= e b})
-    | _ ->
-        Result.Error (`Msg "wrong colors format") )
-  | _ ->
-      Result.Error (`Msg "wrong colors format")
+  | [ m ] -> (
+      match Re.Group.all m with
+      | [| _; o; n; f; b; _ |] | [| _; o; n; f; b |] ->
+          let e c = "#" ^ c in
+          Result.Ok (Some { old_ver = e o; new_ver = e n; fg = e f; bg = e b })
+      | _ -> Result.Error (`Msg "wrong colors format"))
+  | _ -> Result.Error (`Msg "wrong colors format")
 
 let get_colors =
   let docv = "scheme of colors for diffing" in
@@ -123,28 +122,28 @@ let get_colors =
 
 let colors =
   let doc =
-    "list of colon separated hex RRGGBB codes for colors used for diffing and RRGGBB[AA] code for background e.g. \
-     the default colors are FF0000:00FF00:000000:FFFFFFFF"
+    "list of colon separated hex RRGGBB codes for colors used for diffing and \
+     RRGGBB[AA] code for background e.g. the default colors are \
+     FF0000:00FF00:000000:FFFFFFFF"
   in
   let docv = "old:new:foreground:background" in
-  let env = Cmd.Env.info ~doc:"Colors for plotting the diff" "PLOTGITSCH_COLORS" in
+  let env =
+    Cmd.Env.info ~doc:"Colors for plotting the diff" "PLOTGITSCH_COLORS"
+  in
 
-  Arg.(value & opt get_colors None & info ["c"; "colors"] ~env ~doc ~docv)
+  Arg.(value & opt get_colors None & info [ "c"; "colors" ] ~env ~doc ~docv)
 
 let pp_zone_color out c =
   match c with
-  | None ->
-    Format.fprintf out "transparent"
-  | Some c ->
-    Format.fprintf out "#%s" c
+  | None -> Format.fprintf out "transparent"
+  | Some c -> Format.fprintf out "#%s" c
 
 let extract_zone_color s =
   let col_exp = "(#[0-9a-fA-F]{6})" in
   let col_re = Re.Posix.compile_pat col_exp in
   match Re.all col_re s with
-  | [_] -> Result.Ok (Some s)
-  | _ ->
-      Result.Error (`Msg "wrong colors format")
+  | [ _ ] -> Result.Ok (Some s)
+  | _ -> Result.Error (`Msg "wrong colors format")
 
 let get_zone_color =
   let docv = "RGB color format" in
@@ -155,19 +154,25 @@ let zone_color =
     "color of the frame around changed zones in hex RGB format, if specified"
   in
   let docv = "RGB, eg: #rrggbb" in
-  let env = Cmd.Env.info ~doc:"Color for plotting frames around changes" "PLOTGITSCH_CHANGE_COLOR" in
-  Arg.(value & opt get_zone_color None & info ["z"; "zone"] ~env ~doc ~docv)
+  let env =
+    Cmd.Env.info ~doc:"Color for plotting frames around changes"
+      "PLOTGITSCH_CHANGE_COLOR"
+  in
+  Arg.(value & opt get_zone_color None & info [ "z"; "zone" ] ~env ~doc ~docv)
 
 let relative_path =
   let doc =
-    "force relative path to git working tree root. Detected automatically from current dir by default" in
+    "force relative path to git working tree root. Detected automatically from \
+     current dir by default"
+  in
   let docv = "path" in
-  Arg.(value & opt (some string) None & info ["r"; "relative"] ~doc ~docv)
+  Arg.(value & opt (some string) None & info [ "r"; "relative" ] ~doc ~docv)
 
 let plotgitsch_t =
   Term.(
-    const doit $ from_ref $ to_ref $ diff_of_file $ internal_diff
-    $ textual_diff $ preloaded_libs $ keep_files $ colors $ zone_color $ continue_on_missing_component $ relative_path)
+    const doit $ from_ref $ to_ref $ diff_of_file $ internal_diff $ textual_diff
+    $ preloaded_libs $ keep_files $ colors $ zone_color
+    $ continue_on_missing_component $ relative_path)
 
 let info =
   let doc =
@@ -175,12 +180,13 @@ let info =
      schematic"
   in
   let man =
-    [ `S Manpage.s_bugs
-    ; `P "Open issues to https://github.com/jnavila/plotkicadsch/issues" ]
+    [
+      `S Manpage.s_bugs;
+      `P "Open issues to https://github.com/jnavila/plotkicadsch/issues";
+    ]
   in
   Cmd.info "plotgitsch" ~version:"%%VERSION%%" ~doc ~man
 
 let command = Cmd.make info plotgitsch_t
-
-let main () =  Cmd.eval command
+let main () = Cmd.eval command
 let () = if !Sys.interactive then () else exit (main ())

@@ -1,4 +1,4 @@
-module Defs =  KicadDefs
+module Defs = KicadDefs
 module Sigs = KicadSch_sigs
 module Sexp = SexpKicadSch
 module Lib_sigs = KicadLib_sigs
