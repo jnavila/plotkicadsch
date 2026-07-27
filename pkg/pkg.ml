@@ -6,5 +6,6 @@
 
 open Topkg
 
-let publish = Pkg.publish ~artefacts:[ `Distrib ] ()
+let publish = Pkg.publish ~artefacts:[`Distrib] ()
+
 let () = Topkg_jbuilder.describe ~name:"kicadsch" ~publish ()

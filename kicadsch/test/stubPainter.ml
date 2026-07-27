@@ -4,29 +4,46 @@ open Kicadsch.Sigs
 type t = string list
 
 let string_of_justification = function
-  | J_left -> "J_left"
-  | J_right -> "J_right"
-  | J_center -> "J_center"
-  | J_bottom -> "J_bottom"
-  | J_top -> "J_top"
+  | J_left ->
+      "J_left"
+  | J_right ->
+      "J_right"
+  | J_center ->
+      "J_center"
+  | J_bottom ->
+      "J_bottom"
+  | J_top ->
+      "J_top"
 
 let string_of_style = function
-  | Bold -> "Bold"
-  | Italic -> "Italic"
-  | BoldItalic -> "BoldItalic"
-  | NoStyle -> "NoStyle"
+  | Bold ->
+      "Bold"
+  | Italic ->
+      "Italic"
+  | BoldItalic ->
+      "BoldItalic"
+  | NoStyle ->
+      "NoStyle"
 
 let string_of_orientation = function
-  | Orient_H -> "Orient_H"
-  | Orient_V -> "Orient_V"
+  | Orient_H ->
+      "Orient_H"
+  | Orient_V ->
+      "Orient_V"
 
 let string_of_kolor = function
-  | `NoColor -> "NoColor"
-  | `Black -> "Black"
-  | `Green -> "Green"
-  | `Red -> "Red"
-  | `Blue -> "Blue"
-  | `Brown -> "Brown"
+  | `NoColor ->
+      "NoColor"
+  | `Black ->
+      "Black"
+  | `Green ->
+      "Green"
+  | `Red ->
+      "Red"
+  | `Blue ->
+      "Blue"
+  | `Brown ->
+      "Brown"
 
 let paint_text ?(kolor = `Black) t (o : orientation) (Coord (x, y)) (Size size)
     justif styl c =
@@ -65,6 +82,9 @@ let paint_arc ?(kolor = `NoColor) ?(fill = `NoColor) (Coord (cx, cy))
   Printf.sprintf "Arc %d %d %d %d %d %d %d" cx cy sx sy ex ey r :: c
 
 let paint_image co s b c = c
+
 let get_context () = []
+
 let set_canevas_size _ _ c = c
+
 let write c = c

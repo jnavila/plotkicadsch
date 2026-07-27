@@ -14,14 +14,15 @@ type justify = J_left | J_right | J_center | J_bottom | J_top  (** *)
 (** Style of a text *)
 type style = Bold | Italic | BoldItalic | NoStyle  (** *)
 
-type kolor = [ `NoColor | `Black | `Green | `Red | `Blue | `Brown ]
 (** Color of the text. These are the colors appearing in Kicad schematics *)
+type kolor = [`NoColor | `Black | `Green | `Red | `Blue | `Brown]
 
-type transfo = (int * int) * (int * int)
 (** Transformation matrix of a relative coordinate around an absolute
     coordinate. The matrix is layed out as a pair of lines of pairs *)
+type transfo = (int * int) * (int * int)
 
 type revision = First of string | Second of string | No_Rev
+
 type portrange = Glabel | Hlabel
 
 type porttype =
@@ -33,46 +34,45 @@ type porttype =
   | BiDiPort
 
 type labeluse = WireLabel | TextNote
+
 type labeltype = PortLabel of portrange * porttype | TextLabel of labeluse
-type label = { c : coord; size : size; orient : justify; labeltype : labeltype }
 
-type field = {
-  nb : int;
-  text : string;
-  o : orientation;
-  co : coord;
-  s : size;
-  j : justify;
-  stl : style;
-}
+type label = {c: coord; size: size; orient: justify; labeltype: labeltype}
 
-type single_reference = { piece : string option; unitnr : int option }
-type multi_reference = { m_piece : string; m_unitnr : int }
+type field =
+  { nb: int
+  ; text: string
+  ; o: orientation
+  ; co: coord
+  ; s: size
+  ; j: justify
+  ; stl: style }
 
-type bitmapContext = {
-  pos : coord option;
-  scale : float option;
-  data : Buffer.t option;
-}
+type single_reference = {piece: string option; unitnr: int option}
+
+type multi_reference = {m_piece: string; m_unitnr: int}
+
+type bitmapContext =
+  {pos: coord option; scale: float option; data: Buffer.t option}
 
 module type Painter = sig
   (** A module able to paint a canvas with several graphic primitives and then
       to process the canvas into a picture file format. The functions are
       supposed to be pure *)
 
-  type t
   (** the canvas of the painter *)
+  type t
 
   val paint_text :
-    ?kolor:kolor ->
-    String.t ->
-    orientation ->
-    coord ->
-    size ->
-    justify ->
-    style ->
-    t ->
-    t
+       ?kolor:kolor
+    -> String.t
+    -> orientation
+    -> coord
+    -> size
+    -> justify
+    -> style
+    -> t
+    -> t
   (** [paint ?kolor text orient coord size justification style canvas] adds a
       [text] with the given [orient], [size], [justification] and [style] at the
       given [coord] to [canvas]. *)
@@ -100,16 +100,16 @@ module type Painter = sig
       [major_radius], [minor_radius], and [rotation_angle] on [canvas]. *)
 
   val paint_ellipse_arc :
-    ?kolor:kolor ->
-    ?fill:kolor ->
-    coord ->
-    int ->
-    int ->
-    int ->
-    int ->
-    int ->
-    t ->
-    t
+       ?kolor:kolor
+    -> ?fill:kolor
+    -> coord
+    -> int
+    -> int
+    -> int
+    -> int
+    -> int
+    -> t
+    -> t
   (** [paint_ellipse_arc center major_radius minor_radius rotation_angle
        start_angle end_angle canvas] paints an elliptical arc filled with
       [kolor] defined by [center], radii, [rotation_angle], [start_angle] and
@@ -131,11 +131,11 @@ end
 module type SchPainter = sig
   (** A module able to paint a schematic file in a painter context *)
 
-  type schContext
   (** the schematic context *)
+  type schContext
 
-  type painterContext
   (** the underlying context *)
+  type painterContext
 
   val file_extension : string
   (** [file_extension] is the extension of the file format ("sch" for v5,
@@ -165,21 +165,21 @@ module type CompPainter = sig
       components. Then when passed a drawing context and a component to paint it
       can paint the component on demand to the drawing context *)
 
-  type t = KicadLib_sigs.library
   (** A component Library manager *)
+  type t = KicadLib_sigs.library
 
-  type drawContext
   (** A drawing context *)
+  type drawContext
 
   val plot_comp :
-    t ->
-    string ->
-    int ->
-    coord ->
-    transfo ->
-    bool ->
-    drawContext ->
-    drawContext * bool
+       t
+    -> string
+    -> int
+    -> coord
+    -> transfo
+    -> bool
+    -> drawContext
+    -> drawContext * bool
   (** [plot_comp lib name partnumber origin transformation allow_missing
        context] finds in [lib] the component with given [name] and plot the part
       [partnumber] at [origin] after [transformation] into the graphical

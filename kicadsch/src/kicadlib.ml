@@ -5,6 +5,7 @@ struct
   open KicadLib_sigs
 
   type t = library
+
   type drawContext = P.t
 
   let ( +$ ) (Coord (x1, y1)) (RelCoord (x2, y2)) = Coord (x1 + x2, y1 + y2)
@@ -25,21 +26,26 @@ struct
 
   let rec plot_poly rotfun thickness points ctx =
     match points with
-    | [] | [ _ ] -> ctx
+    | [] | [_] ->
+        ctx
     | c1 :: c2 :: tl ->
         let c1' = rotfun c1 in
         let c2' = rotfun c2 in
         plot_poly rotfun thickness (c2 :: tl) (P.paint_line c1' c2' ctx)
 
-  let plot_pin rotfun { name; number; length; contact; orient } c ctx =
+  let plot_pin rotfun {name; number; length; contact; orient} c ctx =
     let (RelCoord (x, y)) = contact in
     let (Size delta) = length in
     let sc =
       match orient with
-      | P_R -> RelCoord (x + delta, y)
-      | P_L -> RelCoord (x - delta, y)
-      | P_U -> RelCoord (x, y + delta)
-      | P_D -> RelCoord (x, y - delta)
+      | P_R ->
+          RelCoord (x + delta, y)
+      | P_L ->
+          RelCoord (x - delta, y)
+      | P_U ->
+          RelCoord (x, y + delta)
+      | P_D ->
+          RelCoord (x, y - delta)
     in
     let (Coord (nxsc, nysc) as new_sc) = rotfun sc in
     let (Coord (nx, ny) as new_contact) = rotfun contact in
@@ -62,39 +68,41 @@ struct
         pname_ctx
     else pname_ctx
 
-  let plot_elt rotfun transfo comp part ctx { parts; prim } =
+  let plot_elt rotfun transfo comp part ctx {parts; prim} =
     if parts = 0 || parts = part then
       match prim with
-      | Polygon (t, pts) -> plot_poly rotfun t pts ctx
-      | Circle (_, { center; radius }) ->
+      | Polygon (t, pts) ->
+          plot_poly rotfun t pts ctx
+      | Circle (_, {center; radius}) ->
           P.paint_circle (rotfun center) radius ctx
-      | Ellipse (_, { center; major_radius; minor_radius; rotation_angle }) ->
+      | Ellipse (_, {center; major_radius; minor_radius; rotation_angle}) ->
           let new_angle = adjust_angle transfo rotation_angle in
           P.paint_ellipse (rotfun center) major_radius minor_radius new_angle
             ctx
       | EllipseArc
-          ( _,
-            {
-              center;
-              major_radius;
-              minor_radius;
-              rotation_angle;
-              start_angle;
-              end_angle;
-            } ) ->
+          ( _
+          , { center
+            ; major_radius
+            ; minor_radius
+            ; rotation_angle
+            ; start_angle
+            ; end_angle } ) ->
           let new_rot = adjust_angle transfo rotation_angle in
           let new_sa = adjust_angle transfo start_angle in
           let new_ea = adjust_angle transfo end_angle in
           P.paint_ellipse_arc (rotfun center) major_radius minor_radius new_rot
             new_sa new_ea ctx
-      | Field -> ctx
-      | Pin p -> plot_pin rotfun p comp ctx
-      | Text { c; text; s } ->
+      | Field ->
+          ctx
+      | Pin p ->
+          plot_pin rotfun p comp ctx
+      | Text {c; text; s} ->
           P.paint_text text Orient_H (rotfun c) s J_left NoStyle ctx
-      | Arc { radius; sp; ep; center; _ } ->
+      | Arc {radius; sp; ep; center; _} ->
           P.paint_arc (rotfun center) (rotfun sp) (rotfun ep) radius ctx
       (* TODO: paint Bezier *)
-      | Bezier (_, _) -> ctx
+      | Bezier (_, _) ->
+          ctx
     else ctx
 
   exception Component_Not_Found of string
@@ -106,8 +114,8 @@ struct
         let rot = rotate rotation origin in
         ( List.fold_left
             (fun ctx elt -> plot_elt rot origin thecomp part ctx elt)
-            ctx thecomp.graph,
-          thecomp.multi )
+            ctx thecomp.graph
+        , thecomp.multi )
     | None ->
         if allow_missing then (ctx, false)
         else raise (Component_Not_Found comp_name)

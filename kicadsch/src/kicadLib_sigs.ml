@@ -1,34 +1,30 @@
 open KicadDefs
 
 type relcoord = RelCoord of int * int
-type circle = { center : relcoord; radius : int }
 
-type ellipse = {
-  center : relcoord;
-  major_radius : int;
-  minor_radius : int;
-  rotation_angle : int;
-}
+type circle = {center: relcoord; radius: int}
 
-type ellipse_arc = {
-  center : relcoord;
-  major_radius : int;
-  minor_radius : int;
-  rotation_angle : int;
-  start_angle : int;
-  end_angle : int;
-}
+type ellipse =
+  {center: relcoord; major_radius: int; minor_radius: int; rotation_angle: int}
+
+type ellipse_arc =
+  { center: relcoord
+  ; major_radius: int
+  ; minor_radius: int
+  ; rotation_angle: int
+  ; start_angle: int
+  ; end_angle: int }
 
 type pin_orientation = P_L | P_R | P_U | P_D [@@deriving show]
+
 type pin_tag = string * size
 
-type pin = {
-  name : pin_tag;
-  number : pin_tag;
-  length : size;
-  contact : relcoord;
-  orient : pin_orientation;
-}
+type pin =
+  { name: pin_tag
+  ; number: pin_tag
+  ; length: size
+  ; contact: relcoord
+  ; orient: pin_orientation }
 
 type primitive =
   | Field
@@ -37,30 +33,24 @@ type primitive =
   | Ellipse of int * ellipse
   | EllipseArc of int * ellipse_arc
   | Pin of pin
-  | Text of { c : relcoord; text : string; s : size }
-  | Arc of {
-      s : size;
-      radius : int;
-      sp : relcoord;
-      ep : relcoord;
-      center : relcoord;
-    }
+  | Text of {c: relcoord; text: string; s: size}
+  | Arc of {s: size; radius: int; sp: relcoord; ep: relcoord; center: relcoord}
   | Bezier of int * relcoord list
 
-type elt = { parts : int; prim : primitive }
+type elt = {parts: int; prim: primitive}
 
-type component = {
-  names : string list;
-  draw_pnum : bool;
-  draw_pname : bool;
-  multi : bool;
-  graph : elt list;
-}
+type component =
+  { names: string list
+  ; draw_pnum: bool
+  ; draw_pname: bool
+  ; multi: bool
+  ; graph: elt list }
 
 module Lib : Hashtbl.S with type key := string = Hashtbl.Make (struct
   type t = string
 
   let equal = String.equal
+
   let get_i s n = int_of_char s.[n]
 
   let hash s =
@@ -80,7 +70,7 @@ let fix_illegal_chars name =
 let add_component comp lib =
   List.iter
     (fun name -> Lib.replace lib (fix_illegal_chars name) comp)
-    comp.names;
+    comp.names ;
   lib
 
 let get_comp lib comp_name = Lib.find_opt lib (fix_illegal_chars comp_name)
