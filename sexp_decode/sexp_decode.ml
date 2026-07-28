@@ -1,8 +1,6 @@
-(**
-    Copyright © Inria 2022
+(** Copyright © Inria 2022
 
-   @author Benoît Montagu <benoit.montagu@inria.fr>
-*)
+    @author Benoît Montagu <benoit.montagu@inria.fr> *)
 
 include Sexp_decode_intf
 
@@ -12,7 +10,7 @@ module Make (X : SEXP) : S with type sexp := X.t = struct
   type 'a decode_res = Err of sexp | GenErr | SomeRes of 'a
   type 'a decoder = state -> (state * 'a) decode_res
 
-  let run_with_result (decode: 'a decoder) (sexp: sexp) : ('a, sexp) result =
+  let run_with_result (decode : 'a decoder) (sexp : sexp) : ('a, sexp) result =
     match decode [ [ sexp ] ] with
     | GenErr -> Error sexp
     | Err s -> Error s
@@ -22,7 +20,7 @@ module Make (X : SEXP) : S with type sexp := X.t = struct
 
   let run_list (decode : 'a decoder) (sexps : sexp list) : 'a option =
     match decode [ sexps ] with
-    | GenErr| Err _ | SomeRes((_ :: _) :: _, _) -> None
+    | GenErr | Err _ | SomeRes ((_ :: _) :: _, _) -> None
     | SomeRes ([], _) -> assert false
     | SomeRes ([] :: _, v) -> Some v
 
@@ -31,13 +29,12 @@ module Make (X : SEXP) : S with type sexp := X.t = struct
 
   let return (v : 'a) : 'a decoder = fun rem -> SomeRes (rem, v)
   let const = return
-
   let%test _ = run_list (return 42) [] = Some 42
   let%test _ = run_list (return 42) [ Atom "foo" ] = None
   let%test _ = run (return 42) (Atom "foo") = None
 
   let error : 'a decoder = function
-    | (state::_)::_ -> Err state
+    | (state :: _) :: _ -> Err state
     | _ -> GenErr
 
   let%test _ = run_list error [] = None
@@ -46,7 +43,9 @@ module Make (X : SEXP) : S with type sexp := X.t = struct
 
   let fail_default (default : 'a) (decode : 'b decoder) : 'a decoder =
    fun state ->
-    match decode state with SomeRes ((state::_)::_,_) -> Err state | SomeRes _ | GenErr | Err _ -> SomeRes (state, default)
+    match decode state with
+    | SomeRes ((state :: _) :: _, _) -> Err state
+    | SomeRes _ | GenErr | Err _ -> SomeRes (state, default)
 
   let fail (decode : 'a decoder) : unit decoder = fail_default () decode
 
@@ -54,29 +53,29 @@ module Make (X : SEXP) : S with type sexp := X.t = struct
    fun state ->
     match decode state with
     | SomeRes (_, v) -> SomeRes (state, v)
-    | GenErr | Err _ as err -> err
+    | (GenErr | Err _) as err -> err
 
   let map (f : 'a -> 'b) (decode : 'a decoder) : 'b decoder =
-    fun state ->
+   fun state ->
     match decode state with
     | SomeRes (s, v) -> SomeRes (s, f v)
-    | GenErr | Err _ as err  -> err
+    | (GenErr | Err _) as err -> err
 
   let flip_map decode f = map f decode
   let ( >>| ) = flip_map
   let ( let+ ) = flip_map
-
   let%test _ = run_list (return 42 >>| ( + ) 1) [] = Some 43
   let%test _ = run_list (return 42 >>| ( + ) 1) [ Atom "foo" ] = None
   let%test _ = run (return 42 >>| ( + ) 1) (Atom "foo") = None
 
   let bind (decode : 'a decoder) (f : 'a -> 'b decoder) : 'b decoder =
    fun state ->
-    match decode state with GenErr | Err _ as err  -> err | SomeRes (state, res) -> f res state
+    match decode state with
+    | (GenErr | Err _) as err -> err
+    | SomeRes (state, res) -> f res state
 
   let ( >>= ) = bind
   let ( let* ) = bind
-
   let%test _ = run_list (return 42 >>= fun n -> return (n + 1)) [] = Some 43
 
   let%test _ =
@@ -86,12 +85,12 @@ module Make (X : SEXP) : S with type sexp := X.t = struct
 
   let seq (decode1 : 'a decoder) (decode2 : 'b decoder) : 'b decoder =
    fun state ->
-    match decode1 state with GenErr | Err _ as err  -> err | SomeRes (state, _) -> decode2 state
+    match decode1 state with
+    | (GenErr | Err _) as err -> err
+    | SomeRes (state, _) -> decode2 state
 
   let ( >>> ) = seq
-
   let%test _ = run_list (return 42 >>> return 43) [] = Some 43
-
   let drop (decode : 'a decoder) : unit decoder = decode >>> return ()
 
   let ( <<< ) (decode1 : 'a decoder) (decode2 : 'b decoder) : 'a decoder =
@@ -103,7 +102,9 @@ module Make (X : SEXP) : S with type sexp := X.t = struct
 
   let or_else (decode1 : 'a decoder) (decode2 : 'a decoder) : 'a decoder =
    fun state ->
-    match decode1 state with SomeRes _ as ok -> ok | GenErr | Err _ -> decode2 state
+    match decode1 state with
+    | SomeRes _ as ok -> ok
+    | GenErr | Err _ -> decode2 state
 
   let ( |+> ) = or_else
 
@@ -113,7 +114,9 @@ module Make (X : SEXP) : S with type sexp := X.t = struct
   let or_else_delayed (decode1 : 'a decoder) (decode2 : unit -> 'a decoder) :
       'a decoder =
    fun state ->
-    match decode1 state with SomeRes _ as ok -> ok | GenErr | Err _ -> decode2 () state
+    match decode1 state with
+    | SomeRes _ as ok -> ok
+    | GenErr | Err _ -> decode2 () state
 
   let ( |+>> ) = or_else_delayed
 
@@ -124,7 +127,6 @@ module Make (X : SEXP) : S with type sexp := X.t = struct
 
   let ( <*> ) = pair
   let tuple2 = pair
-
   let%test _ = run_list (return 42 <*> return 43) [] = Some (42, 43)
 
   let tuple3 (d1 : 'a1 decoder) (d2 : 'a2 decoder) (d3 : 'a3 decoder) :
@@ -191,7 +193,7 @@ module Make (X : SEXP) : S with type sexp := X.t = struct
 
   let raw : sexp decoder = function
     | [] -> assert false
-    | [] :: ((next::_)::_) -> Err next
+    | [] :: (next :: _) :: _ -> Err next
     | [] :: _ -> GenErr
     | (v :: vs) :: next -> SomeRes (vs :: next, v)
 
@@ -205,7 +207,7 @@ module Make (X : SEXP) : S with type sexp := X.t = struct
 
   let skip : unit decoder = function
     | [] -> assert false
-    | [] :: ((next::_)::_) -> Err next
+    | [] :: (next :: _) :: _ -> Err next
     | [] :: _ -> GenErr
     | (_ :: vs) :: next -> SomeRes (vs :: next, ())
 
@@ -229,9 +231,9 @@ module Make (X : SEXP) : S with type sexp := X.t = struct
 
   let atom : string decoder = function
     | [] -> assert false
-    | [] :: ((next::_)::_) -> Err next
+    | [] :: (next :: _) :: _ -> Err next
     | [] :: _ -> GenErr
-    | ((List _ as err_point):: _) :: _ -> Err err_point
+    | ((List _ as err_point) :: _) :: _ -> Err err_point
     | (Atom s :: vs) :: next -> SomeRes (vs :: next, s)
 
   let%test _ = run atom (Atom "foo") = Some "foo"
@@ -259,8 +261,8 @@ module Make (X : SEXP) : S with type sexp := X.t = struct
 
   let enter : unit decoder = function
     | [] -> assert false
-    | ((Atom _ as err_point):: _) :: _ -> Err err_point
-    | [] :: ((next::_)::_) -> Err next
+    | ((Atom _ as err_point) :: _) :: _ -> Err err_point
+    | [] :: (next :: _) :: _ -> Err next
     | [] :: _ -> GenErr
     | (List l :: vs) :: next -> SomeRes (l :: vs :: next, ())
 
@@ -270,7 +272,6 @@ module Make (X : SEXP) : S with type sexp := X.t = struct
     | [] :: next -> SomeRes (next, ())
 
   let group (decode : 'a decoder) = enter >>> decode <<< exit
-
   let%test _ = run (group (return ())) (List []) = Some ()
   let%test _ = run (group (return ())) (List [ Atom "foo" ]) = None
   let%test _ = run (group atom) (List [ Atom "foo" ]) = Some "foo"
@@ -291,7 +292,6 @@ module Make (X : SEXP) : S with type sexp := X.t = struct
     if p v then return v else error
 
   let tag s : string decoder = filter (String.equal s) atom
-
   let%test _ = run (tag "A") (Atom "A") = Some "A"
   let%test _ = run (tag "A") (Atom "B") = None
 
@@ -402,7 +402,6 @@ module Make (X : SEXP) : S with type sexp := X.t = struct
     decode >>> repeat ~until decode
 
   let skip_all : unit decoder = repeat ~until:no_more skip
-
   let%test _ = run_list skip_all [ Atom "A"; List []; Atom "B" ] = Some ()
   let%test _ = run_list skip_all [] = Some ()
 
@@ -516,7 +515,6 @@ module Make (X : SEXP) : S with type sexp := X.t = struct
     run (list (tag "A")) (List [ Atom "A"; Atom "A" ]) = Some [ "A"; "A" ]
 
   let%test _ = run (list (tag "A")) (List [ Atom "A"; Atom "B" ]) = None
-
   let field name (decode : 'a decoder) : 'a decoder = group (tag name >>> decode)
 
   let%test _ =

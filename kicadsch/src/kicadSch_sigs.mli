@@ -1,5 +1,4 @@
-(**
-   Kicad modules Signatures *)
+(** Kicad modules Signatures *)
 
 open KicadDefs
 
@@ -15,18 +14,14 @@ type justify = J_left | J_right | J_center | J_bottom | J_top  (** *)
 (** Style of a text *)
 type style = Bold | Italic | BoldItalic | NoStyle  (** *)
 
+type kolor = [ `NoColor | `Black | `Green | `Red | `Blue | `Brown ]
 (** Color of the text. These are the colors appearing in Kicad schematics *)
-type kolor = [`NoColor | `Black | `Green | `Red | `Blue | `Brown]
 
-(** Transformation matrix of a relative coordinate around an absolute coordinate.
-    The matrix is layed out as a pair of lines of pairs *)
 type transfo = (int * int) * (int * int)
+(** Transformation matrix of a relative coordinate around an absolute
+    coordinate. The matrix is layed out as a pair of lines of pairs *)
 
-type revision =
-  | First of string
-  | Second of string
-  | No_Rev
-
+type revision = First of string | Second of string | No_Rev
 type portrange = Glabel | Hlabel
 
 type porttype =
@@ -38,79 +33,87 @@ type porttype =
   | BiDiPort
 
 type labeluse = WireLabel | TextNote
-
 type labeltype = PortLabel of portrange * porttype | TextLabel of labeluse
+type label = { c : coord; size : size; orient : justify; labeltype : labeltype }
 
-type label = {c: coord; size: size; orient: justify; labeltype: labeltype}
+type field = {
+  nb : int;
+  text : string;
+  o : orientation;
+  co : coord;
+  s : size;
+  j : justify;
+  stl : style;
+}
 
-type field =
-  { nb: int
-  ; text: string
-  ; o: orientation
-  ; co: coord
-  ; s: size
-  ; j: justify
-  ; stl: style }
+type single_reference = { piece : string option; unitnr : int option }
+type multi_reference = { m_piece : string; m_unitnr : int }
 
-type single_reference = {piece: string option; unitnr: int option}
-
-type multi_reference = {m_piece: string; m_unitnr: int}
-
-type bitmapContext =
-  {pos: coord option; scale: float option; data: Buffer.t option}
+type bitmapContext = {
+  pos : coord option;
+  scale : float option;
+  data : Buffer.t option;
+}
 
 module type Painter = sig
-  (** A module able to paint a canvas with several graphic primitives
-      and then to process the canvas into a picture file format.  The
-      functions are supposed to be pure *)
+  (** A module able to paint a canvas with several graphic primitives and then
+      to process the canvas into a picture file format. The functions are
+      supposed to be pure *)
 
-  (** the canvas of the painter *)
   type t
+  (** the canvas of the painter *)
 
   val paint_text :
-       ?kolor:kolor
-    -> String.t
-    -> orientation
-    -> coord
-    -> size
-    -> justify
-    -> style
-    -> t
-    -> t
-  (** [paint ?kolor text orient coord size justification style canvas]
-      adds a [text] with the given [orient], [size], [justification]
-      and [style] at the given [coord] to [canvas]. *)
+    ?kolor:kolor ->
+    String.t ->
+    orientation ->
+    coord ->
+    size ->
+    justify ->
+    style ->
+    t ->
+    t
+  (** [paint ?kolor text orient coord size justification style canvas] adds a
+      [text] with the given [orient], [size], [justification] and [style] at the
+      given [coord] to [canvas]. *)
 
   val paint_line : ?kolor:kolor -> ?width:size -> coord -> coord -> t -> t
-  (** [paint_line ?kolor width start end canvas] paints a line with
-      the given [kolor] and [width] between [start] and [stop] on
-      [canvas]. *)
+  (** [paint_line ?kolor width start end canvas] paints a line with the given
+      [kolor] and [width] between [start] and [stop] on [canvas]. *)
 
   val paint_circle : ?kolor:kolor -> ?fill:kolor -> coord -> int -> t -> t
-  (** [paint_circle ?kolor center radius canvas] paints a circle
-      filled with the given [kolor] defined by [center] and [radius] on
-      [canvas]. *)
+  (** [paint_circle ?kolor center radius canvas] paints a circle filled with the
+      given [kolor] defined by [center] and [radius] on [canvas]. *)
 
   val paint_rect : ?kolor:kolor -> ?fill:kolor -> coord -> coord -> t -> t
-  (** [paint_rect ?kolor corner1 corner2 canvas] paints a rectangle
-      filled with the given [kolor] defined by [corner1] and [corner2]
-      on [canvas]. *)
+  (** [paint_rect ?kolor corner1 corner2 canvas] paints a rectangle filled with
+      the given [kolor] defined by [corner1] and [corner2] on [canvas]. *)
 
   val paint_image : coord -> float -> Buffer.t -> t -> t
-  (** [paint_image corner scale png canvas] paints a [png] image
-      filled at [corner], scaled at [scale] on [canvas]. *)
+  (** [paint_image corner scale png canvas] paints a [png] image filled at
+      [corner], scaled at [scale] on [canvas]. *)
 
-  val paint_ellipse : ?kolor:kolor -> ?fill:kolor -> coord -> int -> int -> int -> t -> t
+  val paint_ellipse :
+    ?kolor:kolor -> ?fill:kolor -> coord -> int -> int -> int -> t -> t
   (** [paint_ellipse center major_radius minor_radius rotation_angle canvas]
       paints an ellipse with the given [kolor] and [fill] defined by [center],
       [major_radius], [minor_radius], and [rotation_angle] on [canvas]. *)
 
   val paint_ellipse_arc :
-    ?kolor:kolor -> ?fill:kolor -> coord -> int -> int -> int -> int -> int -> t -> t
+    ?kolor:kolor ->
+    ?fill:kolor ->
+    coord ->
+    int ->
+    int ->
+    int ->
+    int ->
+    int ->
+    t ->
+    t
   (** [paint_ellipse_arc center major_radius minor_radius rotation_angle
-      start_angle end_angle canvas] paints an elliptical arc filled with
-      [kolor] defined by [center], radii, [rotation_angle], [start_angle]
-      and [end_angle] on [canvas]. *)
+       start_angle end_angle canvas] paints an elliptical arc filled with
+      [kolor] defined by [center], radii, [rotation_angle], [start_angle] and
+      [end_angle] on [canvas]. *)
 
   val paint_arc :
     ?kolor:kolor -> ?fill:kolor -> coord -> coord -> coord -> int -> t -> t
@@ -121,7 +124,6 @@ module type Painter = sig
   val set_canevas_size : int -> int -> t -> t
   (** [set_canevas x y canvas] set the size of the canevas *)
 
-
   val get_context : unit -> t
   (** [get_context ()] is a new painting canvas *)
 end
@@ -129,58 +131,63 @@ end
 module type SchPainter = sig
   (** A module able to paint a schematic file in a painter context *)
 
-  (** the schematic context *)
   type schContext
+  (** the schematic context *)
 
-  (** the underlying context *)
   type painterContext
+  (** the underlying context *)
 
   val file_extension : string
-  (** [file_extension] is the extension of the file format ("sch" for v5, "kicad_sch" for v6/v7*)
+  (** [file_extension] is the extension of the file format ("sch" for v5,
+      "kicad_sch" for v6/v7*)
 
   val initial_context : ?allow_missing_component:bool -> revision -> schContext
-  (** [initial_context allow_missing_component revision]
-      is an new empty context *)
+  (** [initial_context allow_missing_component revision] is an new empty context
+  *)
 
   val add_lib : string -> schContext -> schContext
-  (** [add_lib content context] parse the [content] provided to
-      libs to the [context].
+  (** [add_lib content context] parse the [content] provided to libs to the
+      [context].
       @return the updated context *)
 
   val parse_sheet : schContext -> String.t -> schContext
-  (** [parse_line content context] parse a [content] of schematic and
-      update [context].
+  (** [parse_line content context] parse a [content] of schematic and update
+      [context].
       @return the updated context *)
 
   val output_context : schContext -> painterContext
-  (** [output_context context output] write the [context] as a image
-      format to [output] *)
+  (** [output_context context output] write the [context] as a image format to
+      [output] *)
 end
 
 module type CompPainter = sig
-  (** The library that is able to read component libraries and
-      memorize the read components. Then when passed a drawing context
-      and a component to paint it can paint the component on demand to
-      the drawing context *)
+  (** The library that is able to read component libraries and memorize the read
+      components. Then when passed a drawing context and a component to paint it
+      can paint the component on demand to the drawing context *)
 
-  (** A component Library manager *)
   type t = KicadLib_sigs.library
+  (** A component Library manager *)
 
-  (** A drawing context *)
   type drawContext
+  (** A drawing context *)
 
   val plot_comp :
-    t -> string -> int -> coord -> transfo -> bool -> drawContext -> drawContext * bool
-    (** [plot_comp lib name partnumber origin transformation
-       allow_missing context] finds in [lib] the component with given
-       [name] and plot the part [partnumber] at [origin] after
-       [transformation] into the graphical [context] and the fact that
-       the component is multipart. If the component is not found, raise
-       an exception, unless [allow_missing] is true. *)
+    t ->
+    string ->
+    int ->
+    coord ->
+    transfo ->
+    bool ->
+    drawContext ->
+    drawContext * bool
+  (** [plot_comp lib name partnumber origin transformation allow_missing
+       context] finds in [lib] the component with given [name] and plot the part
+      [partnumber] at [origin] after [transformation] into the graphical
+      [context] and the fact that the component is multipart. If the component
+      is not found, raise an exception, unless [allow_missing] is true. *)
 end
 
 module type KicadSchHandler = sig
-
-  module MakeSchPainter: functor (P: Painter) -> SchPainter with type  painterContext := P.t
-
+  module MakeSchPainter : functor (P : Painter) ->
+    SchPainter with type painterContext := P.t
 end

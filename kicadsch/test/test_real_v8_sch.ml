@@ -1,7 +1,6 @@
 open OUnit
 open StdLabels
-
-module MUT = Kicadsch.V8.MakeSchPainter(StubPainter)
+module MUT = Kicadsch.V8.MakeSchPainter (StubPainter)
 
 (* ── Helpers ─────────────────────────────────────────────────────────── *)
 
@@ -9,8 +8,8 @@ let real_sch_file = "Non-Isolated AC-DC Power Module.kicad_sch"
 
 let read_file path =
   let ic = open_in path in
-  let n  = in_channel_length ic in
-  let s  = Bytes.create n in
+  let n = in_channel_length ic in
+  let s = Bytes.create n in
   really_input ic s 0 n;
   close_in ic;
   Bytes.to_string s
@@ -21,24 +20,25 @@ let parse_file () =
   let content = read_file real_sch_file in
   MUT.parse_sheet (init ()) content
 
-let output_file () =
-  StubPainter.write (MUT.output_context (parse_file ()))
+let output_file () = StubPainter.write (MUT.output_context (parse_file ()))
 
 let filter_tag tag out =
-  List.filter ~f:(fun s ->
+  List.filter
+    ~f:(fun s ->
       let n = String.length tag + 1 in
-      String.length s >= n &&
-      String.sub s ~pos:0 ~len:n = (tag ^ " ")) out
+      String.length s >= n && String.sub s ~pos:0 ~len:n = tag ^ " ")
+    out
 
-let lines_of   = filter_tag "Line"
-let rects_of   = filter_tag "Rect"
-let texts_of   = filter_tag "Text"
+let lines_of = filter_tag "Line"
+let rects_of = filter_tag "Rect"
+let texts_of = filter_tag "Text"
 
 (* ── Tests ───────────────────────────────────────────────────────────── *)
 
 (* 1. The full real schematic parses without raising an exception. *)
 let test_full_parse () =
-  let _ = parse_file () in ()
+  let _ = parse_file () in
+  ()
 
 (* 2. A known horizontal wire is present.
       (xy 150.114 85.344) -> (xy 165.354 85.344)
@@ -87,7 +87,8 @@ let test_title_label () =
   let out = output_file () in
   assert_bool "Title label text present with correct coords and size"
     (List.mem
-       "Text Red Non-Isolated AC-DC Power Supply Design Orient_H 9296 6705 400 J_left NoStyle"
+       "Text Red Non-Isolated AC-DC Power Supply Design Orient_H 9296 6705 400 \
+        J_left NoStyle"
        ~set:(texts_of out))
 
 (* 6. At least one component reference text is present (R1 resistor).
@@ -122,15 +123,19 @@ let test_degenerate_rect () =
 
 (* ── Suite ────────────────────────────────────────────────────────────── *)
 
-let suite = "Real V8 schematic integration" >:::
-  [ "full real schematic parses without exception"  >:: test_full_parse
-  ; "known horizontal wire segment present"         >:: test_known_wire
-  ; "bounding rectangle correct corners"            >:: test_bounding_rect
-  ; "net label 5V correct coords and size"          >:: test_label_5v
-  ; "title label correct text, coords, size"        >:: test_title_label
-  ; "component reference R1 rendered correctly"     >:: test_component_reference
-  ; "fields_autoplaced yes does not crash"          >:: test_fields_autoplaced_does_not_crash
-  ; "degenerate zero-size rectangle present"        >:: test_degenerate_rect
-  ]
+let suite =
+  "Real V8 schematic integration"
+  >::: [
+         "full real schematic parses without exception" >:: test_full_parse;
+         "known horizontal wire segment present" >:: test_known_wire;
+         "bounding rectangle correct corners" >:: test_bounding_rect;
+         "net label 5V correct coords and size" >:: test_label_5v;
+         "title label correct text, coords, size" >:: test_title_label;
+         "component reference R1 rendered correctly"
+         >:: test_component_reference;
+         "fields_autoplaced yes does not crash"
+         >:: test_fields_autoplaced_does_not_crash;
+         "degenerate zero-size rectangle present" >:: test_degenerate_rect;
+       ]
 
 let _ = run_test_tt_main suite
