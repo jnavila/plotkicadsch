@@ -19,7 +19,6 @@ type listcanevas = t list
 
 module L = struct
   type t = listcanevas
-
   type painterContext = listcanevas
 
   let paint_text ?(kolor = `Black) text (o : orientation) coords s j stl ctx =
@@ -42,14 +41,14 @@ module L = struct
   let paint_ellipse_arc ?(kolor = `Black) ?(fill = `NoColor) center major_radius
       minor_radius rotation_angle start_angle end_angle ctx =
     EllipseArc
-      ( kolor
-      , fill
-      , center
-      , major_radius
-      , minor_radius
-      , rotation_angle
-      , start_angle
-      , end_angle )
+      ( kolor,
+        fill,
+        center,
+        major_radius,
+        minor_radius,
+        rotation_angle,
+        start_angle,
+        end_angle )
     :: ctx
 
   let paint_arc ?(kolor = `Black) ?(fill = `NoColor) pt_center pt_start pt_stop
@@ -57,8 +56,6 @@ module L = struct
     Arc (kolor, fill, pt_center, pt_start, pt_stop, radius) :: ctx
 
   let paint_image corner scale b c = Image (corner, scale, b) :: c
-
   let get_context () = []
-
   let set_canevas_size x y c = Format (Coord (x, y)) :: c
 end

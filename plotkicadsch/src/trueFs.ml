@@ -3,7 +3,7 @@ open Lwt.Infix
 open DiffFs
 
 let make rootname relative =
-  ( module struct
+  (module struct
     let lstrip c s =
       let rec find_non_c c s n =
         if s.[n] != c then String.sub ~pos:n ~len:(String.length s - n) s
@@ -16,7 +16,6 @@ let make rootname relative =
       ^ match relative with None -> "" | Some p -> "/" ^ lstrip '/' p
 
     let label = TrueFS rootname
-
     let rootlength = String.length rootname + 1
 
     let get_content filename =
@@ -27,8 +26,7 @@ let make rootname relative =
       with _ -> Lwt.return ""
 
     let hash_file filename =
-      get_content filename
-      >|= fun c ->
+      get_content filename >|= fun c ->
       let blob_content = Printf.sprintf "blob %d\000" (String.length c) ^ c in
       (filename, Sha1.to_hex (Sha1.string blob_content))
 
@@ -41,14 +39,11 @@ let make rootname relative =
               |> List.append fs
             in
             loop result (List.rev_append fs contents)
-        | f :: fs when pattern f ->
-            loop (f :: result) fs
-        | _ :: fs ->
-            loop result fs
-        | [] ->
-            result
+        | f :: fs when pattern f -> loop (f :: result) fs
+        | _ :: fs -> loop result fs
+        | [] -> result
       in
-      loop [] [dir]
+      loop [] [ dir ]
 
     let list_files pattern =
       let list = dir_contents rootname pattern in
@@ -60,8 +55,8 @@ let make rootname relative =
                 ~len:(String.length filename - rootlength)
             in
             let file_path = String.split_on_char ~sep:'/' filename in
-            hash_file file_path )
+            hash_file file_path)
           list
       in
       file_list
-  end : Simple_FS )
+  end : Simple_FS)

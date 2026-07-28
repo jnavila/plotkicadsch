@@ -19,9 +19,7 @@ let wrap body =
     body
 
 let init () = MUT.initial_context No_Rev
-
 let parse body = MUT.parse_sheet (init ()) (wrap body)
-
 let output body = StubPainter.write (MUT.output_context (parse body))
 
 let starts_with ~prefix s =
@@ -37,17 +35,11 @@ let ends_with ~suffix s =
 let filter_tag tag out = List.filter ~f:(starts_with ~prefix:(tag ^ " ")) out
 
 let lines_of = filter_tag "Line"
-
 let circles_of = filter_tag "Circle"
-
 let ellipses_of = filter_tag "Ellipse"
-
 let ellipses_arc_of = filter_tag "EllipseArc"
-
 let arcs_of = filter_tag "Arc"
-
 let rects_of = filter_tag "Rect"
-
 let texts_of = filter_tag "Text"
 
 (* ── Smoke tests ─────────────────────────────────────────────────────── *)
@@ -77,7 +69,7 @@ let test_partial_title_block_parses () =
   let titles =
     List.filter
       ~f:(fun s ->
-        String.length s > 12 && String.sub s ~pos:0 ~len:12 = "Text Black T" )
+        String.length s > 12 && String.sub s ~pos:0 ~len:12 = "Text Black T")
       (texts_of out)
   in
   assert_bool "Title text appears" (titles <> [])
@@ -234,11 +226,11 @@ let test_rule_area_value () =
   in
   let segs = lines_of out in
   assert_bool "First edge (0,0)→(1000,0)"
-    (List.mem "Line 0 0 - 1000 0" ~set:segs) ;
+    (List.mem "Line 0 0 - 1000 0" ~set:segs);
   assert_bool "Second edge (1000,0)→(1000,1000)"
-    (List.mem "Line 1000 0 - 1000 1000" ~set:segs) ;
+    (List.mem "Line 1000 0 - 1000 1000" ~set:segs);
   assert_bool "Third edge (1000,1000)→(0,1000)"
-    (List.mem "Line 1000 1000 - 0 1000" ~set:segs) ;
+    (List.mem "Line 1000 1000 - 0 1000" ~set:segs);
   assert_bool "Fourth (closing) edge (0,1000)→(0,0)"
     (List.mem "Line 0 1000 - 0 0" ~set:segs)
 
@@ -269,7 +261,7 @@ let test_text_box_at_size_value () =
   in
   assert_bool "Text content matches input string"
     (List.mem "Text Green Hello Orient_H 100 200 127 J_left NoStyle"
-       ~set:(texts_of out) ) ;
+       ~set:(texts_of out));
   assert_bool "Bounding rectangle drawn with correct corners"
     (List.mem "Rect 100 200 600 500" ~set:(rects_of out))
 
@@ -293,7 +285,7 @@ let test_text_box_start_end_value () =
      → same rectangle as at+size form *)
   assert_bool "Text content from start/end form"
     (List.mem "Text Green World Orient_H 100 200 127 J_left NoStyle"
-       ~set:(texts_of out) ) ;
+       ~set:(texts_of out));
   assert_bool "Rect from start/end form"
     (List.mem "Rect 100 200 600 500" ~set:(rects_of out))
 
@@ -311,7 +303,7 @@ let test_label_value () =
   in
   assert_bool "Label text appears with correct coords and colour"
     (List.mem "Text Red NET1 Orient_H 0 0 127 J_left NoStyle"
-       ~set:(texts_of out) )
+       ~set:(texts_of out))
 
 (* ── Ellipse ──────────────────────────────────────────────────────────── *)
 
@@ -348,7 +340,7 @@ let test_ellipse_arc_value () =
   in
   assert_bool "EllipseArc drawn with correct parameters"
     (List.mem "EllipseArc 10000 10000 5000 3000 0 0 90"
-       ~set:(ellipses_arc_of out) )
+       ~set:(ellipses_arc_of out))
 
 let test_embedded_fonts_no_output () =
   let out = output "(embedded_fonts no)" in
@@ -375,33 +367,35 @@ let test_group_no_output () =
 
 let suite =
   "KiCad V8 schematic parser"
-  >::: [ "minimal v8 schematic parses" >:: test_minimal_parses
-       ; "empty title_block produces no text" >:: test_no_title_block_parses
-       ; "partial title_block renders present fields"
+  >::: [
+         "minimal v8 schematic parses" >:: test_minimal_parses;
+         "empty title_block produces no text" >:: test_no_title_block_parses;
+         "partial title_block renders present fields"
          >:: test_partial_title_block_parses
-         (* Wire *)
-       ; "wire segment: correct coordinates" >:: test_wire_value (* Arc *)
-       ; "arc: correct center/start/end/radius" >:: test_arc_value
-       ; "arc: collinear points produce no output"
+         (* Wire *);
+         "wire segment: correct coordinates" >:: test_wire_value (* Arc *);
+         "arc: correct center/start/end/radius" >:: test_arc_value;
+         "arc: collinear points produce no output"
          >:: test_arc_collinear_no_output
-         (* Circle *)
-       ; "circle: correct center and radius" >:: test_circle_value (* Bézier *)
-       ; "bezier: exactly 16 line segments" >:: test_bezier_16_segments
-       ; "bezier: first segment starts at P0" >:: test_bezier_starts_at_p0
-       ; "bezier: last segment ends at P3" >:: test_bezier_ends_at_p3
-         (* Rule area *)
-       ; "rule_area: all four square edges present" >:: test_rule_area_value
-         (* Text box *)
-       ; "text_box (at+size): text and rect values"
-         >:: test_text_box_at_size_value
-       ; "text_box (start+end): text and rect values"
+         (* Circle *);
+         "circle: correct center and radius" >:: test_circle_value (* Bézier *);
+         "bezier: exactly 16 line segments" >:: test_bezier_16_segments;
+         "bezier: first segment starts at P0" >:: test_bezier_starts_at_p0;
+         "bezier: last segment ends at P3" >:: test_bezier_ends_at_p3
+         (* Rule area *);
+         "rule_area: all four square edges present" >:: test_rule_area_value
+         (* Text box *);
+         "text_box (at+size): text and rect values"
+         >:: test_text_box_at_size_value;
+         "text_box (start+end): text and rect values"
          >:: test_text_box_start_end_value
-         (* Labels *)
-       ; "label: text value and coordinates" >:: test_label_value (* Ellipse *)
-       ; "ellipse: correct center/radii/angle" >:: test_ellipse_value
-       ; "ellipse_arc: correct parameters" >:: test_ellipse_arc_value
-       ; "embedded_fonts: no drawn output" >:: test_embedded_fonts_no_output
-       ; "net_chain: no drawn output" >:: test_net_chain_no_output
-       ; "group: no drawn output" >:: test_group_no_output ]
+         (* Labels *);
+         "label: text value and coordinates" >:: test_label_value (* Ellipse *);
+         "ellipse: correct center/radii/angle" >:: test_ellipse_value;
+         "ellipse_arc: correct parameters" >:: test_ellipse_arc_value;
+         "embedded_fonts: no drawn output" >:: test_embedded_fonts_no_output;
+         "net_chain: no drawn output" >:: test_net_chain_no_output;
+         "group: no drawn output" >:: test_group_no_output;
+       ]
 
 let _ = run_test_tt_main suite

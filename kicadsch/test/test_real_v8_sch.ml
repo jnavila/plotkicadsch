@@ -10,7 +10,9 @@ let read_file path =
   let ic = open_in path in
   let n = in_channel_length ic in
   let s = Bytes.create n in
-  really_input ic s 0 n ; close_in ic ; Bytes.to_string s
+  really_input ic s 0 n;
+  close_in ic;
+  Bytes.to_string s
 
 let init () = MUT.initial_context No_Rev
 
@@ -24,13 +26,11 @@ let filter_tag tag out =
   List.filter
     ~f:(fun s ->
       let n = String.length tag + 1 in
-      String.length s >= n && String.sub s ~pos:0 ~len:n = tag ^ " " )
+      String.length s >= n && String.sub s ~pos:0 ~len:n = tag ^ " ")
     out
 
 let lines_of = filter_tag "Line"
-
 let rects_of = filter_tag "Rect"
-
 let texts_of = filter_tag "Text"
 
 (* ── Tests ───────────────────────────────────────────────────────────── *)
@@ -73,7 +73,7 @@ let test_label_5v () =
   let out = output_file () in
   assert_bool "Label 5V present with correct coords"
     (List.mem "Text Red 5V Orient_H 22250 8534 127 J_left NoStyle"
-       ~set:(texts_of out) )
+       ~set:(texts_of out))
 
 (* 5. The large italic title label is present.
       "Non-Isolated AC-DC Power Supply Design"
@@ -89,7 +89,7 @@ let test_title_label () =
     (List.mem
        "Text Red Non-Isolated AC-DC Power Supply Design Orient_H 9296 6705 400 \
         J_left NoStyle"
-       ~set:(texts_of out) )
+       ~set:(texts_of out))
 
 (* 6. At least one component reference text is present (R1 resistor).
       Property "Reference" "R1" at (152.4, 107.4419, 0), font=(1.27,1.27) justify=left
@@ -101,7 +101,7 @@ let test_component_reference () =
   let out = output_file () in
   assert_bool "Component reference R1 rendered at correct coords"
     (List.mem "Text Black R1 Orient_H 15240 10744 127 J_left NoStyle"
-       ~set:(texts_of out) )
+       ~set:(texts_of out))
 
 (* 7. fields_autoplaced yes (bare atom form) in symbol does not crash the parse.
       Several symbols have (fields_autoplaced yes); full parse above covers this,
@@ -125,15 +125,17 @@ let test_degenerate_rect () =
 
 let suite =
   "Real V8 schematic integration"
-  >::: [ "full real schematic parses without exception" >:: test_full_parse
-       ; "known horizontal wire segment present" >:: test_known_wire
-       ; "bounding rectangle correct corners" >:: test_bounding_rect
-       ; "net label 5V correct coords and size" >:: test_label_5v
-       ; "title label correct text, coords, size" >:: test_title_label
-       ; "component reference R1 rendered correctly"
-         >:: test_component_reference
-       ; "fields_autoplaced yes does not crash"
-         >:: test_fields_autoplaced_does_not_crash
-       ; "degenerate zero-size rectangle present" >:: test_degenerate_rect ]
+  >::: [
+         "full real schematic parses without exception" >:: test_full_parse;
+         "known horizontal wire segment present" >:: test_known_wire;
+         "bounding rectangle correct corners" >:: test_bounding_rect;
+         "net label 5V correct coords and size" >:: test_label_5v;
+         "title label correct text, coords, size" >:: test_title_label;
+         "component reference R1 rendered correctly"
+         >:: test_component_reference;
+         "fields_autoplaced yes does not crash"
+         >:: test_fields_autoplaced_does_not_crash;
+         "degenerate zero-size rectangle present" >:: test_degenerate_rect;
+       ]
 
 let _ = run_test_tt_main suite
